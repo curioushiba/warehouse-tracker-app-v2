@@ -13,9 +13,14 @@ describe('utils', () => {
   })
 
   describe('formatCurrency', () => {
-    it('formats numbers as SGD currency', () => {
+    it('formats numbers as plain decimal when no currency', () => {
       const result = formatCurrency(1234.56)
-      expect(result).toContain('1,234.56')
+      expect(result).toBe('1,234.56')
+    })
+
+    it('formats numbers with currency symbol when currency is provided', () => {
+      const result = formatCurrency(1234.56, 'USD')
+      expect(result).toBe('$1,234.56')
     })
   })
 

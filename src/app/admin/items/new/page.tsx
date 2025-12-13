@@ -24,6 +24,7 @@ import { createItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import { getLocations } from "@/lib/actions/locations";
 import type { Category, Location, ItemInsert } from "@/lib/supabase/types";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface ItemFormData {
   name: string;
@@ -62,6 +63,7 @@ const generateSku = (): string => {
 
 export default function NewItemPage() {
   const router = useRouter();
+  const { settings } = useSettings();
 
   // Data state
   const [categories, setCategories] = React.useState<Category[]>([]);
@@ -381,7 +383,7 @@ export default function NewItemPage() {
                 </div>
 
                 <FormControl isInvalid={!!formErrors.unit_price}>
-                  <FormLabel>Unit Price (SGD)</FormLabel>
+                  <FormLabel>Unit Price{settings.currency ? ` (${settings.currency})` : ""}</FormLabel>
                   <Input
                     type="number"
                     step="0.01"

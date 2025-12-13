@@ -6,6 +6,9 @@ export interface AppSettings {
 
   // Display Settings
   darkMode: boolean;
+
+  // Currency Settings
+  currency: string; // Empty string means no currency (plain numbers)
 }
 
 export const defaultSettings: AppSettings = {
@@ -16,6 +19,9 @@ export const defaultSettings: AppSettings = {
 
   // Display Settings
   darkMode: false,
+
+  // Currency Settings
+  currency: "", // Default: no currency selected
 };
 
 // Load settings from localStorage

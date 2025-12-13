@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, BellOff, Moon, Sun, LogOut, RotateCcw } from "lucide-react";
+import { Bell, BellOff, Moon, Sun, LogOut, RotateCcw, DollarSign } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -10,6 +10,7 @@ import {
   Input,
   Button,
   Divider,
+  Select,
 } from "@/components/ui";
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -137,6 +138,49 @@ export default function SettingsPage() {
               onChange={(e) => updateSettings({ darkMode: e.target.checked })}
               colorScheme="primary"
             />
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Currency Settings */}
+      <Card variant="elevated" size="md">
+        <CardHeader
+          title="Currency Settings"
+          subtitle="Choose your preferred currency display"
+          hasBorder
+        />
+        <CardBody>
+          <div className="flex items-center justify-between">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-success-light flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-success-dark" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Currency</p>
+                <p className="text-sm text-foreground-muted">
+                  Select a currency or leave blank for plain numbers
+                </p>
+              </div>
+            </div>
+            <div className="w-40">
+              <Select
+                options={[
+                  { value: "", label: "No Currency" },
+                  { value: "USD", label: "USD ($)" },
+                  { value: "EUR", label: "EUR (€)" },
+                  { value: "GBP", label: "GBP (£)" },
+                  { value: "SGD", label: "SGD ($)" },
+                  { value: "JPY", label: "JPY (¥)" },
+                  { value: "CNY", label: "CNY (¥)" },
+                  { value: "AUD", label: "AUD ($)" },
+                  { value: "CAD", label: "CAD ($)" },
+                  { value: "INR", label: "INR (₹)" },
+                  { value: "PHP", label: "PHP (₱)" },
+                ]}
+                value={settings.currency}
+                onChange={(value) => updateSettings({ currency: value })}
+              />
+            </div>
           </div>
         </CardBody>
       </Card>

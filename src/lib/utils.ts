@@ -11,14 +11,23 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Format a number as currency
+ * If currency is empty, displays as plain decimal number
  */
 export function formatCurrency(
   amount: number,
-  currency: string = "SGD"
+  currency: string = ""
 ): string {
-  return new Intl.NumberFormat("en-SG", {
-    style: "currency",
-    currency,
+  if (currency && currency.length > 0) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(amount);
+  }
+  // No currency selected - show plain decimal
+  return new Intl.NumberFormat("en-US", {
+    style: "decimal",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 

@@ -23,6 +23,7 @@ import { getItemById, updateItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import { getLocations } from "@/lib/actions/locations";
 import type { Item, Category, Location, ItemUpdate } from "@/lib/supabase/types";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface ItemFormData {
   name: string;
@@ -55,6 +56,7 @@ export default function EditItemPage() {
   const params = useParams();
   const router = useRouter();
   const itemId = params.id as string;
+  const { settings } = useSettings();
 
   // Data state
   const [item, setItem] = React.useState<Item | null>(null);
@@ -396,7 +398,7 @@ export default function EditItemPage() {
                 </div>
 
                 <FormControl isInvalid={!!formErrors.unit_price}>
-                  <FormLabel>Unit Price (SGD)</FormLabel>
+                  <FormLabel>Unit Price{settings.currency ? ` (${settings.currency})` : ""}</FormLabel>
                   <Input
                     type="number"
                     step="0.01"
