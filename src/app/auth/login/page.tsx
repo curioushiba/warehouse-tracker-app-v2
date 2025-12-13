@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, AtSign, Lock, AlertCircle } from "lucide-react";
 import {
-  Card,
-  CardBody,
   Button,
   FormControl,
   FormLabel,
@@ -87,117 +85,108 @@ export default function LoginPage() {
   };
 
   return (
-    <Card variant="elevated" className="shadow-lg">
-      <CardBody className="p-6">
-        <div className="text-center mb-6">
-          <h2 className="font-heading text-xl font-semibold text-foreground">
-            Welcome Back
-          </h2>
-          <p className="text-sm text-foreground-muted mt-1">
-            Sign in to your account to continue
-          </p>
+    <div className="w-full flex flex-col items-center">
+      <div className="text-center mb-8">
+        <h2 className="font-heading text-4xl font-bold text-foreground mb-3">
+          Admin Log in
+        </h2>
+        <p className="text-base text-foreground-muted max-w-[250px] mx-auto leading-relaxed">
+          Welcome back. Enter your credentials to access the admin portal.
+        </p>
+      </div>
+
+      {error && (
+        <Alert status="error" variant="subtle" className="mb-6 rounded-2xl bg-red-50 text-error border-none animate-in fade-in slide-in-from-top-2 w-full">
+          <AlertCircle className="w-5 h-5 text-error" />
+          <span className="ml-2 font-medium text-sm">{error}</span>
+        </Alert>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5 w-full">
+        {/* Username Input - Clean Style */}
+        <div className="space-y-1">
+          <div className="relative group">
+            <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-placeholder group-focus-within:text-primary transition-colors" />
+            <Input
+              type="text"
+              placeholder="Username or email"
+              value={identifier}
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                if (errors.identifier) setErrors({ ...errors, identifier: undefined });
+              }}
+              className="pl-12 h-14 rounded-2xl bg-white border-none shadow-sm text-base placeholder:text-foreground-placeholder focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+              autoComplete="username"
+            />
+          </div>
+          {errors.identifier && (
+            <p className="text-xs text-error pl-4 font-medium animate-in slide-in-from-left-1">{errors.identifier}</p>
+          )}
         </div>
 
-        {error && (
-          <Alert status="error" variant="subtle" className="mb-6">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </Alert>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <FormControl isInvalid={!!errors.identifier}>
-            <FormLabel>Username or Email</FormLabel>
-            <div className="relative">
-              <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-muted" />
-              <Input
-                type="text"
-                placeholder="Enter username or email"
-                value={identifier}
-                onChange={(e) => {
-                  setIdentifier(e.target.value);
-                  if (errors.identifier) setErrors({ ...errors, identifier: undefined });
-                }}
-                className="pl-10"
-                autoComplete="username"
-              />
-            </div>
-            {errors.identifier && (
-              <FormErrorMessage>{errors.identifier}</FormErrorMessage>
-            )}
-          </FormControl>
-
-          <FormControl isInvalid={!!errors.password}>
-            <FormLabel>Password</FormLabel>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-muted" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errors.password)
-                    setErrors({ ...errors, password: undefined });
-                }}
-                className="pl-10 pr-10"
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground transition-colors"
-              >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-            {errors.password && (
-              <FormErrorMessage>{errors.password}</FormErrorMessage>
-            )}
-          </FormControl>
-
-          <div className="flex items-center justify-between">
-            <Checkbox
-              isChecked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              label="Remember me"
-              size="sm"
+        {/* Password Input - Clean Style */}
+        <div className="space-y-1">
+          <div className="relative group">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-placeholder group-focus-within:text-primary transition-colors" />
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password)
+                  setErrors({ ...errors, password: undefined });
+              }}
+              className="pl-12 pr-12 h-14 rounded-2xl bg-white border-none shadow-sm text-base placeholder:text-foreground-placeholder focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+              autoComplete="current-password"
             />
-            <Link
-              href="/auth/forgot-password"
-              className="text-sm text-primary font-medium hover:text-primary-dark transition-colors"
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-placeholder hover:text-primary transition-colors p-1"
             >
-              Forgot password?
-            </Link>
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
           </div>
+          {errors.password && (
+            <p className="text-xs text-error pl-4 font-medium animate-in slide-in-from-left-1">{errors.password}</p>
+          )}
+        </div>
 
+        <div className="pt-2">
           <Button
             type="submit"
             variant="cta"
             size="lg"
             isFullWidth
             isLoading={isLoading}
+            className="h-14 rounded-full text-lg font-bold shadow-lg shadow-cta/20 hover:shadow-xl hover:shadow-cta/30 hover:-translate-y-0.5 transition-all active:scale-95 bg-cta text-foreground border-2 border-foreground/10"
           >
             Sign In
           </Button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-foreground-muted">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/auth/signup"
-              className="text-primary font-medium hover:text-primary-dark transition-colors"
-            >
-              Sign up
-            </Link>
-          </p>
         </div>
-      </CardBody>
-    </Card>
+
+        <div className="flex items-center justify-center pt-2 gap-4">
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm font-medium text-foreground-muted hover:text-primary transition-colors"
+          >
+            Forgot Password?
+          </Link>
+          <span className="text-border">•</span>
+          <Link
+            href="/auth/signup"
+            className="text-sm font-medium text-foreground-muted hover:text-primary transition-colors"
+          >
+            Create Account
+          </Link>
+        </div>
+
+      </form>
+    </div>
   );
 }
