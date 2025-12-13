@@ -47,22 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[AuthContext] Error fetching profile:', error)
         return null
       }
-      
-      if (data) {
+
+      const profileData = data as Profile | null
+
+      if (profileData) {
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:45',message:'fetchProfile success',data:{hasData:!!data,role:data?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:45',message:'fetchProfile success',data:{hasData:!!profileData,role:profileData?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
         // #endregion
         console.log('[AuthContext] Fetched profile:', {
-          id: data.id,
-          name: data.name,
-          first_name: data.first_name,
-          last_name: data.last_name,
-          username: data.username,
-          email: data.email,
+          id: profileData.id,
+          name: profileData.name,
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          username: profileData.username,
+          email: profileData.email,
         })
       }
-      
-      return data as Profile | null
+
+      return profileData
     } catch (error) {
       // #region agent log
       fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:58',message:'fetchProfile exception',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
