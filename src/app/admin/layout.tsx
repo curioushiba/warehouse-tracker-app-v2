@@ -54,7 +54,7 @@ export default function AdminLayoutWrapper({
         router.push("/employee");
       }
     }
-  }, [isLoading, isAuthenticated, isAdmin, isEmployee, router]);
+  }, [isLoading, isAuthenticated, isAdmin, isEmployee, router, pathname]);
 
   // Fetch notification count
   useEffect(() => {

@@ -34,7 +34,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-foreground-muted text-lg mb-8 max-w-xs mx-auto leading-relaxed">
-            Welcome back. Tap below to launch your scanner for today's tasks.
+            Welcome back. Tap below to launch your scanner for today&apos;s tasks.
           </p>
 
           <div className="space-y-6">

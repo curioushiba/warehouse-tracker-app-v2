@@ -195,6 +195,7 @@ export const CardImage = React.forwardRef<HTMLImageElement, CardImageProps>(
 
     return (
       <div className={cn("relative overflow-hidden -m-6 mb-4", aspectClasses[aspectRatio])}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={ref}
           alt={alt}

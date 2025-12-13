@@ -7,7 +7,10 @@
       "Bash(git init:*)",
       "Bash(cat:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

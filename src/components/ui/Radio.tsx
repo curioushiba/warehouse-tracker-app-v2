@@ -68,7 +68,6 @@ export const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
           className="sr-only"
           disabled={disabled}
           checked={checked}
-          aria-invalid={isInvalid}
           {...props}
         />
 
