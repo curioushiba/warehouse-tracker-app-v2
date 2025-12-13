@@ -1,0 +1,1157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wildlife-component-design-system-primitives",
+  "version": "1.0.0",
+  "partOf": {
+    "index": "./component-design-system-index.json",
+    "core": "./component-design-system-core.json"
+  },
+  "description": "Primitive UI components - foundational building blocks",
+
+  "components": {
+    "Button": {
+      "category": "primitive",
+      "description": "Primary interactive element for triggering actions. Features distinctive 22.5px pill-shaped border radius as a key brand element.",
+
+      "anatomy": {
+        "parts": ["root", "leftIcon", "label", "rightIcon", "spinner"],
+        "slots": {
+          "leftIcon": { "accepts": ["Icon"], "required": false },
+          "rightIcon": { "accepts": ["Icon"], "required": false }
+        }
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["primary", "secondary", "outline", "ghost", "destructive", "link"],
+          "default": "primary",
+          "tokens": {
+            "primary": {
+              "background": "{colors.brand.tertiary.DEFAULT}",
+              "color": "#003400",
+              "border": "none",
+              "borderRadius": "{borderRadius.button}",
+              "shadow": "{shadows.sm}",
+              "hoverBackground": "{colors.brand.tertiary.dark}",
+              "hoverTransform": "translateY(-1px)",
+              "hoverShadow": "{shadows.md}",
+              "activeBackground": "#b38600",
+              "activeTransform": "translateY(0)",
+              "activeShadow": "{shadows.sm}"
+            },
+            "secondary": {
+              "background": "{colors.brand.primary.DEFAULT}",
+              "color": "{colors.neutral.0}",
+              "border": "none",
+              "borderRadius": "{borderRadius.button}",
+              "hoverBackground": "{colors.brand.primary.700}"
+            },
+            "outline": {
+              "background": "transparent",
+              "color": "#003400",
+              "border": "2px solid #003400",
+              "borderRadius": "{borderRadius.button}",
+              "hoverBackground": "rgba(0, 52, 0, 0.05)"
+            },
+            "ghost": {
+              "background": "transparent",
+              "color": "#003400",
+              "border": "none",
+              "hoverBackground": "rgba(0, 52, 0, 0.05)"
+            },
+            "destructive": {
+              "background": "{colors.brand.accent.DEFAULT}",
+              "color": "{colors.neutral.0}",
+              "border": "none",
+              "borderRadius": "{borderRadius.button}",
+              "hoverBackground": "{colors.brand.accent.dark}"
+            },
+            "link": {
+              "background": "transparent",
+              "color": "{colors.brand.primary.DEFAULT}",
+              "border": "none",
+              "textDecoration": "underline",
+              "hoverColor": "{colors.brand.primary.700}"
+            }
+          }
+        },
+        "size": {
+          "values": ["xs", "sm", "md", "lg", "xl"],
+          "default": "md",
+          "tokens": {
+            "xs": {
+              "height": "28px",
+              "paddingX": "{spacing.2}",
+              "fontSize": "{typography.fontSizes.xs}",
+              "iconSize": "12px",
+              "gap": "{spacing.1}"
+            },
+            "sm": {
+              "height": "32px",
+              "paddingX": "{spacing.3}",
+              "fontSize": "13px",
+              "iconSize": "14px",
+              "gap": "{spacing.1.5}"
+            },
+            "md": {
+              "height": "40px",
+              "paddingX": "{spacing.4}",
+              "fontSize": "{typography.fontSizes.sm}",
+              "iconSize": "16px",
+              "gap": "{spacing.2}"
+            },
+            "lg": {
+              "height": "48px",
+              "paddingX": "{spacing.6}",
+              "fontSize": "{typography.fontSizes.base}",
+              "iconSize": "20px",
+              "gap": "{spacing.2}"
+            },
+            "xl": {
+              "height": "56px",
+              "paddingX": "{spacing.8}",
+              "fontSize": "{typography.fontSizes.lg}",
+              "iconSize": "24px",
+              "gap": "{spacing.3}"
+            }
+          }
+        },
+        "isFullWidth": {
+          "values": [true, false],
+          "default": false,
+          "tokens": {
+            "true": { "width": "100%" },
+            "false": { "width": "auto" }
+          }
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": {
+            "tokens": { "cursor": "pointer" }
+          },
+          "hover": {
+            "tokens": {
+              "transform": "translateY(-1px)",
+              "shadow": "{shadows.md}"
+            }
+          },
+          "focus": {
+            "tokens": {
+              "outline": "none",
+              "boxShadow": "0 0 0 3px rgba(1, 114, 47, 0.3)"
+            },
+            "focusRing": true
+          },
+          "active": {
+            "tokens": {
+              "transform": "translateY(0)",
+              "shadow": "{shadows.sm}"
+            }
+          },
+          "disabled": {
+            "tokens": {
+              "background": "{colors.neutral.300}",
+              "color": "{colors.neutral.500}",
+              "cursor": "not-allowed",
+              "opacity": "1",
+              "pointerEvents": "none"
+            }
+          }
+        },
+        "loading": {
+          "isLoading": {
+            "showSpinner": true,
+            "disableInteraction": true,
+            "tokens": {
+              "cursor": "wait",
+              "opacity": "0.8"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "required": {},
+        "optional": {
+          "children": { "type": "ReactNode", "description": "Button content/label" },
+          "variant": { "type": "ButtonVariant", "default": "primary", "description": "Visual style variant" },
+          "size": { "type": "Size", "default": "md", "description": "Button size" },
+          "isDisabled": { "type": "boolean", "default": false, "description": "Disable button interactions" },
+          "isLoading": { "type": "boolean", "default": false, "description": "Show loading spinner" },
+          "isFullWidth": { "type": "boolean", "default": false, "description": "Make button full width" },
+          "leftIcon": { "type": "ReactElement", "description": "Icon before button text" },
+          "rightIcon": { "type": "ReactElement", "description": "Icon after button text" },
+          "loadingText": { "type": "string", "description": "Text shown during loading state" },
+          "type": { "type": "'button' | 'submit' | 'reset'", "default": "button", "description": "HTML button type" },
+          "onClick": { "type": "(event: MouseEvent) => void", "description": "Click handler" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "requiredWhen": "Icon-only button without visible text" },
+          "aria-describedby": { "type": "string", "description": "ID of element describing button" },
+          "aria-pressed": { "type": "boolean", "forVariant": "Toggle button" },
+          "aria-expanded": { "type": "boolean", "forVariant": "Menu trigger button" },
+          "aria-haspopup": { "type": "boolean | 'menu' | 'dialog'", "forVariant": "Buttons that open menus/dialogs" }
+        }
+      },
+
+      "accessibility": {
+        "role": "button",
+        "semanticElement": "button",
+        "keyboardInteraction": {
+          "Enter": "Activate button",
+          "Space": "Activate button"
+        },
+        "focusManagement": {
+          "tabIndex": 0,
+          "focusVisible": true,
+          "focusRingStyle": "{shadows.focus}"
+        },
+        "screenReader": {
+          "announcements": {
+            "loading": "Loading, please wait",
+            "disabled": "Button is disabled"
+          }
+        },
+        "contrastRequirements": {
+          "primary": "9.7:1 - #003400 on #ffcc00",
+          "secondary": "6.2:1 - #ffffff on #01722f"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-flex items-center justify-center font-semibold font-body transition-all duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/30 disabled:pointer-events-none",
+          "variants": {
+            "primary": "bg-cta text-foreground border-none rounded-button shadow-sm hover:bg-cta-dark hover:-translate-y-px hover:shadow-md active:bg-[#b38600] active:translate-y-0 active:shadow-sm disabled:bg-neutral-300 disabled:text-neutral-500",
+            "secondary": "bg-primary text-white border-none rounded-button hover:bg-primary-700 disabled:bg-primary-300",
+            "outline": "bg-transparent text-foreground border-2 border-foreground rounded-button hover:bg-foreground/5",
+            "ghost": "bg-transparent text-foreground border-none hover:bg-foreground/5",
+            "destructive": "bg-accent text-white border-none rounded-button hover:bg-accent-dark",
+            "link": "bg-transparent text-primary border-none underline hover:text-primary-700 p-0 h-auto"
+          },
+          "sizes": {
+            "xs": "h-7 px-2 text-xs gap-1",
+            "sm": "h-8 px-3 text-[13px] gap-1.5",
+            "md": "h-10 px-4 text-sm gap-2",
+            "lg": "h-12 px-6 text-base gap-2",
+            "xl": "h-14 px-8 text-lg gap-3"
+          }
+        },
+        "cssCustomProperties": {
+          "--button-height": "var(--spacing-10)",
+          "--button-padding-x": "var(--spacing-4)",
+          "--button-font-size": "var(--text-sm)",
+          "--button-border-radius": "22.5px",
+          "--button-bg": "var(--color-tertiary)",
+          "--button-text": "var(--color-foreground)",
+          "--button-bg-hover": "var(--color-tertiary-dark)",
+          "--button-transition": "all 200ms cubic-bezier(0.4, 0, 0.2, 1)"
+        }
+      },
+
+      "composition": {
+        "validChildren": ["Icon", "Text", "Spinner"],
+        "invalidChildren": ["Button", "Input", "Card"],
+        "commonPatterns": [
+          {
+            "name": "Icon Button",
+            "description": "Button with only an icon",
+            "requirements": ["aria-label required", "Square aspect ratio recommended"]
+          },
+          {
+            "name": "Button with Icon",
+            "description": "Button with icon and text",
+            "layout": "Icon + Text with gap"
+          },
+          {
+            "name": "Button Group",
+            "description": "Multiple buttons in horizontal group",
+            "parent": "ButtonGroup",
+            "spacingBetween": "{spacing.2}"
+          },
+          {
+            "name": "Loading Button",
+            "description": "Button showing loading state",
+            "requirements": ["Spinner replaces or precedes text", "Interaction disabled"]
+          }
+        ]
+      },
+
+      "responsive": {
+        "touchTarget": {
+          "minHeight": "44px",
+          "minWidth": "44px"
+        },
+        "mobileConsiderations": {
+          "defaultSize": "lg",
+          "fullWidthOnMobile": "Consider for primary actions"
+        }
+      },
+
+      "testing": {
+        "dataAttributes": {
+          "data-testid": "button",
+          "data-loading": "boolean",
+          "data-variant": "variant value",
+          "data-size": "size value"
+        },
+        "ariaQueries": [
+          "getByRole('button')",
+          "getByRole('button', { name: 'label' })"
+        ]
+      }
+    },
+
+    "IconButton": {
+      "category": "primitive",
+      "description": "Square button containing only an icon. Requires aria-label for accessibility.",
+
+      "anatomy": {
+        "parts": ["root", "icon"],
+        "slots": {
+          "icon": { "accepts": ["Icon"], "required": true }
+        }
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["primary", "secondary", "outline", "ghost", "destructive"],
+          "default": "ghost",
+          "tokens": "Inherits from Button component"
+        },
+        "size": {
+          "values": ["xs", "sm", "md", "lg", "xl"],
+          "default": "md",
+          "tokens": {
+            "xs": { "size": "28px", "iconSize": "12px" },
+            "sm": { "size": "32px", "iconSize": "14px" },
+            "md": { "size": "40px", "iconSize": "20px" },
+            "lg": { "size": "48px", "iconSize": "24px" },
+            "xl": { "size": "56px", "iconSize": "28px" }
+          }
+        },
+        "isRound": {
+          "values": [true, false],
+          "default": false,
+          "tokens": {
+            "true": { "borderRadius": "{borderRadius.full}" },
+            "false": { "borderRadius": "{borderRadius.md}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "aria-label": { "type": "string", "description": "Accessible label for the button" },
+          "icon": { "type": "ReactElement", "description": "Icon element to render" }
+        },
+        "optional": {
+          "variant": { "type": "ButtonVariant", "default": "ghost" },
+          "size": { "type": "Size", "default": "md" },
+          "isRound": { "type": "boolean", "default": false },
+          "isDisabled": { "type": "boolean", "default": false },
+          "onClick": { "type": "(event: MouseEvent) => void" }
+        }
+      },
+
+      "accessibility": {
+        "role": "button",
+        "requirements": ["aria-label is REQUIRED - no visible text"],
+        "keyboardInteraction": {
+          "Enter": "Activate button",
+          "Space": "Activate button"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-flex items-center justify-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/30",
+          "sizes": {
+            "xs": "w-7 h-7",
+            "sm": "w-8 h-8",
+            "md": "w-10 h-10",
+            "lg": "w-12 h-12",
+            "xl": "w-14 h-14"
+          }
+        }
+      }
+    },
+
+    "Text": {
+      "category": "primitive",
+      "description": "Typography component for body text and UI labels.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["xs", "sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "xs": {
+              "fontSize": "{typography.fontSizes.xs}",
+              "lineHeight": "1.4"
+            },
+            "sm": {
+              "fontSize": "{typography.fontSizes.sm}",
+              "lineHeight": "1.5"
+            },
+            "md": {
+              "fontSize": "{typography.fontSizes.base}",
+              "lineHeight": "1.6"
+            },
+            "lg": {
+              "fontSize": "{typography.fontSizes.lg}",
+              "lineHeight": "1.6"
+            }
+          }
+        },
+        "weight": {
+          "values": ["normal", "medium", "semibold", "bold"],
+          "default": "normal",
+          "tokens": {
+            "normal": { "fontWeight": "400" },
+            "medium": { "fontWeight": "500" },
+            "semibold": { "fontWeight": "600" },
+            "bold": { "fontWeight": "700" }
+          }
+        },
+        "color": {
+          "values": ["default", "secondary", "muted", "success", "warning", "error", "info"],
+          "default": "default",
+          "tokens": {
+            "default": { "color": "#003400" },
+            "secondary": { "color": "#1a4d1a" },
+            "muted": { "color": "#4d6b4d" },
+            "success": { "color": "{colors.semantic.success.dark}" },
+            "warning": { "color": "{colors.semantic.warning.dark}" },
+            "error": { "color": "{colors.semantic.error.DEFAULT}" },
+            "info": { "color": "{colors.semantic.info.dark}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Text content" }
+        },
+        "optional": {
+          "as": { "type": "'p' | 'span' | 'div' | 'label'", "default": "p", "description": "HTML element to render" },
+          "size": { "type": "Size", "default": "md" },
+          "weight": { "type": "FontWeight", "default": "normal" },
+          "color": { "type": "TextColor", "default": "default" },
+          "isTruncate": { "type": "boolean", "default": false, "description": "Truncate with ellipsis" },
+          "noOfLines": { "type": "number", "description": "Limit to N lines with ellipsis" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "font-body",
+          "sizes": {
+            "xs": "text-xs leading-snug",
+            "sm": "text-sm leading-normal",
+            "md": "text-base leading-relaxed",
+            "lg": "text-lg leading-relaxed"
+          },
+          "weights": {
+            "normal": "font-normal",
+            "medium": "font-medium",
+            "semibold": "font-semibold",
+            "bold": "font-bold"
+          },
+          "colors": {
+            "default": "text-foreground",
+            "secondary": "text-foreground-secondary",
+            "muted": "text-foreground-muted",
+            "success": "text-success-dark",
+            "warning": "text-warning-dark",
+            "error": "text-error",
+            "info": "text-info-dark"
+          }
+        }
+      }
+    },
+
+    "Heading": {
+      "category": "primitive",
+      "description": "Typography component for headings using the custom Wildlife Value Serif typeface.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "as": {
+          "values": ["h1", "h2", "h3", "h4", "h5", "h6"],
+          "default": "h2",
+          "tokens": {
+            "h1": {
+              "fontSize": "{typography.scale.h1.fontSizeRem}",
+              "lineHeight": "{typography.scale.h1.lineHeight}",
+              "letterSpacing": "{typography.scale.h1.letterSpacing}",
+              "fontWeight": "700"
+            },
+            "h2": {
+              "fontSize": "{typography.scale.h2.fontSizeRem}",
+              "lineHeight": "{typography.scale.h2.lineHeight}",
+              "letterSpacing": "{typography.scale.h2.letterSpacing}",
+              "fontWeight": "600"
+            },
+            "h3": {
+              "fontSize": "{typography.scale.h3.fontSizeRem}",
+              "lineHeight": "{typography.scale.h3.lineHeight}",
+              "letterSpacing": "{typography.scale.h3.letterSpacing}",
+              "fontWeight": "600"
+            },
+            "h4": {
+              "fontSize": "{typography.scale.h4.fontSizeRem}",
+              "lineHeight": "{typography.scale.h4.lineHeight}",
+              "fontWeight": "600"
+            },
+            "h5": {
+              "fontSize": "{typography.scale.h5.fontSizeRem}",
+              "lineHeight": "{typography.scale.h5.lineHeight}",
+              "fontWeight": "600"
+            },
+            "h6": {
+              "fontSize": "{typography.scale.h6.fontSizeRem}",
+              "lineHeight": "{typography.scale.h6.lineHeight}",
+              "fontWeight": "600"
+            }
+          }
+        },
+        "size": {
+          "values": ["display", "h1", "h2", "h3", "h4", "h5", "h6"],
+          "default": "h2",
+          "description": "Visual size (can differ from semantic level)"
+        }
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Heading content" }
+        },
+        "optional": {
+          "as": { "type": "'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'", "default": "h2", "description": "Semantic heading level" },
+          "size": { "type": "HeadingSize", "description": "Visual size (defaults to match 'as')" },
+          "color": { "type": "TextColor", "default": "default" }
+        }
+      },
+
+      "accessibility": {
+        "requirements": [
+          "Use correct heading hierarchy (no skipping levels)",
+          "Only one h1 per page",
+          "Headings should describe section content"
+        ]
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "font-heading text-foreground",
+          "sizes": {
+            "display": "text-display font-bold tracking-tighter",
+            "h1": "text-h1 font-bold tracking-tight",
+            "h2": "text-h2 font-semibold tracking-tight",
+            "h3": "text-h3 font-semibold",
+            "h4": "text-h4 font-semibold",
+            "h5": "text-h5 font-semibold",
+            "h6": "text-h6 font-semibold"
+          }
+        }
+      }
+    },
+
+    "Icon": {
+      "category": "primitive",
+      "description": "SVG icon component with consistent sizing and styling. Icons should have outlined style with organic curves.",
+
+      "anatomy": {
+        "parts": ["root", "svg"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["xs", "sm", "md", "lg", "xl", "2xl"],
+          "default": "md",
+          "tokens": {
+            "xs": { "size": "12px", "strokeWidth": "1px" },
+            "sm": { "size": "16px", "strokeWidth": "1.5px" },
+            "md": { "size": "20px", "strokeWidth": "1.5px" },
+            "lg": { "size": "24px", "strokeWidth": "2px" },
+            "xl": { "size": "32px", "strokeWidth": "2px" },
+            "2xl": { "size": "48px", "strokeWidth": "2px" }
+          }
+        },
+        "color": {
+          "values": ["current", "primary", "secondary", "muted", "success", "warning", "error"],
+          "default": "current",
+          "tokens": {
+            "current": { "color": "currentColor" },
+            "primary": { "color": "{colors.brand.primary.DEFAULT}" },
+            "secondary": { "color": "#1a4d1a" },
+            "muted": { "color": "#4d6b4d" },
+            "success": { "color": "{colors.semantic.success.DEFAULT}" },
+            "warning": { "color": "{colors.semantic.warning.DEFAULT}" },
+            "error": { "color": "{colors.semantic.error.DEFAULT}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "name": { "type": "string", "description": "Icon name or identifier" }
+        },
+        "optional": {
+          "as": { "type": "ReactElement", "description": "Custom icon component" },
+          "size": { "type": "IconSize", "default": "md" },
+          "color": { "type": "IconColor", "default": "current" },
+          "aria-label": { "type": "string", "description": "Accessible label if icon conveys meaning" },
+          "aria-hidden": { "type": "boolean", "default": true, "description": "Hide from screen readers (default for decorative)" }
+        }
+      },
+
+      "accessibility": {
+        "decorativeIcons": {
+          "ariaHidden": true,
+          "role": "presentation"
+        },
+        "meaningfulIcons": {
+          "ariaLabel": "Required - describes the icon meaning",
+          "role": "img"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-block flex-shrink-0",
+          "sizes": {
+            "xs": "w-3 h-3",
+            "sm": "w-4 h-4",
+            "md": "w-5 h-5",
+            "lg": "w-6 h-6",
+            "xl": "w-8 h-8",
+            "2xl": "w-12 h-12"
+          },
+          "colors": {
+            "current": "text-current",
+            "primary": "text-primary",
+            "secondary": "text-foreground-secondary",
+            "muted": "text-foreground-muted",
+            "success": "text-success",
+            "warning": "text-warning",
+            "error": "text-error"
+          }
+        }
+      }
+    },
+
+    "Link": {
+      "category": "primitive",
+      "description": "Navigation link component for internal and external links.",
+
+      "anatomy": {
+        "parts": ["root", "leftIcon", "text", "rightIcon", "externalIndicator"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["default", "underline", "subtle"],
+          "default": "default",
+          "tokens": {
+            "default": {
+              "color": "{colors.brand.primary.DEFAULT}",
+              "textDecoration": "none",
+              "hoverTextDecoration": "underline"
+            },
+            "underline": {
+              "color": "{colors.brand.primary.DEFAULT}",
+              "textDecoration": "underline",
+              "hoverColor": "{colors.brand.primary.700}"
+            },
+            "subtle": {
+              "color": "#003400",
+              "textDecoration": "none",
+              "hoverColor": "{colors.brand.primary.DEFAULT}"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "href": { "type": "string", "description": "Link destination URL" },
+          "children": { "type": "ReactNode", "description": "Link text/content" }
+        },
+        "optional": {
+          "variant": { "type": "LinkVariant", "default": "default" },
+          "isExternal": { "type": "boolean", "default": false, "description": "Opens in new tab with security attributes" },
+          "leftIcon": { "type": "ReactElement" },
+          "rightIcon": { "type": "ReactElement" }
+        }
+      },
+
+      "accessibility": {
+        "role": "link",
+        "externalLinks": {
+          "requirements": [
+            "Add rel='noopener noreferrer' for security",
+            "Include visual indicator for external links",
+            "Screen reader announcement: 'opens in new tab'"
+          ]
+        },
+        "keyboardInteraction": {
+          "Enter": "Follow link"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-flex items-center gap-1 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/30 rounded-sm",
+          "variants": {
+            "default": "text-primary hover:underline",
+            "underline": "text-primary underline hover:text-primary-700",
+            "subtle": "text-foreground hover:text-primary"
+          }
+        }
+      }
+    },
+
+    "Image": {
+      "category": "primitive",
+      "description": "Image component with loading states and fallback support.",
+
+      "anatomy": {
+        "parts": ["root", "image", "fallback", "overlay"]
+      },
+
+      "variants": {
+        "objectFit": {
+          "values": ["cover", "contain", "fill", "none"],
+          "default": "cover"
+        },
+        "aspectRatio": {
+          "values": ["square", "spotlight", "landscape", "widescreen", "portrait", "golden", "auto"],
+          "default": "auto",
+          "tokens": {
+            "square": { "aspectRatio": "1 / 1" },
+            "spotlight": { "aspectRatio": "3 / 2" },
+            "landscape": { "aspectRatio": "4 / 3" },
+            "widescreen": { "aspectRatio": "16 / 9" },
+            "portrait": { "aspectRatio": "3 / 4" },
+            "golden": { "aspectRatio": "1.618 / 1" },
+            "auto": { "aspectRatio": "auto" }
+          }
+        },
+        "borderRadius": {
+          "values": ["none", "sm", "md", "lg", "xl", "full"],
+          "default": "none"
+        }
+      },
+
+      "props": {
+        "required": {
+          "src": { "type": "string", "description": "Image source URL" },
+          "alt": { "type": "string", "description": "Alternative text (required for accessibility)" }
+        },
+        "optional": {
+          "fallbackSrc": { "type": "string", "description": "Fallback image if src fails" },
+          "fallback": { "type": "ReactElement", "description": "Custom fallback component" },
+          "loading": { "type": "'lazy' | 'eager'", "default": "lazy", "description": "Loading strategy" },
+          "objectFit": { "type": "ObjectFit", "default": "cover" },
+          "aspectRatio": { "type": "AspectRatio", "default": "auto" },
+          "borderRadius": { "type": "BorderRadius", "default": "none" },
+          "onLoad": { "type": "() => void" },
+          "onError": { "type": "() => void" }
+        }
+      },
+
+      "accessibility": {
+        "requirements": [
+          "alt text is REQUIRED for all images",
+          "Decorative images should use alt=''",
+          "Complex images need extended description"
+        ]
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "block max-w-full",
+          "objectFit": {
+            "cover": "object-cover",
+            "contain": "object-contain",
+            "fill": "object-fill",
+            "none": "object-none"
+          },
+          "aspectRatios": {
+            "square": "aspect-square",
+            "spotlight": "aspect-[3/2]",
+            "landscape": "aspect-[4/3]",
+            "widescreen": "aspect-video",
+            "portrait": "aspect-[3/4]"
+          }
+        }
+      }
+    },
+
+    "Spinner": {
+      "category": "primitive",
+      "description": "Loading indicator with spinning animation.",
+
+      "anatomy": {
+        "parts": ["root", "circle", "track"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["xs", "sm", "md", "lg", "xl"],
+          "default": "md",
+          "tokens": {
+            "xs": { "size": "12px", "strokeWidth": "2px" },
+            "sm": { "size": "16px", "strokeWidth": "2px" },
+            "md": { "size": "24px", "strokeWidth": "3px" },
+            "lg": { "size": "32px", "strokeWidth": "3px" },
+            "xl": { "size": "48px", "strokeWidth": "4px" }
+          }
+        },
+        "color": {
+          "values": ["primary", "secondary", "current", "white"],
+          "default": "primary",
+          "tokens": {
+            "primary": { "color": "{colors.brand.primary.DEFAULT}" },
+            "secondary": { "color": "{colors.brand.tertiary.DEFAULT}" },
+            "current": { "color": "currentColor" },
+            "white": { "color": "{colors.neutral.0}" }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "size": { "type": "Size", "default": "md" },
+          "color": { "type": "SpinnerColor", "default": "primary" },
+          "label": { "type": "string", "default": "Loading...", "description": "Screen reader text" },
+          "speed": { "type": "string", "default": "0.65s", "description": "Animation duration" }
+        }
+      },
+
+      "accessibility": {
+        "role": "status",
+        "ariaLive": "polite",
+        "ariaLabel": "Loading"
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "animate-spin",
+          "sizes": {
+            "xs": "w-3 h-3",
+            "sm": "w-4 h-4",
+            "md": "w-6 h-6",
+            "lg": "w-8 h-8",
+            "xl": "w-12 h-12"
+          },
+          "colors": {
+            "primary": "text-primary",
+            "secondary": "text-cta",
+            "current": "text-current",
+            "white": "text-white"
+          }
+        }
+      }
+    },
+
+    "Badge": {
+      "category": "primitive",
+      "description": "Small label for status, counts, or categorization.",
+
+      "anatomy": {
+        "parts": ["root", "dot", "label"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["solid", "subtle", "outline"],
+          "default": "subtle"
+        },
+        "colorScheme": {
+          "values": ["default", "primary", "success", "warning", "error", "info"],
+          "default": "default",
+          "tokens": {
+            "default": {
+              "subtle": { "background": "{colors.neutral.200}", "color": "{colors.neutral.800}" },
+              "solid": { "background": "{colors.neutral.700}", "color": "{colors.neutral.0}" },
+              "outline": { "borderColor": "{colors.neutral.400}", "color": "{colors.neutral.700}" }
+            },
+            "primary": {
+              "subtle": { "background": "{colors.brand.primary.50}", "color": "{colors.brand.primary.DEFAULT}" },
+              "solid": { "background": "{colors.brand.primary.DEFAULT}", "color": "{colors.neutral.0}" },
+              "outline": { "borderColor": "{colors.brand.primary.DEFAULT}", "color": "{colors.brand.primary.DEFAULT}" }
+            },
+            "success": {
+              "subtle": { "background": "{colors.semantic.success.light}", "color": "{colors.semantic.success.dark}" },
+              "solid": { "background": "{colors.semantic.success.DEFAULT}", "color": "{colors.neutral.0}" },
+              "outline": { "borderColor": "{colors.semantic.success.DEFAULT}", "color": "{colors.semantic.success.DEFAULT}" }
+            },
+            "warning": {
+              "subtle": { "background": "{colors.semantic.warning.light}", "color": "{colors.semantic.warning.dark}" },
+              "solid": { "background": "{colors.semantic.warning.DEFAULT}", "color": "#003400" },
+              "outline": { "borderColor": "{colors.semantic.warning.DEFAULT}", "color": "{colors.semantic.warning.dark}" }
+            },
+            "error": {
+              "subtle": { "background": "{colors.semantic.error.light}", "color": "{colors.semantic.error.dark}" },
+              "solid": { "background": "{colors.semantic.error.DEFAULT}", "color": "{colors.neutral.0}" },
+              "outline": { "borderColor": "{colors.semantic.error.DEFAULT}", "color": "{colors.semantic.error.DEFAULT}" }
+            },
+            "info": {
+              "subtle": { "background": "{colors.semantic.info.light}", "color": "{colors.semantic.info.dark}" },
+              "solid": { "background": "{colors.semantic.info.DEFAULT}", "color": "{colors.neutral.0}" },
+              "outline": { "borderColor": "{colors.semantic.info.DEFAULT}", "color": "{colors.semantic.info.DEFAULT}" }
+            }
+          }
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "paddingX": "{spacing.1.5}", "paddingY": "{spacing.0.5}", "fontSize": "11px", "borderRadius": "{borderRadius.sm}" },
+            "md": { "paddingX": "{spacing.2.5}", "paddingY": "{spacing.1}", "fontSize": "{typography.fontSizes.xs}", "borderRadius": "{borderRadius.md}" },
+            "lg": { "paddingX": "{spacing.3}", "paddingY": "{spacing.1}", "fontSize": "{typography.fontSizes.sm}", "borderRadius": "{borderRadius.md}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Badge content" }
+        },
+        "optional": {
+          "variant": { "type": "BadgeVariant", "default": "subtle" },
+          "colorScheme": { "type": "ColorScheme", "default": "default" },
+          "size": { "type": "Size", "default": "md" },
+          "leftIcon": { "type": "ReactElement" },
+          "rightIcon": { "type": "ReactElement" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-flex items-center font-medium font-body whitespace-nowrap",
+          "sizes": {
+            "sm": "px-1.5 py-0.5 text-[11px] rounded",
+            "md": "px-2.5 py-1 text-xs rounded-md",
+            "lg": "px-3 py-1 text-sm rounded-md"
+          },
+          "variants": {
+            "subtle-default": "bg-neutral-200 text-neutral-800",
+            "subtle-primary": "bg-primary-50 text-primary",
+            "subtle-success": "bg-success-light text-success-dark",
+            "subtle-warning": "bg-warning-light text-warning-dark",
+            "subtle-error": "bg-error-light text-error-dark",
+            "solid-default": "bg-neutral-700 text-white",
+            "solid-primary": "bg-primary text-white",
+            "solid-success": "bg-success text-white",
+            "solid-warning": "bg-warning text-foreground",
+            "solid-error": "bg-error text-white",
+            "outline-default": "border border-neutral-400 text-neutral-700 bg-transparent",
+            "outline-primary": "border border-primary text-primary bg-transparent",
+            "outline-success": "border border-success text-success bg-transparent",
+            "outline-warning": "border border-warning text-warning-dark bg-transparent",
+            "outline-error": "border border-error text-error bg-transparent"
+          }
+        }
+      }
+    },
+
+    "Tag": {
+      "category": "primitive",
+      "description": "Interactive label element that can be selected or removed.",
+
+      "anatomy": {
+        "parts": ["root", "label", "closeButton"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["solid", "subtle", "outline"],
+          "default": "subtle"
+        },
+        "colorScheme": {
+          "values": ["default", "primary", "success", "warning", "error"],
+          "default": "default"
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "height": "24px", "paddingX": "{spacing.2}", "fontSize": "{typography.fontSizes.xs}" },
+            "md": { "height": "28px", "paddingX": "{spacing.2.5}", "fontSize": "{typography.fontSizes.sm}" },
+            "lg": { "height": "32px", "paddingX": "{spacing.3}", "fontSize": "{typography.fontSizes.sm}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Tag label" }
+        },
+        "optional": {
+          "variant": { "type": "TagVariant", "default": "subtle" },
+          "colorScheme": { "type": "ColorScheme", "default": "default" },
+          "size": { "type": "Size", "default": "md" },
+          "isClosable": { "type": "boolean", "default": false },
+          "onClose": { "type": "() => void", "description": "Called when close button clicked" },
+          "leftIcon": { "type": "ReactElement" }
+        }
+      },
+
+      "accessibility": {
+        "closableTag": {
+          "closeButtonLabel": "Remove tag",
+          "keyboardInteraction": {
+            "Backspace": "Remove tag when focused",
+            "Delete": "Remove tag when focused"
+          }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-flex items-center gap-1 font-medium font-body rounded-full transition-colors",
+          "sizes": {
+            "sm": "h-6 px-2 text-xs",
+            "md": "h-7 px-2.5 text-sm",
+            "lg": "h-8 px-3 text-sm"
+          },
+          "closeButton": "ml-1 -mr-1 rounded-full hover:bg-black/10 p-0.5"
+        }
+      }
+    },
+
+    "Avatar": {
+      "category": "primitive",
+      "description": "User or entity representation with image or initials fallback.",
+
+      "anatomy": {
+        "parts": ["root", "image", "fallback", "badge"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["xs", "sm", "md", "lg", "xl", "2xl"],
+          "default": "md",
+          "tokens": {
+            "xs": { "size": "24px", "fontSize": "10px" },
+            "sm": { "size": "32px", "fontSize": "{typography.fontSizes.xs}" },
+            "md": { "size": "40px", "fontSize": "{typography.fontSizes.sm}" },
+            "lg": { "size": "56px", "fontSize": "{typography.fontSizes.lg}" },
+            "xl": { "size": "80px", "fontSize": "{typography.fontSizes.2xl}" },
+            "2xl": { "size": "96px", "fontSize": "{typography.fontSizes.3xl}" }
+          }
+        },
+        "variant": {
+          "values": ["circle", "rounded", "square"],
+          "default": "circle",
+          "tokens": {
+            "circle": { "borderRadius": "{borderRadius.full}" },
+            "rounded": { "borderRadius": "{borderRadius.lg}" },
+            "square": { "borderRadius": "{borderRadius.sm}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {},
+        "optional": {
+          "src": { "type": "string", "description": "Image URL" },
+          "name": { "type": "string", "description": "Name for initials fallback and alt text" },
+          "size": { "type": "AvatarSize", "default": "md" },
+          "variant": { "type": "AvatarVariant", "default": "circle" },
+          "showBorder": { "type": "boolean", "default": false },
+          "borderColor": { "type": "string", "default": "white" },
+          "bg": { "type": "string", "description": "Background color for fallback" },
+          "icon": { "type": "ReactElement", "description": "Custom fallback icon" }
+        }
+      },
+
+      "accessibility": {
+        "withImage": {
+          "alt": "Derived from name prop or explicit alt"
+        },
+        "fallback": {
+          "ariaLabel": "Derived from name prop"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "inline-flex items-center justify-center bg-primary-100 text-primary font-medium overflow-hidden flex-shrink-0",
+          "sizes": {
+            "xs": "w-6 h-6 text-[10px]",
+            "sm": "w-8 h-8 text-xs",
+            "md": "w-10 h-10 text-sm",
+            "lg": "w-14 h-14 text-lg",
+            "xl": "w-20 h-20 text-2xl",
+            "2xl": "w-24 h-24 text-3xl"
+          },
+          "variants": {
+            "circle": "rounded-full",
+            "rounded": "rounded-lg",
+            "square": "rounded-sm"
+          }
+        }
+      }
+    },
+
+    "Divider": {
+      "category": "primitive",
+      "description": "Visual separator between content sections.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "orientation": {
+          "values": ["horizontal", "vertical"],
+          "default": "horizontal",
+          "tokens": {
+            "horizontal": { "height": "1px", "width": "100%" },
+            "vertical": { "width": "1px", "height": "100%" }
+          }
+        },
+        "variant": {
+          "values": ["solid", "dashed", "dotted"],
+          "default": "solid"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "orientation": { "type": "Orientation", "default": "horizontal" },
+          "variant": { "type": "DividerVariant", "default": "solid" },
+          "color": { "type": "string", "default": "{colors.border.default}" }
+        }
+      },
+
+      "accessibility": {
+        "role": "separator",
+        "ariaOrientation": "Matches orientation prop"
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "horizontal": "w-full h-px bg-border",
+          "vertical": "h-full w-px bg-border",
+          "dashed": "border-dashed",
+          "dotted": "border-dotted"
+        }
+      }
+    }
+  }
+}

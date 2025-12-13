@@ -1,0 +1,882 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wildlife-component-design-system-layout",
+  "version": "1.0.0",
+  "partOf": {
+    "index": "./component-design-system-index.json",
+    "core": "./component-design-system-core.json"
+  },
+  "description": "Layout UI components - containers, grids, and structural elements",
+
+  "components": {
+    "Box": {
+      "category": "layout",
+      "description": "Generic container component with all style props. The foundational building block for layouts.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {},
+
+      "props": {
+        "optional": {
+          "as": { "type": "ElementType", "default": "div", "description": "HTML element or component to render" },
+          "children": { "type": "ReactNode" },
+          "className": { "type": "string" },
+          "style": { "type": "CSSProperties" }
+        },
+        "styleProps": {
+          "description": "All CSS properties available as props",
+          "categories": {
+            "spacing": ["m", "mt", "mr", "mb", "ml", "mx", "my", "p", "pt", "pr", "pb", "pl", "px", "py"],
+            "sizing": ["w", "h", "minW", "maxW", "minH", "maxH"],
+            "layout": ["display", "overflow", "position", "top", "right", "bottom", "left", "zIndex"],
+            "flexbox": ["flex", "flexDir", "flexWrap", "justifyContent", "alignItems", "alignSelf", "order", "flexGrow", "flexShrink"],
+            "grid": ["gridTemplateColumns", "gridTemplateRows", "gridColumn", "gridRow", "gap", "rowGap", "columnGap"],
+            "background": ["bg", "bgColor", "bgGradient", "bgImage", "bgSize", "bgPosition", "bgRepeat"],
+            "borders": ["border", "borderWidth", "borderStyle", "borderColor", "borderRadius", "borderTop", "borderRight", "borderBottom", "borderLeft"],
+            "effects": ["shadow", "opacity", "visibility"],
+            "typography": ["color", "fontSize", "fontWeight", "lineHeight", "textAlign", "fontFamily"]
+          }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "note": "Box accepts any Tailwind class via className prop"
+        }
+      }
+    },
+
+    "Flex": {
+      "category": "layout",
+      "description": "Flexbox container for one-dimensional layouts.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "direction": {
+          "values": ["row", "row-reverse", "column", "column-reverse"],
+          "default": "row"
+        },
+        "align": {
+          "values": ["start", "center", "end", "stretch", "baseline"],
+          "default": "stretch"
+        },
+        "justify": {
+          "values": ["start", "center", "end", "between", "around", "evenly"],
+          "default": "start"
+        },
+        "wrap": {
+          "values": ["nowrap", "wrap", "wrap-reverse"],
+          "default": "nowrap"
+        },
+        "gap": {
+          "values": ["0", "1", "2", "3", "4", "5", "6", "8", "10", "12"],
+          "default": "0",
+          "tokens": {
+            "0": "0px",
+            "1": "{spacing.1}",
+            "2": "{spacing.2}",
+            "3": "{spacing.3}",
+            "4": "{spacing.4}",
+            "5": "{spacing.5}",
+            "6": "{spacing.6}",
+            "8": "{spacing.8}",
+            "10": "{spacing.10}",
+            "12": "{spacing.12}"
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "direction": { "type": "FlexDirection", "default": "row" },
+          "align": { "type": "AlignItems", "default": "stretch" },
+          "justify": { "type": "JustifyContent", "default": "start" },
+          "wrap": { "type": "FlexWrap", "default": "nowrap" },
+          "gap": { "type": "Spacing", "default": "0" },
+          "inline": { "type": "boolean", "default": false, "description": "Use inline-flex" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex",
+          "inline": "inline-flex",
+          "direction": {
+            "row": "flex-row",
+            "row-reverse": "flex-row-reverse",
+            "column": "flex-col",
+            "column-reverse": "flex-col-reverse"
+          },
+          "align": {
+            "start": "items-start",
+            "center": "items-center",
+            "end": "items-end",
+            "stretch": "items-stretch",
+            "baseline": "items-baseline"
+          },
+          "justify": {
+            "start": "justify-start",
+            "center": "justify-center",
+            "end": "justify-end",
+            "between": "justify-between",
+            "around": "justify-around",
+            "evenly": "justify-evenly"
+          },
+          "wrap": {
+            "nowrap": "flex-nowrap",
+            "wrap": "flex-wrap",
+            "wrap-reverse": "flex-wrap-reverse"
+          },
+          "gap": {
+            "0": "gap-0",
+            "1": "gap-1",
+            "2": "gap-2",
+            "3": "gap-3",
+            "4": "gap-4",
+            "5": "gap-5",
+            "6": "gap-6",
+            "8": "gap-8",
+            "10": "gap-10",
+            "12": "gap-12"
+          }
+        }
+      }
+    },
+
+    "Grid": {
+      "category": "layout",
+      "description": "CSS Grid container for two-dimensional layouts.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "columns": {
+          "values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+          "default": 1
+        },
+        "gap": {
+          "values": ["0", "1", "2", "3", "4", "5", "6", "8", "10", "12"],
+          "default": "4"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "columns": { "type": "number | ResponsiveValue<number>", "default": 1 },
+          "rows": { "type": "number | string" },
+          "templateColumns": { "type": "string", "description": "CSS grid-template-columns" },
+          "templateRows": { "type": "string", "description": "CSS grid-template-rows" },
+          "gap": { "type": "Spacing", "default": "4" },
+          "rowGap": { "type": "Spacing" },
+          "columnGap": { "type": "Spacing" },
+          "autoFlow": { "type": "'row' | 'column' | 'dense' | 'row dense' | 'column dense'" },
+          "autoColumns": { "type": "string" },
+          "autoRows": { "type": "string" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "grid",
+          "columns": {
+            "1": "grid-cols-1",
+            "2": "grid-cols-2",
+            "3": "grid-cols-3",
+            "4": "grid-cols-4",
+            "5": "grid-cols-5",
+            "6": "grid-cols-6",
+            "7": "grid-cols-7",
+            "8": "grid-cols-8",
+            "9": "grid-cols-9",
+            "10": "grid-cols-10",
+            "11": "grid-cols-11",
+            "12": "grid-cols-12"
+          },
+          "gap": {
+            "0": "gap-0",
+            "1": "gap-1",
+            "2": "gap-2",
+            "3": "gap-3",
+            "4": "gap-4",
+            "5": "gap-5",
+            "6": "gap-6",
+            "8": "gap-8",
+            "10": "gap-10",
+            "12": "gap-12"
+          }
+        },
+        "responsivePattern": {
+          "example": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+          "description": "Use responsive prefixes for breakpoint-specific columns"
+        }
+      }
+    },
+
+    "GridItem": {
+      "category": "layout",
+      "description": "Child element within a Grid with span and positioning control.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "optional": {
+          "colSpan": { "type": "number | 'full'", "description": "Number of columns to span" },
+          "rowSpan": { "type": "number", "description": "Number of rows to span" },
+          "colStart": { "type": "number", "description": "Starting column" },
+          "colEnd": { "type": "number", "description": "Ending column" },
+          "rowStart": { "type": "number", "description": "Starting row" },
+          "rowEnd": { "type": "number", "description": "Ending row" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "colSpan": {
+            "1": "col-span-1",
+            "2": "col-span-2",
+            "3": "col-span-3",
+            "4": "col-span-4",
+            "6": "col-span-6",
+            "12": "col-span-12",
+            "full": "col-span-full"
+          },
+          "rowSpan": {
+            "1": "row-span-1",
+            "2": "row-span-2",
+            "3": "row-span-3"
+          }
+        }
+      }
+    },
+
+    "Stack": {
+      "category": "layout",
+      "description": "Stack elements vertically or horizontally with consistent spacing.",
+
+      "anatomy": {
+        "parts": ["root", "divider"]
+      },
+
+      "variants": {
+        "direction": {
+          "values": ["vertical", "horizontal"],
+          "default": "vertical"
+        },
+        "spacing": {
+          "values": ["xs", "sm", "md", "lg", "xl", "2xl"],
+          "default": "md",
+          "tokens": {
+            "xs": "{spacing.1}",
+            "sm": "{spacing.2}",
+            "md": "{spacing.4}",
+            "lg": "{spacing.6}",
+            "xl": "{spacing.8}",
+            "2xl": "{spacing.12}"
+          }
+        },
+        "align": {
+          "values": ["start", "center", "end", "stretch"],
+          "default": "stretch"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "direction": { "type": "StackDirection", "default": "vertical" },
+          "spacing": { "type": "StackSpacing", "default": "md" },
+          "align": { "type": "AlignItems", "default": "stretch" },
+          "divider": { "type": "ReactElement", "description": "Element to place between children" },
+          "shouldWrapChildren": { "type": "boolean", "default": false, "description": "Wrap each child in Box" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "vertical": "flex flex-col",
+          "horizontal": "flex flex-row",
+          "spacing": {
+            "xs": "gap-1",
+            "sm": "gap-2",
+            "md": "gap-4",
+            "lg": "gap-6",
+            "xl": "gap-8",
+            "2xl": "gap-12"
+          },
+          "align": {
+            "start": "items-start",
+            "center": "items-center",
+            "end": "items-end",
+            "stretch": "items-stretch"
+          }
+        }
+      }
+    },
+
+    "HStack": {
+      "category": "layout",
+      "description": "Horizontal stack - shorthand for Stack with direction='horizontal'.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "optional": {
+          "spacing": { "type": "StackSpacing", "default": "md" },
+          "align": { "type": "AlignItems", "default": "center" },
+          "justify": { "type": "JustifyContent", "default": "start" },
+          "wrap": { "type": "boolean", "default": false },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex flex-row items-center"
+        }
+      }
+    },
+
+    "VStack": {
+      "category": "layout",
+      "description": "Vertical stack - shorthand for Stack with direction='vertical'.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "optional": {
+          "spacing": { "type": "StackSpacing", "default": "md" },
+          "align": { "type": "AlignItems", "default": "stretch" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex flex-col"
+        }
+      }
+    },
+
+    "Container": {
+      "category": "layout",
+      "description": "Centered container with max-width constraints. Follows responsive container widths.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg", "xl", "2xl", "3xl", "full"],
+          "default": "2xl",
+          "tokens": {
+            "sm": { "maxWidth": "480px" },
+            "md": { "maxWidth": "640px" },
+            "lg": { "maxWidth": "768px" },
+            "xl": { "maxWidth": "1024px" },
+            "2xl": { "maxWidth": "1280px" },
+            "3xl": { "maxWidth": "1400px" },
+            "full": { "maxWidth": "100%" }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "size": { "type": "ContainerSize", "default": "2xl" },
+          "centerContent": { "type": "boolean", "default": false, "description": "Center children horizontally" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "w-full mx-auto px-4 sm:px-5 md:px-6 lg:px-8",
+          "sizes": {
+            "sm": "max-w-[480px]",
+            "md": "max-w-[640px]",
+            "lg": "max-w-[768px]",
+            "xl": "max-w-[1024px]",
+            "2xl": "max-w-[1280px]",
+            "3xl": "max-w-[1400px]",
+            "full": "max-w-full"
+          },
+          "centerContent": "flex flex-col items-center"
+        }
+      }
+    },
+
+    "Center": {
+      "category": "layout",
+      "description": "Centers its child both horizontally and vertically.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "optional": {
+          "inline": { "type": "boolean", "default": false },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex items-center justify-center",
+          "inline": "inline-flex items-center justify-center"
+        }
+      }
+    },
+
+    "Spacer": {
+      "category": "layout",
+      "description": "Flexible spacer that fills available space in flex containers.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {},
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex-1"
+        }
+      }
+    },
+
+    "AspectRatio": {
+      "category": "layout",
+      "description": "Container that maintains a specific aspect ratio. Useful for responsive media.",
+
+      "anatomy": {
+        "parts": ["root", "content"]
+      },
+
+      "variants": {
+        "ratio": {
+          "values": ["square", "spotlight", "landscape", "widescreen", "ultrawide", "portrait", "golden"],
+          "default": "widescreen",
+          "tokens": {
+            "square": { "aspectRatio": "1 / 1" },
+            "spotlight": { "aspectRatio": "3 / 2" },
+            "landscape": { "aspectRatio": "4 / 3" },
+            "widescreen": { "aspectRatio": "16 / 9" },
+            "ultrawide": { "aspectRatio": "21 / 9" },
+            "portrait": { "aspectRatio": "3 / 4" },
+            "golden": { "aspectRatio": "1.618 / 1" }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "ratio": { "type": "AspectRatioValue", "default": "widescreen" },
+          "children": { "type": "ReactNode", "description": "Single child element" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "relative",
+          "ratios": {
+            "square": "aspect-square",
+            "spotlight": "aspect-[3/2]",
+            "landscape": "aspect-[4/3]",
+            "widescreen": "aspect-video",
+            "ultrawide": "aspect-[21/9]",
+            "portrait": "aspect-[3/4]",
+            "golden": "aspect-[1.618/1]"
+          },
+          "child": "absolute inset-0 w-full h-full object-cover"
+        }
+      }
+    },
+
+    "SimpleGrid": {
+      "category": "layout",
+      "description": "Simplified grid layout with auto-fit columns based on minimum width or column count.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "columns": {
+          "values": [1, 2, 3, 4, 5, 6],
+          "default": null,
+          "description": "Fixed number of columns"
+        },
+        "spacing": {
+          "values": ["xs", "sm", "md", "lg", "xl"],
+          "default": "md",
+          "tokens": {
+            "xs": "{spacing.2}",
+            "sm": "{spacing.4}",
+            "md": "{spacing.6}",
+            "lg": "{spacing.8}",
+            "xl": "{spacing.12}"
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "columns": { "type": "number | ResponsiveValue<number>", "description": "Fixed column count" },
+          "minChildWidth": { "type": "string", "description": "Min width for auto-fit columns (e.g., '200px')" },
+          "spacing": { "type": "Spacing", "default": "md" },
+          "spacingX": { "type": "Spacing" },
+          "spacingY": { "type": "Spacing" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "grid",
+          "autoFit": "grid-cols-[repeat(auto-fit,minmax(var(--min-child-width),1fr))]",
+          "spacing": {
+            "xs": "gap-2",
+            "sm": "gap-4",
+            "md": "gap-6",
+            "lg": "gap-8",
+            "xl": "gap-12"
+          }
+        },
+        "cssCustomProperties": {
+          "--min-child-width": "200px"
+        }
+      }
+    },
+
+    "Wrap": {
+      "category": "layout",
+      "description": "Layout that wraps children to new lines with consistent spacing.",
+
+      "anatomy": {
+        "parts": ["root", "item"]
+      },
+
+      "variants": {
+        "spacing": {
+          "values": ["xs", "sm", "md", "lg", "xl"],
+          "default": "md"
+        },
+        "justify": {
+          "values": ["start", "center", "end", "between"],
+          "default": "start"
+        },
+        "align": {
+          "values": ["start", "center", "end", "stretch"],
+          "default": "start"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "spacing": { "type": "Spacing", "default": "md" },
+          "spacingX": { "type": "Spacing" },
+          "spacingY": { "type": "Spacing" },
+          "justify": { "type": "JustifyContent", "default": "start" },
+          "align": { "type": "AlignItems", "default": "start" },
+          "shouldWrapChildren": { "type": "boolean", "default": true },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex flex-wrap",
+          "spacing": {
+            "xs": "gap-1",
+            "sm": "gap-2",
+            "md": "gap-4",
+            "lg": "gap-6",
+            "xl": "gap-8"
+          }
+        }
+      }
+    },
+
+    "Section": {
+      "category": "layout",
+      "description": "Semantic section element with consistent vertical spacing for page sections.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg", "xl"],
+          "default": "md",
+          "tokens": {
+            "sm": { "paddingY": "{spacing.12}" },
+            "md": { "paddingY": "{spacing.16}" },
+            "lg": { "paddingY": "{spacing.20}" },
+            "xl": { "paddingY": "{spacing.24}" }
+          }
+        },
+        "background": {
+          "values": ["transparent", "primary", "secondary", "tertiary"],
+          "default": "transparent",
+          "tokens": {
+            "transparent": { "background": "transparent" },
+            "primary": { "background": "{colors.neutral.0}" },
+            "secondary": { "background": "{colors.brand.secondary.DEFAULT}" },
+            "tertiary": { "background": "{colors.background.tertiary}" }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "as": { "type": "'section' | 'div' | 'article'", "default": "section" },
+          "size": { "type": "SectionSize", "default": "md" },
+          "background": { "type": "SectionBackground", "default": "transparent" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "semanticElement": "section",
+        "requirements": [
+          "Should have accessible name via aria-label or aria-labelledby",
+          "Use heading within section for implicit labeling"
+        ]
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "w-full",
+          "sizes": {
+            "sm": "py-12",
+            "md": "py-16",
+            "lg": "py-20",
+            "xl": "py-24"
+          },
+          "backgrounds": {
+            "transparent": "bg-transparent",
+            "primary": "bg-white",
+            "secondary": "bg-secondary",
+            "tertiary": "bg-background-tertiary"
+          }
+        }
+      }
+    },
+
+    "Absolute": {
+      "category": "layout",
+      "description": "Absolutely positioned container for overlays and positioned elements.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "optional": {
+          "top": { "type": "Spacing | 'auto'" },
+          "right": { "type": "Spacing | 'auto'" },
+          "bottom": { "type": "Spacing | 'auto'" },
+          "left": { "type": "Spacing | 'auto'" },
+          "inset": { "type": "Spacing", "description": "Set all sides equally" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "absolute",
+          "inset": "inset-0",
+          "positions": {
+            "top-0": "top-0",
+            "right-0": "right-0",
+            "bottom-0": "bottom-0",
+            "left-0": "left-0",
+            "top-4": "top-4",
+            "right-4": "right-4",
+            "bottom-4": "bottom-4",
+            "left-4": "left-4"
+          }
+        }
+      }
+    },
+
+    "Sticky": {
+      "category": "layout",
+      "description": "Sticky positioned element that sticks to its container when scrolling.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "optional": {
+          "top": { "type": "Spacing", "default": "0" },
+          "zIndex": { "type": "number", "default": 20 },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "sticky z-sticky",
+          "top": "top-0"
+        }
+      }
+    },
+
+    "ScrollArea": {
+      "category": "layout",
+      "description": "Scrollable container with custom scrollbar styling.",
+
+      "anatomy": {
+        "parts": ["root", "viewport", "scrollbar", "thumb"]
+      },
+
+      "variants": {
+        "orientation": {
+          "values": ["vertical", "horizontal", "both"],
+          "default": "vertical"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "orientation": { "type": "ScrollOrientation", "default": "vertical" },
+          "maxHeight": { "type": "string", "description": "Max height for vertical scroll" },
+          "maxWidth": { "type": "string", "description": "Max width for horizontal scroll" },
+          "hideScrollbar": { "type": "boolean", "default": false },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "overflow-hidden",
+          "viewport": {
+            "vertical": "overflow-y-auto overflow-x-hidden",
+            "horizontal": "overflow-x-auto overflow-y-hidden",
+            "both": "overflow-auto"
+          },
+          "scrollbarHidden": "scrollbar-hide",
+          "customScrollbar": "[&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-neutral-100 [&::-webkit-scrollbar-thumb]:bg-neutral-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+        }
+      }
+    },
+
+    "Collapsible": {
+      "category": "layout",
+      "description": "Expandable/collapsible content container with animation.",
+
+      "anatomy": {
+        "parts": ["root", "trigger", "content"]
+      },
+
+      "states": {
+        "interactive": {
+          "collapsed": {
+            "tokens": {
+              "contentHeight": "0",
+              "contentOverflow": "hidden"
+            }
+          },
+          "expanded": {
+            "tokens": {
+              "contentHeight": "auto",
+              "contentOverflow": "visible"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "isOpen": { "type": "boolean", "description": "Controlled open state" },
+          "defaultIsOpen": { "type": "boolean", "default": false },
+          "onOpenChange": { "type": "(isOpen: boolean) => void" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "trigger": {
+          "ariaExpanded": true,
+          "ariaControls": "ID of content"
+        },
+        "content": {
+          "role": "region",
+          "ariaLabelledby": "ID of trigger"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "content": "overflow-hidden transition-all duration-300",
+          "collapsed": "h-0",
+          "expanded": "h-auto"
+        },
+        "animation": {
+          "expand": "animate-slide-in-down",
+          "collapse": "animate-fade-out"
+        }
+      }
+    }
+  },
+
+  "patterns": {
+    "pageLayout": {
+      "description": "Standard page layout with header, main content, and footer",
+      "structure": [
+        { "component": "Sticky", "children": ["Header"] },
+        { "component": "Container", "children": ["Main content"] },
+        { "component": "Footer" }
+      ],
+      "example": "Sticky[Header] + Container > main + Footer"
+    },
+    "sidebarLayout": {
+      "description": "Layout with sidebar and main content",
+      "structure": [
+        { "component": "Flex", "props": { "minHeight": "100vh" } },
+        { "children": ["Sidebar (fixed width)", "Main (flex-1)"] }
+      ]
+    },
+    "cardGrid": {
+      "description": "Responsive grid of cards",
+      "structure": [
+        { "component": "SimpleGrid", "props": { "minChildWidth": "280px", "spacing": "lg" } }
+      ]
+    },
+    "formLayout": {
+      "description": "Stacked form fields",
+      "structure": [
+        { "component": "VStack", "props": { "spacing": "md", "align": "stretch" } }
+      ]
+    },
+    "centeredContent": {
+      "description": "Centered content for login pages, empty states, etc.",
+      "structure": [
+        { "component": "Center", "props": { "minHeight": "100vh" } },
+        { "children": ["Content card or form"] }
+      ]
+    }
+  }
+}

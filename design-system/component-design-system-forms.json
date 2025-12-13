@@ -1,0 +1,1106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wildlife-component-design-system-forms",
+  "version": "1.0.0",
+  "partOf": {
+    "index": "./component-design-system-index.json",
+    "core": "./component-design-system-core.json"
+  },
+  "description": "Form UI components - inputs, controls, and validation",
+
+  "components": {
+    "Input": {
+      "category": "form",
+      "description": "Text input field for single-line user input with validation states.",
+
+      "anatomy": {
+        "parts": ["root", "inputWrapper", "leftElement", "input", "rightElement", "clearButton"],
+        "slots": {
+          "leftElement": { "accepts": ["Icon", "Text"], "required": false },
+          "rightElement": { "accepts": ["Icon", "Button", "Text"], "required": false }
+        }
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["outline", "filled", "flushed"],
+          "default": "outline",
+          "tokens": {
+            "outline": {
+              "background": "{colors.neutral.0}",
+              "border": "1px solid {semantic.border.default}",
+              "borderRadius": "{borderRadius.md}",
+              "hoverBorder": "{colors.brand.primary.DEFAULT}",
+              "focusBorder": "{colors.brand.primary.DEFAULT}",
+              "focusRing": "0 0 0 2px rgba(1, 114, 47, 0.2)"
+            },
+            "filled": {
+              "background": "{colors.background.tertiary}",
+              "border": "2px solid transparent",
+              "borderRadius": "{borderRadius.md}",
+              "hoverBackground": "{colors.background.sunken}",
+              "focusBorder": "{colors.brand.primary.DEFAULT}",
+              "focusBackground": "{colors.neutral.0}"
+            },
+            "flushed": {
+              "background": "transparent",
+              "border": "none",
+              "borderBottom": "1px solid {semantic.border.default}",
+              "borderRadius": "0",
+              "focusBorderBottom": "2px solid {colors.brand.primary.DEFAULT}"
+            }
+          }
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": {
+              "height": "32px",
+              "paddingX": "{spacing.3}",
+              "fontSize": "13px"
+            },
+            "md": {
+              "height": "40px",
+              "paddingX": "{spacing.3}",
+              "fontSize": "{typography.fontSizes.sm}"
+            },
+            "lg": {
+              "height": "48px",
+              "paddingX": "{spacing.4}",
+              "fontSize": "{typography.fontSizes.base}"
+            }
+          }
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": {
+            "tokens": {
+              "background": "{colors.neutral.0}",
+              "borderColor": "{semantic.border.default}",
+              "color": "#003400"
+            }
+          },
+          "placeholder": {
+            "tokens": {
+              "color": "#7a9a7a"
+            }
+          },
+          "hover": {
+            "tokens": {
+              "borderColor": "{colors.brand.primary.DEFAULT}"
+            }
+          },
+          "focus": {
+            "tokens": {
+              "borderColor": "{colors.brand.primary.DEFAULT}",
+              "boxShadow": "0 0 0 2px rgba(1, 114, 47, 0.2)",
+              "outline": "none"
+            }
+          },
+          "disabled": {
+            "tokens": {
+              "background": "{colors.neutral.100}",
+              "color": "#a8c4a8",
+              "cursor": "not-allowed",
+              "opacity": "1"
+            }
+          },
+          "readOnly": {
+            "tokens": {
+              "background": "{colors.neutral.50}",
+              "cursor": "default"
+            }
+          }
+        },
+        "validation": {
+          "valid": {
+            "tokens": {
+              "borderColor": "{colors.semantic.success.DEFAULT}"
+            }
+          },
+          "invalid": {
+            "tokens": {
+              "borderColor": "{colors.semantic.error.DEFAULT}",
+              "boxShadow": "0 0 0 2px rgba(225, 60, 48, 0.2)"
+            }
+          },
+          "warning": {
+            "tokens": {
+              "borderColor": "{colors.semantic.warning.DEFAULT}"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "required": {},
+        "optional": {
+          "type": { "type": "'text' | 'email' | 'password' | 'tel' | 'url' | 'number' | 'search'", "default": "text" },
+          "value": { "type": "string", "description": "Controlled value" },
+          "defaultValue": { "type": "string", "description": "Uncontrolled default value" },
+          "placeholder": { "type": "string", "description": "Placeholder text" },
+          "variant": { "type": "InputVariant", "default": "outline" },
+          "size": { "type": "Size", "default": "md" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isReadOnly": { "type": "boolean", "default": false },
+          "isRequired": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "isClearable": { "type": "boolean", "default": false },
+          "leftElement": { "type": "ReactElement", "description": "Element on the left side" },
+          "rightElement": { "type": "ReactElement", "description": "Element on the right side" },
+          "onChange": { "type": "(event: ChangeEvent) => void" },
+          "onBlur": { "type": "(event: FocusEvent) => void" },
+          "onFocus": { "type": "(event: FocusEvent) => void" },
+          "onClear": { "type": "() => void", "description": "Called when clear button clicked" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "requiredWhen": "No visible label" },
+          "aria-describedby": { "type": "string", "description": "ID of helper/error text" },
+          "aria-invalid": { "type": "boolean", "description": "Set automatically from isInvalid" },
+          "aria-required": { "type": "boolean", "description": "Set automatically from isRequired" }
+        }
+      },
+
+      "accessibility": {
+        "role": "textbox",
+        "semanticElement": "input",
+        "keyboardInteraction": {
+          "Tab": "Move focus to/from input",
+          "Escape": "Clear input if clearable"
+        },
+        "labelAssociation": {
+          "method": "id + htmlFor OR aria-labelledby",
+          "required": true
+        },
+        "errorAnnouncement": {
+          "method": "aria-describedby pointing to error message",
+          "liveRegion": "aria-live='polite' on error container"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "w-full font-body text-foreground transition-colors duration-150 focus:outline-none",
+          "variants": {
+            "outline": "bg-white border border-border rounded-input hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
+            "filled": "bg-background-tertiary border-2 border-transparent rounded-input hover:bg-background-sunken focus:bg-white focus:border-primary",
+            "flushed": "bg-transparent border-0 border-b border-border rounded-none px-0 focus:border-b-2 focus:border-primary"
+          },
+          "sizes": {
+            "sm": "h-8 px-3 text-[13px]",
+            "md": "h-10 px-3 text-sm",
+            "lg": "h-12 px-4 text-base"
+          },
+          "states": {
+            "disabled": "bg-neutral-100 text-foreground-disabled cursor-not-allowed",
+            "invalid": "border-error focus:ring-error/20",
+            "valid": "border-success"
+          },
+          "placeholder": "placeholder:text-foreground-placeholder"
+        },
+        "cssCustomProperties": {
+          "--input-height": "var(--spacing-10)",
+          "--input-padding-x": "var(--spacing-3)",
+          "--input-font-size": "var(--text-sm)",
+          "--input-border-radius": "var(--radius-md)",
+          "--input-border-color": "var(--color-border)",
+          "--input-border-focus": "var(--color-primary)",
+          "--input-placeholder": "var(--color-foreground-placeholder)"
+        }
+      },
+
+      "composition": {
+        "validParents": ["FormControl"],
+        "commonPatterns": [
+          {
+            "name": "Input with Icon",
+            "description": "Input with leading or trailing icon",
+            "layout": "Icon inside input padding area"
+          },
+          {
+            "name": "Search Input",
+            "description": "Input with search icon and clear button",
+            "requirements": ["Search icon on left", "Clear button appears when value exists"]
+          },
+          {
+            "name": "Password Input",
+            "description": "Input with visibility toggle",
+            "requirements": ["Toggle button on right", "aria-label for toggle"]
+          }
+        ]
+      },
+
+      "testing": {
+        "dataAttributes": {
+          "data-testid": "input",
+          "data-invalid": "boolean",
+          "data-disabled": "boolean"
+        },
+        "ariaQueries": [
+          "getByRole('textbox')",
+          "getByLabelText('label')",
+          "getByPlaceholderText('placeholder')"
+        ]
+      }
+    },
+
+    "Textarea": {
+      "category": "form",
+      "description": "Multi-line text input for longer content.",
+
+      "anatomy": {
+        "parts": ["root", "textarea", "counter"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["outline", "filled", "flushed"],
+          "default": "outline",
+          "tokens": "Inherits from Input component"
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "paddingX": "{spacing.3}", "paddingY": "{spacing.2}", "fontSize": "13px", "minHeight": "80px" },
+            "md": { "paddingX": "{spacing.3}", "paddingY": "{spacing.2.5}", "fontSize": "{typography.fontSizes.sm}", "minHeight": "100px" },
+            "lg": { "paddingX": "{spacing.4}", "paddingY": "{spacing.3}", "fontSize": "{typography.fontSizes.base}", "minHeight": "120px" }
+          }
+        },
+        "resize": {
+          "values": ["none", "vertical", "horizontal", "both"],
+          "default": "vertical"
+        }
+      },
+
+      "props": {
+        "required": {},
+        "optional": {
+          "value": { "type": "string" },
+          "defaultValue": { "type": "string" },
+          "placeholder": { "type": "string" },
+          "variant": { "type": "InputVariant", "default": "outline" },
+          "size": { "type": "Size", "default": "md" },
+          "resize": { "type": "Resize", "default": "vertical" },
+          "rows": { "type": "number", "default": 3 },
+          "maxLength": { "type": "number" },
+          "showCount": { "type": "boolean", "default": false, "description": "Show character count" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isReadOnly": { "type": "boolean", "default": false },
+          "isRequired": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "onChange": { "type": "(event: ChangeEvent) => void" }
+        }
+      },
+
+      "accessibility": {
+        "role": "textbox",
+        "multiline": true,
+        "semanticElement": "textarea"
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "w-full font-body text-foreground transition-colors duration-150 focus:outline-none",
+          "variants": {
+            "outline": "bg-white border border-border rounded-input hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
+            "filled": "bg-background-tertiary border-2 border-transparent rounded-input hover:bg-background-sunken focus:bg-white focus:border-primary"
+          },
+          "sizes": {
+            "sm": "px-3 py-2 text-[13px] min-h-[80px]",
+            "md": "px-3 py-2.5 text-sm min-h-[100px]",
+            "lg": "px-4 py-3 text-base min-h-[120px]"
+          },
+          "resize": {
+            "none": "resize-none",
+            "vertical": "resize-y",
+            "horizontal": "resize-x",
+            "both": "resize"
+          }
+        }
+      }
+    },
+
+    "Select": {
+      "category": "form",
+      "description": "Dropdown selection component for choosing from a list of options.",
+
+      "anatomy": {
+        "parts": ["root", "trigger", "placeholder", "value", "icon", "listbox", "option", "optionGroup"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["outline", "filled", "flushed"],
+          "default": "outline",
+          "tokens": "Inherits from Input component"
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": "Inherits from Input component"
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": { "tokens": "Inherits from Input" },
+          "hover": { "tokens": "Inherits from Input" },
+          "focus": { "tokens": "Inherits from Input" },
+          "open": {
+            "tokens": {
+              "borderColor": "{colors.brand.primary.DEFAULT}",
+              "boxShadow": "{shadows.focus}"
+            }
+          },
+          "disabled": { "tokens": "Inherits from Input" }
+        }
+      },
+
+      "props": {
+        "required": {
+          "options": { "type": "Array<{ value: string; label: string; disabled?: boolean }>", "description": "List of options" }
+        },
+        "optional": {
+          "value": { "type": "string | string[]", "description": "Controlled value" },
+          "defaultValue": { "type": "string | string[]" },
+          "placeholder": { "type": "string", "default": "Select an option" },
+          "variant": { "type": "InputVariant", "default": "outline" },
+          "size": { "type": "Size", "default": "md" },
+          "isMulti": { "type": "boolean", "default": false, "description": "Allow multiple selections" },
+          "isSearchable": { "type": "boolean", "default": false, "description": "Allow filtering options" },
+          "isClearable": { "type": "boolean", "default": false },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isRequired": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "onChange": { "type": "(value: string | string[]) => void" },
+          "onOpen": { "type": "() => void" },
+          "onClose": { "type": "() => void" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "requiredWhen": "No visible label" },
+          "aria-labelledby": { "type": "string" },
+          "aria-describedby": { "type": "string" }
+        }
+      },
+
+      "accessibility": {
+        "role": "combobox",
+        "expandedState": "aria-expanded",
+        "keyboardInteraction": {
+          "Space/Enter": "Open/close dropdown or select option",
+          "ArrowDown": "Open dropdown or move to next option",
+          "ArrowUp": "Move to previous option",
+          "Home": "Move to first option",
+          "End": "Move to last option",
+          "Escape": "Close dropdown",
+          "Type characters": "Jump to matching option"
+        },
+        "listbox": {
+          "role": "listbox",
+          "optionRole": "option",
+          "selectedState": "aria-selected"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "trigger": "w-full flex items-center justify-between font-body text-foreground transition-colors duration-150 focus:outline-none cursor-pointer",
+          "listbox": "absolute z-dropdown mt-1 w-full bg-white border border-border rounded-lg shadow-lg max-h-60 overflow-auto",
+          "option": "px-3 py-2 cursor-pointer hover:bg-primary-50 focus:bg-primary-50 focus:outline-none",
+          "optionSelected": "bg-primary-50 text-primary font-medium",
+          "optionDisabled": "opacity-50 cursor-not-allowed"
+        },
+        "animation": {
+          "open": "animate-fade-in",
+          "close": "animate-fade-out"
+        }
+      }
+    },
+
+    "Checkbox": {
+      "category": "form",
+      "description": "Selection control for boolean or multiple choice values.",
+
+      "anatomy": {
+        "parts": ["root", "control", "checkIcon", "label", "helperText"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "controlSize": "16px", "iconSize": "10px", "labelSize": "{typography.fontSizes.sm}", "gap": "{spacing.2}" },
+            "md": { "controlSize": "20px", "iconSize": "12px", "labelSize": "{typography.fontSizes.sm}", "gap": "{spacing.2}" },
+            "lg": { "controlSize": "24px", "iconSize": "14px", "labelSize": "{typography.fontSizes.base}", "gap": "{spacing.3}" }
+          }
+        },
+        "colorScheme": {
+          "values": ["primary", "success", "warning", "error"],
+          "default": "primary",
+          "tokens": {
+            "primary": { "checkedBackground": "{colors.brand.primary.DEFAULT}", "checkedBorder": "{colors.brand.primary.DEFAULT}" },
+            "success": { "checkedBackground": "{colors.semantic.success.DEFAULT}", "checkedBorder": "{colors.semantic.success.DEFAULT}" },
+            "warning": { "checkedBackground": "{colors.semantic.warning.DEFAULT}", "checkedBorder": "{colors.semantic.warning.DEFAULT}" },
+            "error": { "checkedBackground": "{colors.semantic.error.DEFAULT}", "checkedBorder": "{colors.semantic.error.DEFAULT}" }
+          }
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": {
+            "tokens": {
+              "background": "{colors.neutral.0}",
+              "border": "2px solid {semantic.border.default}"
+            }
+          },
+          "hover": {
+            "tokens": {
+              "borderColor": "{colors.brand.primary.DEFAULT}"
+            }
+          },
+          "focus": {
+            "tokens": {
+              "boxShadow": "{shadows.focus}"
+            }
+          },
+          "checked": {
+            "tokens": {
+              "background": "{colors.brand.primary.DEFAULT}",
+              "borderColor": "{colors.brand.primary.DEFAULT}",
+              "iconColor": "{colors.neutral.0}"
+            }
+          },
+          "indeterminate": {
+            "tokens": {
+              "background": "{colors.brand.primary.DEFAULT}",
+              "borderColor": "{colors.brand.primary.DEFAULT}",
+              "iconColor": "{colors.neutral.0}"
+            }
+          },
+          "disabled": {
+            "tokens": {
+              "background": "{colors.neutral.100}",
+              "borderColor": "{colors.neutral.300}",
+              "cursor": "not-allowed",
+              "opacity": "0.6"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "required": {},
+        "optional": {
+          "isChecked": { "type": "boolean", "description": "Controlled checked state" },
+          "defaultChecked": { "type": "boolean", "default": false },
+          "isIndeterminate": { "type": "boolean", "default": false, "description": "Indeterminate state for parent checkboxes" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isRequired": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "size": { "type": "Size", "default": "md" },
+          "colorScheme": { "type": "ColorScheme", "default": "primary" },
+          "value": { "type": "string", "description": "Value when used in CheckboxGroup" },
+          "name": { "type": "string" },
+          "onChange": { "type": "(event: ChangeEvent) => void" },
+          "children": { "type": "ReactNode", "description": "Label content" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "requiredWhen": "No visible label" },
+          "aria-describedby": { "type": "string" }
+        }
+      },
+
+      "accessibility": {
+        "role": "checkbox",
+        "semanticElement": "input[type='checkbox']",
+        "checkedState": "aria-checked (true | false | mixed)",
+        "keyboardInteraction": {
+          "Space": "Toggle checked state",
+          "Tab": "Move focus"
+        },
+        "labelAssociation": {
+          "method": "Wrapping label element or aria-labelledby"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "inline-flex items-start gap-2 cursor-pointer",
+          "control": "flex-shrink-0 rounded border-2 border-border transition-colors duration-150 flex items-center justify-center",
+          "controlChecked": "bg-primary border-primary",
+          "controlIndeterminate": "bg-primary border-primary",
+          "controlDisabled": "bg-neutral-100 border-neutral-300 cursor-not-allowed opacity-60",
+          "sizes": {
+            "sm": "w-4 h-4",
+            "md": "w-5 h-5",
+            "lg": "w-6 h-6"
+          },
+          "label": "text-foreground select-none",
+          "labelDisabled": "text-foreground-disabled"
+        }
+      },
+
+      "composition": {
+        "validParents": ["CheckboxGroup", "FormControl"],
+        "commonPatterns": [
+          {
+            "name": "Checkbox Group",
+            "description": "Multiple related checkboxes",
+            "requirements": ["Shared name attribute", "Group label via fieldset/legend"]
+          },
+          {
+            "name": "Select All Pattern",
+            "description": "Parent checkbox controlling children",
+            "requirements": ["Indeterminate state when partially selected", "aria-controls on parent"]
+          }
+        ]
+      }
+    },
+
+    "Radio": {
+      "category": "form",
+      "description": "Selection control for single choice from multiple options.",
+
+      "anatomy": {
+        "parts": ["root", "control", "dot", "label"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "controlSize": "16px", "dotSize": "6px", "labelSize": "{typography.fontSizes.sm}" },
+            "md": { "controlSize": "20px", "dotSize": "8px", "labelSize": "{typography.fontSizes.sm}" },
+            "lg": { "controlSize": "24px", "dotSize": "10px", "labelSize": "{typography.fontSizes.base}" }
+          }
+        },
+        "colorScheme": {
+          "values": ["primary", "success", "warning", "error"],
+          "default": "primary"
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": {
+            "tokens": {
+              "background": "{colors.neutral.0}",
+              "border": "2px solid {semantic.border.default}"
+            }
+          },
+          "hover": {
+            "tokens": {
+              "borderColor": "{colors.brand.primary.DEFAULT}"
+            }
+          },
+          "focus": {
+            "tokens": {
+              "boxShadow": "{shadows.focus}"
+            }
+          },
+          "checked": {
+            "tokens": {
+              "borderColor": "{colors.brand.primary.DEFAULT}",
+              "dotColor": "{colors.brand.primary.DEFAULT}"
+            }
+          },
+          "disabled": {
+            "tokens": {
+              "background": "{colors.neutral.100}",
+              "borderColor": "{colors.neutral.300}",
+              "opacity": "0.6"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "value": { "type": "string", "description": "Radio value" }
+        },
+        "optional": {
+          "isChecked": { "type": "boolean" },
+          "defaultChecked": { "type": "boolean" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "size": { "type": "Size", "default": "md" },
+          "colorScheme": { "type": "ColorScheme", "default": "primary" },
+          "name": { "type": "string", "description": "Required when not in RadioGroup" },
+          "onChange": { "type": "(event: ChangeEvent) => void" },
+          "children": { "type": "ReactNode", "description": "Label content" }
+        }
+      },
+
+      "accessibility": {
+        "role": "radio",
+        "semanticElement": "input[type='radio']",
+        "groupRole": "radiogroup",
+        "keyboardInteraction": {
+          "Space": "Select focused radio",
+          "ArrowDown/ArrowRight": "Move to next radio",
+          "ArrowUp/ArrowLeft": "Move to previous radio"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "inline-flex items-center gap-2 cursor-pointer",
+          "control": "flex-shrink-0 rounded-full border-2 border-border transition-colors duration-150 flex items-center justify-center",
+          "controlChecked": "border-primary",
+          "dot": "rounded-full bg-primary scale-0 transition-transform duration-150",
+          "dotChecked": "scale-100",
+          "sizes": {
+            "sm": { "control": "w-4 h-4", "dot": "w-1.5 h-1.5" },
+            "md": { "control": "w-5 h-5", "dot": "w-2 h-2" },
+            "lg": { "control": "w-6 h-6", "dot": "w-2.5 h-2.5" }
+          }
+        }
+      }
+    },
+
+    "Switch": {
+      "category": "form",
+      "description": "Toggle control for binary on/off states.",
+
+      "anatomy": {
+        "parts": ["root", "track", "thumb", "label"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "trackWidth": "28px", "trackHeight": "16px", "thumbSize": "12px" },
+            "md": { "trackWidth": "36px", "trackHeight": "20px", "thumbSize": "16px" },
+            "lg": { "trackWidth": "44px", "trackHeight": "24px", "thumbSize": "20px" }
+          }
+        },
+        "colorScheme": {
+          "values": ["primary", "success"],
+          "default": "primary",
+          "tokens": {
+            "primary": { "checkedTrack": "{colors.brand.primary.DEFAULT}" },
+            "success": { "checkedTrack": "{colors.semantic.success.DEFAULT}" }
+          }
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": {
+            "tokens": {
+              "trackBackground": "{colors.neutral.300}",
+              "thumbBackground": "{colors.neutral.0}",
+              "thumbPosition": "2px"
+            }
+          },
+          "hover": {
+            "tokens": {
+              "trackBackground": "{colors.neutral.400}"
+            }
+          },
+          "focus": {
+            "tokens": {
+              "boxShadow": "{shadows.focus}"
+            }
+          },
+          "checked": {
+            "tokens": {
+              "trackBackground": "{colors.brand.primary.DEFAULT}",
+              "thumbPosition": "calc(100% - 2px - thumbSize)"
+            }
+          },
+          "disabled": {
+            "tokens": {
+              "opacity": "0.5",
+              "cursor": "not-allowed"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "isChecked": { "type": "boolean" },
+          "defaultChecked": { "type": "boolean", "default": false },
+          "isDisabled": { "type": "boolean", "default": false },
+          "size": { "type": "Size", "default": "md" },
+          "colorScheme": { "type": "ColorScheme", "default": "primary" },
+          "onChange": { "type": "(event: ChangeEvent) => void" },
+          "children": { "type": "ReactNode", "description": "Label content" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "requiredWhen": "No visible label" }
+        }
+      },
+
+      "accessibility": {
+        "role": "switch",
+        "checkedState": "aria-checked",
+        "keyboardInteraction": {
+          "Space": "Toggle switch",
+          "Enter": "Toggle switch"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "inline-flex items-center gap-2 cursor-pointer",
+          "track": "relative rounded-full transition-colors duration-200",
+          "trackOff": "bg-neutral-300",
+          "trackOn": "bg-primary",
+          "thumb": "absolute bg-white rounded-full shadow-sm transition-transform duration-200",
+          "thumbOff": "translate-x-0.5",
+          "sizes": {
+            "sm": { "track": "w-7 h-4", "thumb": "w-3 h-3", "thumbOn": "translate-x-3" },
+            "md": { "track": "w-9 h-5", "thumb": "w-4 h-4", "thumbOn": "translate-x-4" },
+            "lg": { "track": "w-11 h-6", "thumb": "w-5 h-5", "thumbOn": "translate-x-5" }
+          }
+        }
+      }
+    },
+
+    "Slider": {
+      "category": "form",
+      "description": "Range input for selecting a value within a range.",
+
+      "anatomy": {
+        "parts": ["root", "track", "filledTrack", "thumb", "mark", "markLabel"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "trackHeight": "4px", "thumbSize": "12px" },
+            "md": { "trackHeight": "6px", "thumbSize": "16px" },
+            "lg": { "trackHeight": "8px", "thumbSize": "20px" }
+          }
+        },
+        "orientation": {
+          "values": ["horizontal", "vertical"],
+          "default": "horizontal"
+        },
+        "colorScheme": {
+          "values": ["primary", "secondary"],
+          "default": "primary"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "value": { "type": "number" },
+          "defaultValue": { "type": "number" },
+          "min": { "type": "number", "default": 0 },
+          "max": { "type": "number", "default": 100 },
+          "step": { "type": "number", "default": 1 },
+          "size": { "type": "Size", "default": "md" },
+          "orientation": { "type": "Orientation", "default": "horizontal" },
+          "colorScheme": { "type": "ColorScheme", "default": "primary" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "showMarks": { "type": "boolean", "default": false },
+          "marks": { "type": "Array<{ value: number; label?: string }>", "description": "Custom mark positions" },
+          "onChange": { "type": "(value: number) => void" },
+          "onChangeEnd": { "type": "(value: number) => void" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "required": true },
+          "aria-valuemin": { "type": "number", "description": "Auto from min" },
+          "aria-valuemax": { "type": "number", "description": "Auto from max" },
+          "aria-valuenow": { "type": "number", "description": "Auto from value" },
+          "aria-valuetext": { "type": "string", "description": "Human-readable value" }
+        }
+      },
+
+      "accessibility": {
+        "role": "slider",
+        "keyboardInteraction": {
+          "ArrowRight/ArrowUp": "Increase value by step",
+          "ArrowLeft/ArrowDown": "Decrease value by step",
+          "PageUp": "Increase value by large step",
+          "PageDown": "Decrease value by large step",
+          "Home": "Set to min value",
+          "End": "Set to max value"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "relative w-full",
+          "track": "relative rounded-full bg-neutral-200",
+          "filledTrack": "absolute rounded-full bg-primary",
+          "thumb": "absolute rounded-full bg-white border-2 border-primary shadow-md cursor-grab active:cursor-grabbing focus:ring-2 focus:ring-primary/30",
+          "thumbDisabled": "cursor-not-allowed"
+        }
+      }
+    },
+
+    "FormControl": {
+      "category": "form",
+      "description": "Wrapper providing context for form fields including label, helper text, and error states.",
+
+      "anatomy": {
+        "parts": ["root", "label", "requiredIndicator", "input", "helperText", "errorMessage"]
+      },
+
+      "variants": {},
+
+      "props": {
+        "optional": {
+          "isRequired": { "type": "boolean", "default": false },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "isReadOnly": { "type": "boolean", "default": false },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "context": {
+          "providesIds": "Auto-generated IDs for label association",
+          "providesAriaDescribedby": "Links input to helper/error text"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "space-y-1.5"
+        }
+      },
+
+      "composition": {
+        "validChildren": ["FormLabel", "Input", "Textarea", "Select", "Checkbox", "Radio", "Switch", "FormHelperText", "FormErrorMessage"],
+        "structure": "FormControl > FormLabel + Input + (FormHelperText | FormErrorMessage)"
+      }
+    },
+
+    "FormLabel": {
+      "category": "form",
+      "description": "Label element for form controls.",
+
+      "anatomy": {
+        "parts": ["root", "text", "requiredIndicator", "optionalIndicator"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md"],
+          "default": "md",
+          "tokens": {
+            "sm": { "fontSize": "{typography.fontSizes.xs}", "marginBottom": "{spacing.1}" },
+            "md": { "fontSize": "{typography.fontSizes.sm}", "marginBottom": "{spacing.1.5}" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Label text" }
+        },
+        "optional": {
+          "htmlFor": { "type": "string", "description": "ID of associated input (auto-set in FormControl)" },
+          "size": { "type": "Size", "default": "md" },
+          "requiredIndicator": { "type": "ReactNode", "default": "*", "description": "Custom required indicator" },
+          "optionalIndicator": { "type": "ReactNode", "description": "Shows when not required" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "block font-medium text-foreground mb-1.5",
+          "sizes": {
+            "sm": "text-xs mb-1",
+            "md": "text-sm mb-1.5"
+          },
+          "required": "after:content-['*'] after:text-error after:ml-0.5"
+        }
+      }
+    },
+
+    "FormHelperText": {
+      "category": "form",
+      "description": "Helper text providing additional context for form fields.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Helper text content" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "text-xs text-foreground-muted mt-1.5"
+        }
+      }
+    },
+
+    "FormErrorMessage": {
+      "category": "form",
+      "description": "Error message for invalid form fields. Only renders when form control is invalid.",
+
+      "anatomy": {
+        "parts": ["root", "icon", "text"]
+      },
+
+      "props": {
+        "required": {
+          "children": { "type": "ReactNode", "description": "Error message content" }
+        },
+        "optional": {
+          "icon": { "type": "ReactElement", "description": "Custom error icon" }
+        }
+      },
+
+      "accessibility": {
+        "role": "alert",
+        "ariaLive": "polite",
+        "association": "Linked via aria-describedby on input"
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex items-center gap-1.5 text-xs text-error mt-1.5",
+          "icon": "w-3.5 h-3.5 flex-shrink-0"
+        }
+      }
+    },
+
+    "NumberInput": {
+      "category": "form",
+      "description": "Input for numeric values with increment/decrement controls.",
+
+      "anatomy": {
+        "parts": ["root", "input", "stepperGroup", "incrementButton", "decrementButton"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md"
+        },
+        "variant": {
+          "values": ["outline", "filled"],
+          "default": "outline"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "value": { "type": "number" },
+          "defaultValue": { "type": "number" },
+          "min": { "type": "number" },
+          "max": { "type": "number" },
+          "step": { "type": "number", "default": 1 },
+          "precision": { "type": "number", "description": "Decimal places" },
+          "size": { "type": "Size", "default": "md" },
+          "variant": { "type": "InputVariant", "default": "outline" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isReadOnly": { "type": "boolean", "default": false },
+          "isRequired": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "clampValueOnBlur": { "type": "boolean", "default": true, "description": "Clamp to min/max on blur" },
+          "allowMouseWheel": { "type": "boolean", "default": false },
+          "onChange": { "type": "(valueAsString: string, valueAsNumber: number) => void" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "requiredWhen": "No visible label" }
+        }
+      },
+
+      "accessibility": {
+        "role": "spinbutton",
+        "keyboardInteraction": {
+          "ArrowUp": "Increment value",
+          "ArrowDown": "Decrement value",
+          "PageUp": "Increment by larger step",
+          "PageDown": "Decrement by larger step",
+          "Home": "Set to min (if defined)",
+          "End": "Set to max (if defined)"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "relative flex",
+          "input": "flex-1 text-center",
+          "stepperGroup": "absolute right-0 top-0 bottom-0 flex flex-col border-l border-border",
+          "stepper": "flex-1 px-2 hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        }
+      }
+    },
+
+    "PinInput": {
+      "category": "form",
+      "description": "Input for PIN codes and verification codes with multiple single-character fields.",
+
+      "anatomy": {
+        "parts": ["root", "field"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "fieldSize": "32px", "fontSize": "{typography.fontSizes.sm}" },
+            "md": { "fieldSize": "40px", "fontSize": "{typography.fontSizes.base}" },
+            "lg": { "fieldSize": "48px", "fontSize": "{typography.fontSizes.lg}" }
+          }
+        },
+        "variant": {
+          "values": ["outline", "filled", "flushed"],
+          "default": "outline"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "value": { "type": "string" },
+          "defaultValue": { "type": "string" },
+          "length": { "type": "number", "default": 4, "description": "Number of fields" },
+          "type": { "type": "'alphanumeric' | 'number'", "default": "number" },
+          "mask": { "type": "boolean", "default": false, "description": "Mask input like password" },
+          "otp": { "type": "boolean", "default": false, "description": "Enable OTP autocomplete" },
+          "size": { "type": "Size", "default": "md" },
+          "variant": { "type": "InputVariant", "default": "outline" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "isInvalid": { "type": "boolean", "default": false },
+          "placeholder": { "type": "string" },
+          "manageFocus": { "type": "boolean", "default": true, "description": "Auto-focus next field" },
+          "onChange": { "type": "(value: string) => void" },
+          "onComplete": { "type": "(value: string) => void", "description": "Called when all fields filled" }
+        }
+      },
+
+      "accessibility": {
+        "role": "group",
+        "ariaLabel": "PIN input",
+        "keyboardInteraction": {
+          "Digit/Letter": "Enter character, move to next",
+          "Backspace": "Clear current, move to previous",
+          "ArrowLeft/ArrowRight": "Navigate between fields",
+          "Paste": "Distribute pasted characters"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "flex gap-2",
+          "field": "text-center font-mono focus:z-10"
+        }
+      }
+    }
+  }
+}

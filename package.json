@@ -1,0 +1,50 @@
+{
+  "name": "inventory-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.87.1",
+    "@tanstack/react-table": "^8.11.0",
+    "clsx": "^2.0.0",
+    "date-fns": "^3.0.0",
+    "html5-qrcode": "^2.3.8",
+    "idb": "^8.0.3",
+    "jspdf": "^2.5.1",
+    "lucide-react": "^0.294.0",
+    "next": "^14.2.0",
+    "next-pwa": "^5.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-qr-code": "^2.0.12",
+    "tailwind-merge": "^2.2.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/uuid": "^9",
+    "@vitejs/plugin-react": "^5.1.2",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.0",
+    "jsdom": "^27.3.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5",
+    "vitest": "^4.0.15"
+  }
+}

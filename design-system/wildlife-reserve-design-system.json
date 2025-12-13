@@ -1,0 +1,1054 @@
+{
+  "designSystem": {
+    "meta": {
+      "name": "Wildlife Reserve Design System",
+      "description": "A nature-inspired design system rooted in the exhortation 'Come to life' - combining conservation messaging with family-friendly accessibility. The system treats wildlife, humans, and nature as equal, featuring tropical visual elements, custom serif typography, and a rich illustration library depicting biodiversity. Built as a 'design playbook for biodiversity' rather than a simple rebrand.",
+      "version": "1.0.0",
+      "generatedFrom": "Web research and brand documentation analysis",
+      "lastUpdated": "2025-12-12"
+    },
+
+    "principles": {
+      "style": "Tropical naturalism with Bauhaus-inspired geometry",
+      "mood": "Joyful, hopeful, inspiring - not daunting or preachy",
+      "density": "Comfortable with generous whitespace allowing nature imagery to breathe",
+      "keyCharacteristics": [
+        "Nature-first visual hierarchy with tropical framing devices",
+        "Balance of photorealistic animals with illustrated flora",
+        "Warm, organic typography with leaf-inspired serifs",
+        "Conservation messaging wrapped in family-friendly accessibility",
+        "Unified voice across five distinct wildlife park themes"
+      ],
+      "accessibilityApproach": "Multigenerational appeal with high contrast text, clear wayfinding, and intuitive digital experiences for all ages",
+      "brandTagline": "Come to life",
+      "brandPhilosophy": "Wildlife, humans, and nature are simply equal"
+    },
+
+    "colors": {
+      "brand": {
+        "primary": {
+          "50": "#e6f4eb",
+          "100": "#b3dfc4",
+          "200": "#80ca9d",
+          "300": "#4db576",
+          "400": "#26a45a",
+          "500": "#01722f",
+          "600": "#016628",
+          "700": "#015521",
+          "800": "#01441a",
+          "900": "#003310",
+          "950": "#002209",
+          "DEFAULT": "#01722f",
+          "foreground": "#ffffff",
+          "usage": "Primary brand color - Fun Green - used for logos, primary UI elements, and nature-themed accents"
+        },
+        "secondary": {
+          "50": "#fef9f0",
+          "100": "#fdf5e9",
+          "200": "#fbedd4",
+          "300": "#f8e2ba",
+          "400": "#f5d7a0",
+          "500": "#faf5e9",
+          "600": "#e8dcc7",
+          "700": "#c9bda6",
+          "800": "#aa9e85",
+          "900": "#8b7f64",
+          "950": "#6c6043",
+          "DEFAULT": "#faf5e9",
+          "foreground": "#003400",
+          "usage": "Rum Swizzle - warm cream background, evokes natural paper/canvas feel"
+        },
+        "accent": {
+          "DEFAULT": "#e13c30",
+          "light": "#f5706a",
+          "dark": "#b82d23",
+          "foreground": "#ffffff",
+          "usage": "Cinnabar red - used sparingly for critical alerts, emphasis, and warmth accents"
+        },
+        "tertiary": {
+          "DEFAULT": "#ffcc00",
+          "light": "#ffe066",
+          "dark": "#cc9900",
+          "foreground": "#003400",
+          "usage": "Bright yellow - primary CTA buttons, highlighting, warmth"
+        }
+      },
+      "parks": {
+        "forest": {
+          "primary": "#01722f",
+          "accent": "#ff8c00",
+          "description": "Deep green with orange accents - represents rainforest habitat and primate heritage"
+        },
+        "nocturnal": {
+          "primary": "#1a1a3e",
+          "accent": "#c9a227",
+          "description": "Midnight blue with golden eyes - mysterious nocturnal atmosphere"
+        },
+        "aquatic": {
+          "primary": "#0077b6",
+          "accent": "#90e0ef",
+          "description": "Deep river blue with aqua highlights - aquatic environments"
+        },
+        "aviary": {
+          "primary": "#e63946",
+          "accent": "#06d6a0",
+          "description": "Vibrant macaw red with tropical green - inspired by iconic birds"
+        },
+        "jungle": {
+          "primary": "#2d6a4f",
+          "accent": "#d4a373",
+          "description": "Forest green with earthy brown - sun bear and forest themes"
+        }
+      },
+      "neutral": {
+        "0": "#ffffff",
+        "50": "#fafafa",
+        "100": "#f5f5f5",
+        "200": "#eeeeee",
+        "300": "#e0e0e0",
+        "400": "#bdbdbd",
+        "500": "#9e9e9e",
+        "600": "#757575",
+        "700": "#616161",
+        "800": "#424242",
+        "900": "#212121",
+        "950": "#121212",
+        "1000": "#000000"
+      },
+      "semantic": {
+        "success": {
+          "light": "#d4edda",
+          "DEFAULT": "#28a745",
+          "dark": "#155724",
+          "foreground": "#ffffff"
+        },
+        "warning": {
+          "light": "#fff3cd",
+          "DEFAULT": "#ffc107",
+          "dark": "#856404",
+          "foreground": "#003400"
+        },
+        "error": {
+          "light": "#f8d7da",
+          "DEFAULT": "#dc3545",
+          "dark": "#721c24",
+          "foreground": "#ffffff"
+        },
+        "info": {
+          "light": "#d1ecf1",
+          "DEFAULT": "#17a2b8",
+          "dark": "#0c5460",
+          "foreground": "#ffffff"
+        }
+      },
+      "background": {
+        "DEFAULT": "#ffffff",
+        "secondary": "#faf5e9",
+        "tertiary": "#f5f0e3",
+        "elevated": "#ffffff",
+        "sunken": "#f0ebe0"
+      },
+      "foreground": {
+        "DEFAULT": "#003400",
+        "secondary": "#1a4d1a",
+        "muted": "#4d6b4d",
+        "placeholder": "#7a9a7a",
+        "disabled": "#a8c4a8",
+        "inverse": "#ffffff"
+      },
+      "border": {
+        "DEFAULT": "#d4d9c8",
+        "secondary": "#e8ede0",
+        "strong": "#003400",
+        "focus": "#01722f"
+      },
+      "overlay": {
+        "light": "rgba(250, 245, 233, 0.9)",
+        "dark": "rgba(0, 52, 0, 0.75)",
+        "scrim": "rgba(0, 0, 0, 0.5)"
+      },
+      "gradients": {
+        "tropical": {
+          "type": "linear",
+          "angle": "135deg",
+          "stops": [
+            { "color": "#01722f", "position": "0%" },
+            { "color": "#2d6a4f", "position": "50%" },
+            { "color": "#40916c", "position": "100%" }
+          ],
+          "css": "linear-gradient(135deg, #01722f 0%, #2d6a4f 50%, #40916c 100%)"
+        },
+        "sunrise": {
+          "type": "linear",
+          "angle": "180deg",
+          "stops": [
+            { "color": "#faf5e9", "position": "0%" },
+            { "color": "#ffcc00", "position": "100%" }
+          ],
+          "css": "linear-gradient(180deg, #faf5e9 0%, #ffcc00 100%)"
+        },
+        "nocturnal": {
+          "type": "linear",
+          "angle": "180deg",
+          "stops": [
+            { "color": "#0d0d1a", "position": "0%" },
+            { "color": "#1a1a3e", "position": "50%" },
+            { "color": "#2d2d5e", "position": "100%" }
+          ],
+          "css": "linear-gradient(180deg, #0d0d1a 0%, #1a1a3e 50%, #2d2d5e 100%)"
+        }
+      },
+      "harmony": {
+        "type": "analogous with complementary accents",
+        "temperature": "warm with cool nature tones",
+        "saturationPattern": "High saturation for brand colors, muted earth tones for backgrounds"
+      }
+    },
+
+    "darkMode": {
+      "colors": {
+        "background": {
+          "DEFAULT": "#0d1f0d",
+          "secondary": "#152815",
+          "tertiary": "#1c351c",
+          "elevated": "#234223"
+        },
+        "foreground": {
+          "DEFAULT": "#f0f5e9",
+          "secondary": "#d4e4c8",
+          "muted": "#a8c4a8"
+        },
+        "border": {
+          "DEFAULT": "#2d5a2d",
+          "secondary": "#1c3d1c"
+        }
+      },
+      "notes": "Dark mode maintains the nature-inspired palette with deep forest greens rather than pure blacks, preserving the organic feel while improving nighttime readability - particularly relevant for nocturnal theme context"
+    },
+
+    "typography": {
+      "fontFamilies": {
+        "heading": {
+          "name": "Wildlife Value Serif",
+          "fallback": "Halant, Vollkorn, Georgia, serif",
+          "css": "'Wildlife Value Serif', Halant, Vollkorn, Georgia, serif",
+          "description": "Custom typeface with pinched angular serifs giving leaf-like organic appearance. Low ascenders, high x-height, friendly circular letterforms.",
+          "licensing": "Proprietary - Wildlife Reserve System"
+        },
+        "body": {
+          "name": "Poppins",
+          "fallback": "system-ui, -apple-system, sans-serif",
+          "css": "'Poppins', system-ui, -apple-system, sans-serif",
+          "description": "Clean, geometric sans-serif for body text and UI elements"
+        },
+        "display": {
+          "name": "Karrik",
+          "fallback": "serif",
+          "css": "'Karrik', serif",
+          "description": "Secondary display typeface for special applications"
+        },
+        "mono": {
+          "name": "JetBrains Mono",
+          "fallback": "ui-monospace, 'Courier New', monospace",
+          "css": "'JetBrains Mono', ui-monospace, monospace"
+        },
+        "parkWordmarks": {
+          "name": "Custom Bauhaus-inspired",
+          "description": "Geometric typeface paying homage to classic zoological garden logos",
+          "usage": "Park name wordmarks only"
+        }
+      },
+      "scale": {
+        "display": {
+          "fontSize": "72px",
+          "fontSizeRem": "4.5rem",
+          "lineHeight": "1.1",
+          "letterSpacing": "-0.02em",
+          "fontWeight": "700",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "h1": {
+          "fontSize": "48px",
+          "fontSizeRem": "3rem",
+          "lineHeight": "1.2",
+          "letterSpacing": "-0.015em",
+          "fontWeight": "700",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "h2": {
+          "fontSize": "36px",
+          "fontSizeRem": "2.25rem",
+          "lineHeight": "1.25",
+          "letterSpacing": "-0.01em",
+          "fontWeight": "600",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "h3": {
+          "fontSize": "28px",
+          "fontSizeRem": "1.75rem",
+          "lineHeight": "1.3",
+          "letterSpacing": "-0.005em",
+          "fontWeight": "600",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "h4": {
+          "fontSize": "22px",
+          "fontSizeRem": "1.375rem",
+          "lineHeight": "1.35",
+          "letterSpacing": "0",
+          "fontWeight": "600",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "h5": {
+          "fontSize": "18px",
+          "fontSizeRem": "1.125rem",
+          "lineHeight": "1.4",
+          "letterSpacing": "0",
+          "fontWeight": "600",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "h6": {
+          "fontSize": "16px",
+          "fontSizeRem": "1rem",
+          "lineHeight": "1.4",
+          "letterSpacing": "0",
+          "fontWeight": "600",
+          "fontFamily": "heading",
+          "textTransform": "none"
+        },
+        "bodyLarge": {
+          "fontSize": "18px",
+          "fontSizeRem": "1.125rem",
+          "lineHeight": "1.6",
+          "letterSpacing": "0",
+          "fontWeight": "400",
+          "fontFamily": "body"
+        },
+        "body": {
+          "fontSize": "16px",
+          "fontSizeRem": "1rem",
+          "lineHeight": "1.6",
+          "letterSpacing": "0",
+          "fontWeight": "400",
+          "fontFamily": "body"
+        },
+        "bodySmall": {
+          "fontSize": "14px",
+          "fontSizeRem": "0.875rem",
+          "lineHeight": "1.5",
+          "letterSpacing": "0",
+          "fontWeight": "400",
+          "fontFamily": "body"
+        },
+        "caption": {
+          "fontSize": "12px",
+          "fontSizeRem": "0.75rem",
+          "lineHeight": "1.4",
+          "letterSpacing": "0.01em",
+          "fontWeight": "400",
+          "fontFamily": "body"
+        },
+        "overline": {
+          "fontSize": "12px",
+          "fontSizeRem": "0.75rem",
+          "lineHeight": "1.4",
+          "letterSpacing": "0.08em",
+          "fontWeight": "600",
+          "fontFamily": "body",
+          "textTransform": "uppercase"
+        },
+        "label": {
+          "fontSize": "14px",
+          "fontSizeRem": "0.875rem",
+          "lineHeight": "1.4",
+          "letterSpacing": "0",
+          "fontWeight": "500",
+          "fontFamily": "body"
+        },
+        "button": {
+          "fontSize": "14px",
+          "fontSizeRem": "0.875rem",
+          "lineHeight": "1",
+          "letterSpacing": "0.02em",
+          "fontWeight": "600",
+          "fontFamily": "body"
+        },
+        "code": {
+          "fontSize": "14px",
+          "fontSizeRem": "0.875rem",
+          "lineHeight": "1.6",
+          "letterSpacing": "0",
+          "fontWeight": "400",
+          "fontFamily": "mono"
+        }
+      },
+      "paragraphSpacing": {
+        "default": "1em",
+        "tight": "0.5em",
+        "loose": "1.5em"
+      },
+      "listStyles": {
+        "unordered": {
+          "marker": "disc",
+          "nestedMarkers": ["disc", "circle", "square"],
+          "indent": "1.5em",
+          "itemSpacing": "0.25em"
+        },
+        "ordered": {
+          "marker": "decimal",
+          "nestedMarkers": ["decimal", "lower-alpha", "lower-roman"],
+          "indent": "1.5em",
+          "itemSpacing": "0.25em"
+        }
+      }
+    },
+
+    "spacing": {
+      "baseUnit": "4px",
+      "scale": {
+        "0": "0px",
+        "px": "1px",
+        "0.5": "2px",
+        "1": "4px",
+        "1.5": "6px",
+        "2": "8px",
+        "2.5": "10px",
+        "3": "12px",
+        "3.5": "14px",
+        "4": "16px",
+        "5": "20px",
+        "6": "24px",
+        "7": "28px",
+        "8": "32px",
+        "9": "36px",
+        "10": "40px",
+        "11": "44px",
+        "12": "48px",
+        "14": "56px",
+        "16": "64px",
+        "20": "80px",
+        "24": "96px",
+        "28": "112px",
+        "32": "128px",
+        "36": "144px",
+        "40": "160px"
+      },
+      "semantic": {
+        "page": {
+          "paddingX": "16px",
+          "paddingXMd": "24px",
+          "paddingXLg": "32px"
+        },
+        "section": {
+          "gap": "64px",
+          "gapSm": "48px"
+        },
+        "card": {
+          "padding": "24px",
+          "paddingSm": "16px"
+        },
+        "input": {
+          "paddingX": "12px",
+          "paddingY": "9px"
+        },
+        "button": {
+          "paddingX": "16px",
+          "paddingY": "9px",
+          "gap": "8px"
+        }
+      }
+    },
+
+    "sizing": {
+      "touchTarget": {
+        "minimum": "44px",
+        "comfortable": "48px"
+      },
+      "button": {
+        "xs": { "height": "28px", "paddingX": "8px", "fontSize": "12px" },
+        "sm": { "height": "32px", "paddingX": "12px", "fontSize": "13px" },
+        "md": { "height": "40px", "paddingX": "16px", "fontSize": "14px" },
+        "lg": { "height": "48px", "paddingX": "24px", "fontSize": "16px" },
+        "xl": { "height": "56px", "paddingX": "32px", "fontSize": "18px" }
+      },
+      "input": {
+        "sm": { "height": "32px", "fontSize": "13px" },
+        "md": { "height": "40px", "fontSize": "14px" },
+        "lg": { "height": "48px", "fontSize": "16px" }
+      },
+      "avatar": {
+        "xs": "24px",
+        "sm": "32px",
+        "md": "40px",
+        "lg": "56px",
+        "xl": "80px",
+        "2xl": "96px"
+      },
+      "icon": {
+        "xs": "12px",
+        "sm": "16px",
+        "md": "20px",
+        "lg": "24px",
+        "xl": "32px",
+        "2xl": "48px"
+      },
+      "spotlightBanner": {
+        "width": "900px",
+        "height": "600px",
+        "aspectRatio": "3:2"
+      }
+    },
+
+    "borders": {
+      "radius": {
+        "none": "0px",
+        "sm": "4px",
+        "md": "8px",
+        "lg": "12px",
+        "xl": "16px",
+        "2xl": "22.5px",
+        "3xl": "32px",
+        "full": "9999px",
+        "button": "22.5px"
+      },
+      "width": {
+        "none": "0px",
+        "hairline": "0.5px",
+        "thin": "1px",
+        "medium": "2px",
+        "thick": "3px",
+        "heavy": "4px"
+      },
+      "style": {
+        "default": "solid",
+        "dashed": "dashed",
+        "dotted": "dotted"
+      }
+    },
+
+    "shadows": {
+      "none": "none",
+      "xs": "0 1px 2px 0 rgba(0, 52, 0, 0.05)",
+      "sm": "0 1px 3px 0 rgba(0, 52, 0, 0.1), 0 1px 2px -1px rgba(0, 52, 0, 0.1)",
+      "md": "0 4px 6px -1px rgba(0, 52, 0, 0.1), 0 2px 4px -2px rgba(0, 52, 0, 0.1)",
+      "lg": "0 10px 15px -3px rgba(0, 52, 0, 0.1), 0 4px 6px -4px rgba(0, 52, 0, 0.1)",
+      "xl": "0 20px 25px -5px rgba(0, 52, 0, 0.1), 0 8px 10px -6px rgba(0, 52, 0, 0.1)",
+      "2xl": "0 25px 50px -12px rgba(0, 52, 0, 0.25)",
+      "inner": "inset 0 2px 4px 0 rgba(0, 52, 0, 0.05)",
+      "focus": "0 0 0 3px rgba(1, 114, 47, 0.3)",
+      "glow": {
+        "primary": "0 0 20px rgba(1, 114, 47, 0.3)",
+        "accent": "0 0 20px rgba(255, 204, 0, 0.4)",
+        "nature": "0 0 30px rgba(45, 106, 79, 0.25)"
+      }
+    },
+
+    "zIndex": {
+      "hide": -1,
+      "base": 0,
+      "raised": 1,
+      "dropdown": 10,
+      "sticky": 20,
+      "fixed": 30,
+      "modalBackdrop": 40,
+      "modal": 50,
+      "popover": 60,
+      "tooltip": 70,
+      "toast": 80,
+      "maximum": 9999
+    },
+
+    "animation": {
+      "duration": {
+        "instant": "0ms",
+        "fastest": "50ms",
+        "faster": "100ms",
+        "fast": "150ms",
+        "normal": "200ms",
+        "slow": "300ms",
+        "slower": "400ms",
+        "slowest": "500ms",
+        "deliberate": "700ms"
+      },
+      "easing": {
+        "linear": "linear",
+        "ease": "ease",
+        "easeIn": "cubic-bezier(0.4, 0, 1, 1)",
+        "easeOut": "cubic-bezier(0, 0, 0.2, 1)",
+        "easeInOut": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "bounce": "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+        "spring": "cubic-bezier(0.5, 1.5, 0.75, 1.25)",
+        "nature": "cubic-bezier(0.25, 0.1, 0.25, 1)"
+      },
+      "transitions": {
+        "default": "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "fast": "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "slow": "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "colors": "color, background-color, border-color, fill, stroke 150ms ease",
+        "opacity": "opacity 200ms ease",
+        "transform": "transform 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "shadow": "box-shadow 200ms ease"
+      },
+      "keyframes": {
+        "fadeIn": "from { opacity: 0; } to { opacity: 1; }",
+        "fadeOut": "from { opacity: 1; } to { opacity: 0; }",
+        "slideInUp": "from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; }",
+        "slideInDown": "from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; }",
+        "scaleIn": "from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }",
+        "pulse": "0%, 100% { opacity: 1; } 50% { opacity: 0.5; }",
+        "spin": "from { transform: rotate(0deg); } to { transform: rotate(360deg); }",
+        "leafSway": "0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); }"
+      }
+    },
+
+    "effects": {
+      "blur": {
+        "none": "0",
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px",
+        "xl": "24px",
+        "2xl": "40px",
+        "3xl": "64px"
+      },
+      "backdrop": {
+        "blur": "backdrop-filter: blur(12px)",
+        "saturate": "backdrop-filter: saturate(180%)",
+        "combined": "backdrop-filter: blur(12px) saturate(180%)"
+      },
+      "opacity": {
+        "disabled": "0.5",
+        "hover": "0.8",
+        "muted": "0.6",
+        "overlay": "0.75"
+      }
+    },
+
+    "icons": {
+      "style": "outlined with organic curves",
+      "strokeWidth": "1.5px",
+      "cornerRadius": "rounded",
+      "sizes": {
+        "xs": { "size": "12px", "strokeWidth": "1px" },
+        "sm": { "size": "16px", "strokeWidth": "1.5px" },
+        "md": { "size": "20px", "strokeWidth": "1.5px" },
+        "lg": { "size": "24px", "strokeWidth": "2px" },
+        "xl": { "size": "32px", "strokeWidth": "2px" }
+      },
+      "animalLogomarks": {
+        "forest": "Orangutan swinging from vine",
+        "nocturnal": "Clouded leopard eyes in moonlight",
+        "aquatic": "Manatee with three fish",
+        "aviary": "Macaw pair",
+        "jungle": "Sun bear climbing tree"
+      }
+    },
+
+    "images": {
+      "aspectRatios": {
+        "square": "1 / 1",
+        "spotlight": "3 / 2",
+        "landscape": "4 / 3",
+        "widescreen": "16 / 9",
+        "ultrawide": "21 / 9",
+        "portrait": "3 / 4",
+        "golden": "1.618 / 1"
+      },
+      "objectFit": "cover",
+      "borderRadius": "inherit",
+      "loading": {
+        "strategy": "lazy",
+        "placeholder": "SVG blur-up"
+      }
+    },
+
+    "layout": {
+      "breakpoints": {
+        "xs": "0px",
+        "sm": "480px",
+        "md": "640px",
+        "lg": "768px",
+        "xl": "1024px",
+        "2xl": "1280px",
+        "3xl": "1536px"
+      },
+      "container": {
+        "maxWidth": {
+          "xs": "100%",
+          "sm": "480px",
+          "md": "640px",
+          "lg": "768px",
+          "xl": "1024px",
+          "2xl": "1280px",
+          "3xl": "1400px"
+        },
+        "padding": {
+          "xs": "16px",
+          "sm": "20px",
+          "md": "24px",
+          "lg": "32px"
+        }
+      },
+      "grid": {
+        "columns": 12,
+        "gutter": {
+          "xs": "16px",
+          "sm": "20px",
+          "md": "24px",
+          "lg": "32px"
+        }
+      },
+      "stack": {
+        "xs": "4px",
+        "sm": "8px",
+        "md": "16px",
+        "lg": "24px",
+        "xl": "32px",
+        "2xl": "48px"
+      }
+    },
+
+    "visualFramework": {
+      "tropicalFrame": {
+        "description": "Three graphic leaves drawn from native flora creating a framing device",
+        "purpose": "Beckons viewers to peer through the foliage to discover wildlife",
+        "usage": "Hero sections, feature highlights, immersive content areas",
+        "leaves": ["Monstera-inspired", "Palm frond", "Banana leaf silhouette"]
+      },
+      "illustrationLibrary": {
+        "count": "800+",
+        "types": ["Flora", "Fauna", "Habitat elements"],
+        "style": "Combination of photorealistic animals with illustrated tropical backgrounds",
+        "scientificAccuracy": "All species drawn from actual park flora and fauna with input from horticultural and live sciences teams"
+      },
+      "photographyStyle": {
+        "animals": "Photorealistic, high-quality wildlife photography",
+        "environments": "Immersive habitat shots emphasizing biodiversity",
+        "people": "Joyful, family-friendly interactions with nature",
+        "treatment": "Can be combined with illustrated elements for panoramic vistas"
+      }
+    },
+
+    "components": {
+      "button": {
+        "variants": {
+          "primary": {
+            "default": {
+              "background": "#ffcc00",
+              "color": "#003400",
+              "border": "none",
+              "borderRadius": "22.5px",
+              "shadow": "var(--shadow-sm)"
+            },
+            "hover": {
+              "background": "#e6b800",
+              "transform": "translateY(-1px)",
+              "shadow": "var(--shadow-md)"
+            },
+            "focus": {
+              "outline": "none",
+              "ring": "2px solid rgba(255, 204, 0, 0.5)",
+              "ringOffset": "2px"
+            },
+            "active": {
+              "background": "#cc9900",
+              "transform": "translateY(0)",
+              "shadow": "var(--shadow-sm)"
+            },
+            "disabled": {
+              "background": "#e0e0e0",
+              "color": "#9e9e9e",
+              "cursor": "not-allowed",
+              "opacity": "1"
+            }
+          },
+          "secondary": {
+            "default": {
+              "background": "#01722f",
+              "color": "#ffffff",
+              "border": "none",
+              "borderRadius": "22.5px"
+            },
+            "hover": {
+              "background": "#015521"
+            }
+          },
+          "outline": {
+            "default": {
+              "background": "transparent",
+              "color": "#003400",
+              "border": "2px solid #003400",
+              "borderRadius": "22.5px"
+            },
+            "hover": {
+              "background": "rgba(0, 52, 0, 0.05)"
+            }
+          },
+          "ghost": {
+            "default": {
+              "background": "transparent",
+              "color": "#003400",
+              "border": "none"
+            },
+            "hover": {
+              "background": "rgba(0, 52, 0, 0.05)"
+            }
+          },
+          "destructive": {
+            "default": {
+              "background": "#e13c30",
+              "color": "#ffffff",
+              "borderRadius": "22.5px"
+            }
+          },
+          "link": {
+            "default": {
+              "background": "transparent",
+              "color": "#01722f",
+              "textDecoration": "underline"
+            }
+          }
+        },
+        "sizes": {
+          "sm": { "height": "32px", "paddingX": "12px", "fontSize": "13px" },
+          "md": { "height": "40px", "paddingX": "16px", "fontSize": "14px" },
+          "lg": { "height": "48px", "paddingX": "24px", "fontSize": "16px" }
+        }
+      },
+      "input": {
+        "variants": {
+          "default": {
+            "default": {
+              "background": "#ffffff",
+              "border": "1px solid #d4d9c8",
+              "borderRadius": "8px",
+              "color": "#003400"
+            },
+            "placeholder": {
+              "color": "#7a9a7a"
+            },
+            "hover": {
+              "borderColor": "#01722f"
+            },
+            "focus": {
+              "borderColor": "#01722f",
+              "ring": "2px solid rgba(1, 114, 47, 0.2)",
+              "outline": "none"
+            },
+            "disabled": {
+              "background": "#f5f5f5",
+              "color": "#a8c4a8",
+              "cursor": "not-allowed"
+            },
+            "error": {
+              "borderColor": "#e13c30",
+              "ring": "2px solid rgba(225, 60, 48, 0.2)"
+            },
+            "success": {
+              "borderColor": "#28a745"
+            }
+          }
+        }
+      },
+      "card": {
+        "variants": {
+          "elevated": {
+            "background": "#ffffff",
+            "border": "none",
+            "borderRadius": "12px",
+            "shadow": "var(--shadow-md)",
+            "padding": "24px"
+          },
+          "outlined": {
+            "background": "#ffffff",
+            "border": "1px solid #d4d9c8",
+            "borderRadius": "12px",
+            "shadow": "none",
+            "padding": "24px"
+          },
+          "spotlight": {
+            "background": "#ffffff",
+            "borderRadius": "16px",
+            "shadow": "var(--shadow-lg)",
+            "dimensions": "900x600px",
+            "imageFirst": true
+          },
+          "interactive": {
+            "hover": {
+              "transform": "translateY(-4px)",
+              "shadow": "var(--shadow-xl)"
+            }
+          }
+        }
+      },
+      "navigation": {
+        "header": {
+          "height": "72px",
+          "background": "#ffffff",
+          "shadow": "var(--shadow-sm)",
+          "logoPlacement": "left",
+          "menuType": "megamenu"
+        },
+        "megamenu": {
+          "background": "#ffffff",
+          "shadow": "var(--shadow-lg)",
+          "columns": "4-8 subcategories per section",
+          "spotlightBanner": true
+        },
+        "mobile": {
+          "hamburgerPosition": "right",
+          "drawerWidth": "100%",
+          "drawerBackground": "#ffffff"
+        },
+        "tabs": {
+          "activeIndicator": "underline",
+          "activeColor": "#01722f"
+        }
+      },
+      "modal": {
+        "backdrop": {
+          "background": "rgba(0, 0, 0, 0.5)",
+          "blur": "4px"
+        },
+        "container": {
+          "background": "#ffffff",
+          "borderRadius": "16px",
+          "shadow": "var(--shadow-2xl)",
+          "maxWidth": {
+            "sm": "400px",
+            "md": "500px",
+            "lg": "700px"
+          },
+          "padding": "24px"
+        }
+      },
+      "badge": {
+        "variants": {
+          "default": {
+            "background": "#e0e0e0",
+            "color": "#424242"
+          },
+          "primary": {
+            "background": "#e6f4eb",
+            "color": "#01722f"
+          },
+          "success": {
+            "background": "#d4edda",
+            "color": "#155724"
+          },
+          "warning": {
+            "background": "#fff3cd",
+            "color": "#856404"
+          },
+          "error": {
+            "background": "#f8d7da",
+            "color": "#721c24"
+          }
+        },
+        "sizes": {
+          "sm": { "padding": "2px 6px", "fontSize": "11px", "borderRadius": "4px" },
+          "md": { "padding": "4px 10px", "fontSize": "12px", "borderRadius": "6px" }
+        }
+      }
+    },
+
+    "mobileApp": {
+      "name": "Wildlife Reserve",
+      "platforms": {
+        "ios": {
+          "minimumVersion": "14.0",
+          "rating": "4.8/5",
+          "size": "104.8 MB"
+        },
+        "android": {
+          "minimumVersion": "10+",
+          "rating": "4.57/5"
+        }
+      },
+      "features": {
+        "wayfinder": {
+          "description": "Interactive digital map with preferred route selection",
+          "crossParkNavigation": true,
+          "zones": ["Wildlife Reserve EAST", "Wildlife Reserve WEST"]
+        },
+        "itinerary": {
+          "description": "Suggested itineraries with all-weather options",
+          "customizable": true
+        },
+        "reminders": {
+          "description": "One-click alerts for animal presentations",
+          "advanceNotice": "20 minutes"
+        },
+        "animalSightings": {
+          "description": "Real-time notifications for animal sightings",
+          "availability": "Jungle zone only"
+        },
+        "qrScanning": {
+          "description": "Food ordering and animal information via QR codes"
+        },
+        "transport": {
+          "description": "Six transport options with bus arrival times",
+          "directionsFromAlightingPoints": true
+        }
+      },
+      "uiPatterns": {
+        "colorScheme": {
+          "background": "#faf5e9",
+          "buttons": "#ffcc00",
+          "text": "#003400"
+        },
+        "typography": {
+          "heading": "Value-Serif-Bold",
+          "body": "Poppins-Regular"
+        },
+        "buttonRadius": "22.5px"
+      }
+    }
+  },
+
+  "accessibility": {
+    "contrastRatios": {
+      "normalText": "4.5:1 minimum (WCAG AA)",
+      "largeText": "3:1 minimum (WCAG AA)",
+      "uiComponents": "3:1 minimum"
+    },
+    "focusIndicators": {
+      "style": "ring",
+      "color": "rgba(1, 114, 47, 0.3)",
+      "width": "2px",
+      "offset": "2px"
+    },
+    "touchTargets": {
+      "minimum": "44px",
+      "spacing": "8px minimum between targets"
+    },
+    "reducedMotion": {
+      "respectPreference": true,
+      "fallback": "opacity transitions only"
+    },
+    "multigenerationalDesign": {
+      "children": "Colorful, engaging animal illustrations",
+      "families": "Clear wayfinding, easy-to-read typography",
+      "seniors": "High contrast, large touch targets"
+    }
+  },
+
+  "implementationNotes": [
+    "Custom Wildlife Value Serif font requires appropriate licensing",
+    "Yellow (#ffcc00) CTA buttons should always use dark green (#003400) text for accessibility",
+    "Tropical leaf frame device should be used sparingly for hero sections and key feature areas",
+    "Animal logomarks should be used consistently per theme - never mix theme symbols",
+    "800+ illustration library elements should be scientifically accurate - verify with horticultural team",
+    "All five theme color schemes should remain distinct while sharing the master primary green",
+    "Mobile wayfinder maps require integration with park infrastructure for real-time updates",
+    "Button border-radius of 22.5px is distinctive brand element - maintain consistency",
+    "Photography should combine with illustrations for 'panoramic vista' effect where appropriate",
+    "Megamenu navigation supports spotlight banners at 900x600px dimensions"
+  ]
+}

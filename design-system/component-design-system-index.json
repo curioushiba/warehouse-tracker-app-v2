@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wildlife-component-design-system-index",
+  "version": "1.0.0",
+  "generated": "2025-12-12T00:00:00.000Z",
+  "sourceTokenFile": "wildlife-reserve-design-system.json",
+
+  "meta": {
+    "designSystemName": "Wildlife Reserve Component Design System",
+    "description": "A comprehensive component specification system derived from the Wildlife Reserve design tokens. This system transforms design tokens into actionable component specifications for React/Tailwind development.",
+    "brandTagline": "Come to life",
+    "brandPhilosophy": "Wildlife, humans, and nature are simply equal",
+    "version": "1.0.0",
+    "targetFrameworks": ["react", "react-native"],
+    "cssStrategy": "tailwind"
+  },
+
+  "files": {
+    "core": {
+      "path": "./component-design-system-core.json",
+      "description": "Core design tokens, semantic mappings, accessibility guidelines, and implementation artifacts (CSS custom properties, Tailwind config, TypeScript definitions)",
+      "contents": [
+        "Design tokens (colors, typography, spacing, borders, shadows, z-index, animation)",
+        "Semantic token mappings",
+        "Component token assignments",
+        "Global accessibility requirements",
+        "Color contrast validations",
+        "CSS custom properties",
+        "Tailwind configuration",
+        "TypeScript type definitions",
+        "Dark mode configuration",
+        "Breakpoints and container settings"
+      ]
+    },
+    "primitives": {
+      "path": "./component-design-system-primitives.json",
+      "description": "Foundational UI components that serve as building blocks",
+      "components": [
+        "Button",
+        "IconButton",
+        "Text",
+        "Heading",
+        "Icon",
+        "Link",
+        "Image",
+        "Spinner",
+        "Badge",
+        "Tag",
+        "Avatar",
+        "Divider"
+      ]
+    },
+    "forms": {
+      "path": "./component-design-system-forms.json",
+      "description": "Form input and control components",
+      "components": [
+        "Input",
+        "Textarea",
+        "Select",
+        "Checkbox",
+        "Radio",
+        "Switch",
+        "Slider",
+        "FormControl",
+        "FormLabel",
+        "FormHelperText",
+        "FormErrorMessage",
+        "NumberInput",
+        "PinInput"
+      ]
+    },
+    "layout": {
+      "path": "./component-design-system-layout.json",
+      "description": "Layout and structural components",
+      "components": [
+        "Box",
+        "Flex",
+        "Grid",
+        "GridItem",
+        "Stack",
+        "HStack",
+        "VStack",
+        "Container",
+        "Center",
+        "Spacer",
+        "AspectRatio",
+        "SimpleGrid",
+        "Wrap",
+        "Section",
+        "Absolute",
+        "Sticky",
+        "ScrollArea",
+        "Collapsible"
+      ]
+    },
+    "composite": {
+      "path": "./component-design-system-composite.json",
+      "description": "Complex composite components including cards, modals, navigation, feedback, and data display",
+      "components": [
+        "Card",
+        "CardHeader",
+        "CardBody",
+        "CardFooter",
+        "Modal",
+        "ModalHeader",
+        "ModalBody",
+        "ModalFooter",
+        "Drawer",
+        "Popover",
+        "Tooltip",
+        "Menu",
+        "Tabs",
+        "Accordion",
+        "Alert",
+        "Toast",
+        "Progress",
+        "Skeleton",
+        "Table",
+        "Breadcrumb",
+        "Pagination",
+        "Header",
+        "MegaMenu"
+      ]
+    }
+  },
+
+  "componentCatalog": {
+    "totalComponents": 57,
+    "byCategory": {
+      "primitive": {
+        "count": 12,
+        "components": ["Button", "IconButton", "Text", "Heading", "Icon", "Link", "Image", "Spinner", "Badge", "Tag", "Avatar", "Divider"]
+      },
+      "form": {
+        "count": 13,
+        "components": ["Input", "Textarea", "Select", "Checkbox", "Radio", "Switch", "Slider", "FormControl", "FormLabel", "FormHelperText", "FormErrorMessage", "NumberInput", "PinInput"]
+      },
+      "layout": {
+        "count": 18,
+        "components": ["Box", "Flex", "Grid", "GridItem", "Stack", "HStack", "VStack", "Container", "Center", "Spacer", "AspectRatio", "SimpleGrid", "Wrap", "Section", "Absolute", "Sticky", "ScrollArea", "Collapsible"]
+      },
+      "composite": {
+        "count": 10,
+        "components": ["Card", "CardHeader", "CardBody", "CardFooter", "Modal", "ModalHeader", "ModalBody", "ModalFooter", "Drawer", "Popover", "Tooltip", "Menu", "Tabs", "Accordion"]
+      },
+      "feedback": {
+        "count": 4,
+        "components": ["Alert", "Toast", "Progress", "Skeleton"]
+      },
+      "navigation": {
+        "count": 4,
+        "components": ["Breadcrumb", "Pagination", "Header", "MegaMenu"]
+      },
+      "data-display": {
+        "count": 1,
+        "components": ["Table"]
+      }
+    }
+  },
+
+  "implementationPriority": {
+    "phase1": {
+      "name": "Foundation",
+      "description": "Core tokens and essential primitive components",
+      "items": [
+        "Core design tokens setup",
+        "Tailwind configuration",
+        "CSS custom properties",
+        "Button (all variants)",
+        "Text",
+        "Heading",
+        "Icon",
+        "Spinner"
+      ]
+    },
+    "phase2": {
+      "name": "Forms",
+      "description": "Form components and validation",
+      "items": [
+        "Input",
+        "Textarea",
+        "Select",
+        "Checkbox",
+        "Radio",
+        "Switch",
+        "FormControl",
+        "FormLabel",
+        "FormHelperText",
+        "FormErrorMessage"
+      ]
+    },
+    "phase3": {
+      "name": "Layout",
+      "description": "Layout system and containers",
+      "items": [
+        "Box",
+        "Flex",
+        "Grid",
+        "Stack (HStack, VStack)",
+        "Container",
+        "Center",
+        "AspectRatio"
+      ]
+    },
+    "phase4": {
+      "name": "Feedback",
+      "description": "User feedback components",
+      "items": [
+        "Alert",
+        "Toast",
+        "Progress",
+        "Skeleton",
+        "Badge",
+        "Tag"
+      ]
+    },
+    "phase5": {
+      "name": "Overlays",
+      "description": "Modal and overlay components",
+      "items": [
+        "Modal",
+        "Drawer",
+        "Popover",
+        "Tooltip",
+        "Menu"
+      ]
+    },
+    "phase6": {
+      "name": "Navigation",
+      "description": "Navigation components",
+      "items": [
+        "Header",
+        "MegaMenu",
+        "Tabs",
+        "Accordion",
+        "Breadcrumb",
+        "Pagination"
+      ]
+    },
+    "phase7": {
+      "name": "Data Display",
+      "description": "Complex data components",
+      "items": [
+        "Card (all variants including Spotlight)",
+        "Table",
+        "Avatar",
+        "Image"
+      ]
+    }
+  },
+
+  "accessibility": {
+    "wcagLevel": "AA",
+    "keyRequirements": [
+      "Color contrast ratios: 4.5:1 for normal text, 3:1 for large text and UI components",
+      "Touch targets: Minimum 44x44px with 8px spacing",
+      "Focus indicators: 3px ring with 30% opacity primary color",
+      "Keyboard navigation: All interactive elements must be keyboard accessible",
+      "Screen reader support: Proper ARIA attributes and announcements",
+      "Reduced motion: Respect prefers-reduced-motion preference"
+    ],
+    "validatedColorPairs": [
+      { "pair": "#003400 on #ffcc00", "ratio": "9.7:1", "usage": "Primary CTA button" },
+      { "pair": "#ffffff on #01722f", "ratio": "6.2:1", "usage": "Secondary button" },
+      { "pair": "#003400 on #faf5e9", "ratio": "11.3:1", "usage": "Text on secondary background" },
+      { "pair": "#003400 on #ffffff", "ratio": "14.1:1", "usage": "Primary text" }
+    ]
+  },
+
+  "brandElements": {
+    "distinctiveFeatures": [
+      {
+        "element": "Button border-radius",
+        "value": "22.5px",
+        "description": "Distinctive pill-shaped buttons are a key brand element"
+      },
+      {
+        "element": "Primary CTA color",
+        "value": "#ffcc00 (yellow)",
+        "description": "Bright yellow CTAs with dark green text"
+      },
+      {
+        "element": "Nature-inspired shadows",
+        "value": "rgba(0, 52, 0, x)",
+        "description": "Shadows use dark green tint instead of pure black"
+      },
+      {
+        "element": "Typography",
+        "value": "Wildlife Value Serif + Poppins",
+        "description": "Custom serif for headings with leaf-inspired serifs, Poppins for body"
+      },
+      {
+        "element": "Spotlight Banner",
+        "value": "900x600px (3:2 ratio)",
+        "description": "Featured content cards for megamenu and hero sections"
+      }
+    ],
+    "themeColorSchemes": {
+      "forest": { "primary": "#01722f", "accent": "#ff8c00" },
+      "nocturnal": { "primary": "#1a1a3e", "accent": "#c9a227" },
+      "aquatic": { "primary": "#0077b6", "accent": "#90e0ef" },
+      "aviary": { "primary": "#e63946", "accent": "#06d6a0" },
+      "jungle": { "primary": "#2d6a4f", "accent": "#d4a373" }
+    }
+  },
+
+  "usage": {
+    "howToUse": [
+      "1. Start with the core file to set up design tokens in your project",
+      "2. Configure Tailwind using the provided tailwindConfig object",
+      "3. Set up CSS custom properties for runtime theming",
+      "4. Implement components following specifications in order of priority phases",
+      "5. Use TypeScript definitions for prop types",
+      "6. Follow accessibility requirements for each component"
+    ],
+    "componentSpecificationStructure": {
+      "category": "Component classification (primitive, form, layout, composite, feedback, navigation, data-display)",
+      "description": "Purpose and usage description",
+      "anatomy": "Component parts and slots",
+      "variants": "Available variant options with token mappings",
+      "states": "Interactive and validation states",
+      "props": "Required, optional, and ARIA props with types",
+      "accessibility": "Roles, keyboard interaction, screen reader requirements",
+      "implementation": "Tailwind classes, CSS custom properties, animations",
+      "composition": "Valid children, parent components, common patterns",
+      "testing": "Data attributes and ARIA queries for testing"
+    }
+  },
+
+  "warnings": {
+    "fontLicensing": "Wildlife Value Serif requires appropriate licensing. Use fallback fonts (Halant, Vollkorn, Georgia) for development.",
+    "illustrationLibrary": "The 800+ illustration elements may require partnership for access.",
+    "themeColorValidation": "Nocturnal and aquatic theme color values are inferred from brand descriptions.",
+    "darkModePartial": "Full dark mode palette is partially documented; recommendations based on brand principles."
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(powershell -Command \"Get-ChildItem -Path ''C:\\Users\\dexsa\\.claude'' -Recurse -Force | Select-Object FullName\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path ''C:\\Users\\dexsa\\.claude\\plugins'' -Recurse -Force | Select-Object FullName\")",
+      "Bash(git init:*)",
+      "Bash(cat:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}

@@ -1,0 +1,1387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wildlife-component-design-system-composite",
+  "version": "1.0.0",
+  "partOf": {
+    "index": "./component-design-system-index.json",
+    "core": "./component-design-system-core.json"
+  },
+  "description": "Composite UI components - cards, modals, navigation, feedback, and data display",
+
+  "components": {
+    "Card": {
+      "category": "composite",
+      "description": "Content container with optional header, body, and footer sections. Features the distinctive elevated style with nature-inspired shadows.",
+
+      "anatomy": {
+        "parts": ["root", "header", "body", "footer", "image", "overlay"],
+        "slots": {
+          "header": { "accepts": ["CardHeader"], "required": false },
+          "body": { "accepts": ["CardBody"], "required": true },
+          "footer": { "accepts": ["CardFooter"], "required": false }
+        }
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["elevated", "outline", "filled", "spotlight", "unstyled"],
+          "default": "elevated",
+          "tokens": {
+            "elevated": {
+              "background": "{colors.neutral.0}",
+              "border": "none",
+              "borderRadius": "{borderRadius.lg}",
+              "shadow": "{shadows.md}",
+              "padding": "{spacing.6}"
+            },
+            "outline": {
+              "background": "{colors.neutral.0}",
+              "border": "1px solid {semantic.border.default}",
+              "borderRadius": "{borderRadius.lg}",
+              "shadow": "none",
+              "padding": "{spacing.6}"
+            },
+            "filled": {
+              "background": "{colors.background.secondary}",
+              "border": "none",
+              "borderRadius": "{borderRadius.lg}",
+              "shadow": "none",
+              "padding": "{spacing.6}"
+            },
+            "spotlight": {
+              "background": "{colors.neutral.0}",
+              "border": "none",
+              "borderRadius": "{borderRadius.xl}",
+              "shadow": "{shadows.lg}",
+              "width": "900px",
+              "height": "600px",
+              "imageFirst": true
+            },
+            "unstyled": {
+              "background": "transparent",
+              "border": "none",
+              "shadow": "none",
+              "padding": "0"
+            }
+          }
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "padding": "{spacing.4}" },
+            "md": { "padding": "{spacing.6}" },
+            "lg": { "padding": "{spacing.8}" }
+          }
+        }
+      },
+
+      "states": {
+        "interactive": {
+          "default": {},
+          "hover": {
+            "whenClickable": {
+              "tokens": {
+                "transform": "translateY(-4px)",
+                "shadow": "{shadows.xl}",
+                "cursor": "pointer"
+              }
+            }
+          },
+          "focus": {
+            "whenClickable": {
+              "tokens": {
+                "boxShadow": "{shadows.focus}",
+                "outline": "none"
+              }
+            }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "variant": { "type": "CardVariant", "default": "elevated" },
+          "size": { "type": "Size", "default": "md" },
+          "isClickable": { "type": "boolean", "default": false },
+          "isHoverable": { "type": "boolean", "default": false },
+          "direction": { "type": "'vertical' | 'horizontal'", "default": "vertical" },
+          "onClick": { "type": "() => void" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "whenClickable": {
+          "role": "button",
+          "tabIndex": 0,
+          "keyboardInteraction": {
+            "Enter": "Activate card",
+            "Space": "Activate card"
+          }
+        },
+        "whenLink": {
+          "requirements": ["Wrap entire card in Link or use as='a'"]
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "rounded-card overflow-hidden transition-all duration-200",
+          "variants": {
+            "elevated": "bg-white shadow-md",
+            "outline": "bg-white border border-border",
+            "filled": "bg-secondary",
+            "spotlight": "bg-white shadow-lg rounded-xl w-[900px] h-[600px]",
+            "unstyled": "bg-transparent"
+          },
+          "sizes": {
+            "sm": "p-4",
+            "md": "p-6",
+            "lg": "p-8"
+          },
+          "clickable": "cursor-pointer hover:-translate-y-1 hover:shadow-xl focus:ring-[3px] focus:ring-primary/30 focus:outline-none",
+          "horizontal": "flex flex-row"
+        }
+      },
+
+      "composition": {
+        "validChildren": ["CardHeader", "CardBody", "CardFooter", "Image"],
+        "commonPatterns": [
+          {
+            "name": "Image Card",
+            "description": "Card with image at top",
+            "structure": "Card > Image + CardBody"
+          },
+          {
+            "name": "Product Card",
+            "description": "E-commerce style card",
+            "structure": "Card > Image + CardBody[Title, Price, Description] + CardFooter[Button]"
+          },
+          {
+            "name": "Spotlight Banner",
+            "description": "Large featured card (900x600px) for megamenu",
+            "structure": "Card[variant=spotlight] > Image",
+            "dimensions": { "width": "900px", "height": "600px", "aspectRatio": "3:2" }
+          }
+        ]
+      }
+    },
+
+    "CardHeader": {
+      "category": "composite",
+      "description": "Header section of Card component.",
+
+      "anatomy": {
+        "parts": ["root", "title", "subtitle", "action"]
+      },
+
+      "props": {
+        "optional": {
+          "title": { "type": "ReactNode" },
+          "subtitle": { "type": "ReactNode" },
+          "action": { "type": "ReactElement", "description": "Action button or menu" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex items-start justify-between pb-4 border-b border-border"
+        }
+      }
+    },
+
+    "CardBody": {
+      "category": "composite",
+      "description": "Main content section of Card component.",
+
+      "props": {
+        "optional": {
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "py-4"
+        }
+      }
+    },
+
+    "CardFooter": {
+      "category": "composite",
+      "description": "Footer section of Card component.",
+
+      "props": {
+        "optional": {
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "pt-4 border-t border-border flex items-center justify-end gap-2"
+        }
+      }
+    },
+
+    "Modal": {
+      "category": "composite",
+      "description": "Dialog overlay for focused user interactions. Uses the nature-inspired backdrop styling.",
+
+      "anatomy": {
+        "parts": ["overlay", "container", "header", "closeButton", "body", "footer"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg", "xl", "full"],
+          "default": "md",
+          "tokens": {
+            "sm": { "maxWidth": "400px" },
+            "md": { "maxWidth": "500px" },
+            "lg": { "maxWidth": "700px" },
+            "xl": { "maxWidth": "900px" },
+            "full": { "maxWidth": "100vw", "height": "100vh", "margin": "0" }
+          }
+        },
+        "scrollBehavior": {
+          "values": ["inside", "outside"],
+          "default": "inside"
+        }
+      },
+
+      "states": {
+        "visibility": {
+          "closed": {
+            "tokens": {
+              "display": "none"
+            }
+          },
+          "open": {
+            "tokens": {
+              "display": "flex"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "isOpen": { "type": "boolean", "description": "Controls modal visibility" },
+          "onClose": { "type": "() => void", "description": "Called when modal should close" }
+        },
+        "optional": {
+          "size": { "type": "ModalSize", "default": "md" },
+          "isCentered": { "type": "boolean", "default": true },
+          "scrollBehavior": { "type": "ScrollBehavior", "default": "inside" },
+          "closeOnOverlayClick": { "type": "boolean", "default": true },
+          "closeOnEsc": { "type": "boolean", "default": true },
+          "blockScrollOnMount": { "type": "boolean", "default": true },
+          "preserveScrollBarGap": { "type": "boolean", "default": true },
+          "trapFocus": { "type": "boolean", "default": true },
+          "autoFocus": { "type": "boolean", "default": true },
+          "returnFocusOnClose": { "type": "boolean", "default": true },
+          "initialFocusRef": { "type": "RefObject", "description": "Element to focus on open" },
+          "finalFocusRef": { "type": "RefObject", "description": "Element to focus on close" },
+          "children": { "type": "ReactNode" }
+        },
+        "aria": {
+          "aria-labelledby": { "type": "string", "description": "ID of modal title" },
+          "aria-describedby": { "type": "string", "description": "ID of modal description" }
+        }
+      },
+
+      "accessibility": {
+        "role": "dialog",
+        "ariaModal": true,
+        "focusTrap": {
+          "required": true,
+          "method": "Tab cycles within modal"
+        },
+        "keyboardInteraction": {
+          "Escape": "Close modal",
+          "Tab": "Move focus to next element",
+          "Shift+Tab": "Move focus to previous element"
+        },
+        "focusManagement": {
+          "onOpen": "Focus first focusable element or initialFocusRef",
+          "onClose": "Return focus to trigger element or finalFocusRef"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "overlay": "fixed inset-0 z-modalBackdrop bg-black/50 backdrop-blur-sm flex items-center justify-center p-4",
+          "container": "relative bg-white rounded-modal shadow-2xl w-full max-h-[90vh] overflow-hidden",
+          "sizes": {
+            "sm": "max-w-[400px]",
+            "md": "max-w-[500px]",
+            "lg": "max-w-[700px]",
+            "xl": "max-w-[900px]",
+            "full": "max-w-full h-full m-0 rounded-none"
+          },
+          "header": "flex items-center justify-between p-6 border-b border-border",
+          "body": "p-6 overflow-y-auto",
+          "footer": "flex items-center justify-end gap-3 p-6 border-t border-border"
+        },
+        "animation": {
+          "overlay": {
+            "enter": "animate-fade-in",
+            "exit": "animate-fade-out"
+          },
+          "container": {
+            "enter": "animate-scale-in",
+            "exit": "animate-fade-out"
+          }
+        },
+        "zIndex": {
+          "overlay": "{zIndex.modalBackdrop}",
+          "container": "{zIndex.modal}"
+        }
+      }
+    },
+
+    "ModalHeader": {
+      "category": "composite",
+      "description": "Header section of Modal with title and close button.",
+
+      "props": {
+        "optional": {
+          "showCloseButton": { "type": "boolean", "default": true },
+          "children": { "type": "ReactNode", "description": "Title content" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex items-center justify-between p-6 border-b border-border",
+          "title": "font-heading font-semibold text-h4 text-foreground",
+          "closeButton": "p-2 -m-2 rounded-full hover:bg-neutral-100 transition-colors"
+        }
+      }
+    },
+
+    "ModalBody": {
+      "category": "composite",
+      "description": "Main content section of Modal.",
+
+      "props": {
+        "optional": {
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "p-6 overflow-y-auto"
+        }
+      }
+    },
+
+    "ModalFooter": {
+      "category": "composite",
+      "description": "Footer section of Modal with action buttons.",
+
+      "props": {
+        "optional": {
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex items-center justify-end gap-3 p-6 border-t border-border"
+        }
+      }
+    },
+
+    "Drawer": {
+      "category": "composite",
+      "description": "Slide-in panel from screen edge. Used for navigation and forms.",
+
+      "anatomy": {
+        "parts": ["overlay", "container", "header", "closeButton", "body", "footer"]
+      },
+
+      "variants": {
+        "placement": {
+          "values": ["left", "right", "top", "bottom"],
+          "default": "right"
+        },
+        "size": {
+          "values": ["xs", "sm", "md", "lg", "xl", "full"],
+          "default": "md",
+          "tokens": {
+            "xs": { "width": "256px" },
+            "sm": { "width": "320px" },
+            "md": { "width": "400px" },
+            "lg": { "width": "512px" },
+            "xl": { "width": "640px" },
+            "full": { "width": "100vw" }
+          }
+        }
+      },
+
+      "props": {
+        "required": {
+          "isOpen": { "type": "boolean" },
+          "onClose": { "type": "() => void" }
+        },
+        "optional": {
+          "placement": { "type": "Placement", "default": "right" },
+          "size": { "type": "DrawerSize", "default": "md" },
+          "closeOnOverlayClick": { "type": "boolean", "default": true },
+          "closeOnEsc": { "type": "boolean", "default": true },
+          "trapFocus": { "type": "boolean", "default": true },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "role": "dialog",
+        "ariaModal": true,
+        "focusTrap": true,
+        "keyboardInteraction": {
+          "Escape": "Close drawer"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "overlay": "fixed inset-0 z-modalBackdrop bg-black/50",
+          "container": "fixed bg-white shadow-2xl overflow-hidden flex flex-col",
+          "placements": {
+            "left": "left-0 top-0 bottom-0",
+            "right": "right-0 top-0 bottom-0",
+            "top": "top-0 left-0 right-0",
+            "bottom": "bottom-0 left-0 right-0"
+          },
+          "sizes": {
+            "xs": "w-64",
+            "sm": "w-80",
+            "md": "w-[400px]",
+            "lg": "w-[512px]",
+            "xl": "w-[640px]",
+            "full": "w-screen"
+          }
+        },
+        "animation": {
+          "left": { "enter": "translate-x-0", "exit": "-translate-x-full" },
+          "right": { "enter": "translate-x-0", "exit": "translate-x-full" },
+          "top": { "enter": "translate-y-0", "exit": "-translate-y-full" },
+          "bottom": { "enter": "translate-y-0", "exit": "translate-y-full" }
+        }
+      }
+    },
+
+    "Popover": {
+      "category": "composite",
+      "description": "Floating panel attached to a trigger element.",
+
+      "anatomy": {
+        "parts": ["trigger", "content", "arrow", "header", "body", "footer", "closeButton"]
+      },
+
+      "variants": {
+        "placement": {
+          "values": ["top", "top-start", "top-end", "bottom", "bottom-start", "bottom-end", "left", "left-start", "left-end", "right", "right-start", "right-end"],
+          "default": "bottom"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "isOpen": { "type": "boolean", "description": "Controlled open state" },
+          "defaultIsOpen": { "type": "boolean", "default": false },
+          "onOpen": { "type": "() => void" },
+          "onClose": { "type": "() => void" },
+          "placement": { "type": "Placement", "default": "bottom" },
+          "trigger": { "type": "'click' | 'hover'", "default": "click" },
+          "closeOnBlur": { "type": "boolean", "default": true },
+          "closeOnEsc": { "type": "boolean", "default": true },
+          "hasArrow": { "type": "boolean", "default": true },
+          "arrowSize": { "type": "number", "default": 8 },
+          "offset": { "type": "[number, number]", "default": [0, 8] },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "trigger": {
+          "ariaHaspopup": true,
+          "ariaExpanded": "matches isOpen"
+        },
+        "content": {
+          "role": "dialog",
+          "ariaLabelledby": "ID of header if present"
+        },
+        "keyboardInteraction": {
+          "Escape": "Close popover",
+          "Tab": "Move through focusable elements"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "content": "bg-white rounded-lg shadow-lg border border-border p-4 z-popover",
+          "arrow": "fill-white stroke-border",
+          "header": "font-semibold text-foreground pb-2 border-b border-border mb-2",
+          "body": "text-foreground-secondary",
+          "footer": "pt-2 border-t border-border mt-2 flex justify-end gap-2"
+        }
+      }
+    },
+
+    "Tooltip": {
+      "category": "composite",
+      "description": "Brief informational popup on hover or focus.",
+
+      "anatomy": {
+        "parts": ["trigger", "content", "arrow"]
+      },
+
+      "variants": {
+        "placement": {
+          "values": ["top", "bottom", "left", "right"],
+          "default": "top"
+        }
+      },
+
+      "props": {
+        "required": {
+          "label": { "type": "string", "description": "Tooltip text content" }
+        },
+        "optional": {
+          "placement": { "type": "Placement", "default": "top" },
+          "hasArrow": { "type": "boolean", "default": true },
+          "openDelay": { "type": "number", "default": 200, "description": "Delay in ms before showing" },
+          "closeDelay": { "type": "number", "default": 0, "description": "Delay in ms before hiding" },
+          "isDisabled": { "type": "boolean", "default": false },
+          "children": { "type": "ReactElement", "description": "Trigger element" }
+        }
+      },
+
+      "accessibility": {
+        "role": "tooltip",
+        "trigger": {
+          "ariaDescribedby": "ID of tooltip"
+        },
+        "behavior": {
+          "showOnFocus": true,
+          "showOnHover": true,
+          "hideOnEsc": true
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "content": "px-2 py-1 bg-foreground text-white text-xs rounded shadow-md z-tooltip max-w-xs",
+          "arrow": "fill-foreground"
+        },
+        "animation": {
+          "enter": "animate-fade-in",
+          "exit": "animate-fade-out"
+        }
+      }
+    },
+
+    "Menu": {
+      "category": "composite",
+      "description": "Dropdown menu for actions and navigation.",
+
+      "anatomy": {
+        "parts": ["trigger", "list", "item", "itemIcon", "divider", "group", "groupLabel"]
+      },
+
+      "variants": {
+        "placement": {
+          "values": ["bottom-start", "bottom-end", "top-start", "top-end"],
+          "default": "bottom-start"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "isOpen": { "type": "boolean" },
+          "defaultIsOpen": { "type": "boolean", "default": false },
+          "onOpen": { "type": "() => void" },
+          "onClose": { "type": "() => void" },
+          "placement": { "type": "Placement", "default": "bottom-start" },
+          "closeOnSelect": { "type": "boolean", "default": true },
+          "closeOnBlur": { "type": "boolean", "default": true },
+          "autoSelect": { "type": "boolean", "default": true, "description": "Auto-select first item on open" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "trigger": {
+          "ariaHaspopup": "menu",
+          "ariaExpanded": "matches isOpen"
+        },
+        "list": {
+          "role": "menu",
+          "ariaOrientation": "vertical"
+        },
+        "item": {
+          "role": "menuitem"
+        },
+        "keyboardInteraction": {
+          "Enter/Space": "Select item",
+          "ArrowDown": "Move to next item",
+          "ArrowUp": "Move to previous item",
+          "Home": "Move to first item",
+          "End": "Move to last item",
+          "Escape": "Close menu",
+          "Type characters": "Jump to matching item"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "list": "bg-white rounded-lg shadow-lg border border-border py-1 min-w-[180px] z-dropdown",
+          "item": "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-primary-50 focus:bg-primary-50 focus:outline-none cursor-pointer",
+          "itemDisabled": "opacity-50 cursor-not-allowed",
+          "itemIcon": "w-4 h-4 text-foreground-muted",
+          "divider": "h-px bg-border my-1",
+          "groupLabel": "px-3 py-1 text-xs font-semibold text-foreground-muted uppercase tracking-wider"
+        }
+      }
+    },
+
+    "Tabs": {
+      "category": "composite",
+      "description": "Tabbed interface for organizing content into sections.",
+
+      "anatomy": {
+        "parts": ["root", "tabList", "tab", "tabIndicator", "tabPanels", "tabPanel"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["line", "enclosed", "soft-rounded", "solid-rounded"],
+          "default": "line",
+          "tokens": {
+            "line": {
+              "tabBorder": "none",
+              "activeIndicator": "2px solid {colors.brand.primary.DEFAULT}",
+              "indicatorPosition": "bottom"
+            },
+            "enclosed": {
+              "tabBorder": "1px solid {semantic.border.default}",
+              "activeBorder": "1px solid transparent",
+              "activeBackground": "{colors.neutral.0}"
+            },
+            "soft-rounded": {
+              "tabBorderRadius": "{borderRadius.full}",
+              "activeBackground": "{colors.brand.primary.50}",
+              "activeColor": "{colors.brand.primary.DEFAULT}"
+            },
+            "solid-rounded": {
+              "tabBorderRadius": "{borderRadius.full}",
+              "activeBackground": "{colors.brand.primary.DEFAULT}",
+              "activeColor": "{colors.neutral.0}"
+            }
+          }
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "tabPadding": "{spacing.2} {spacing.3}", "fontSize": "{typography.fontSizes.sm}" },
+            "md": { "tabPadding": "{spacing.2.5} {spacing.4}", "fontSize": "{typography.fontSizes.sm}" },
+            "lg": { "tabPadding": "{spacing.3} {spacing.5}", "fontSize": "{typography.fontSizes.base}" }
+          }
+        },
+        "orientation": {
+          "values": ["horizontal", "vertical"],
+          "default": "horizontal"
+        },
+        "isFitted": {
+          "values": [true, false],
+          "default": false,
+          "description": "Tabs take equal width"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "index": { "type": "number", "description": "Controlled active tab index" },
+          "defaultIndex": { "type": "number", "default": 0 },
+          "onChange": { "type": "(index: number) => void" },
+          "variant": { "type": "TabVariant", "default": "line" },
+          "size": { "type": "Size", "default": "md" },
+          "orientation": { "type": "Orientation", "default": "horizontal" },
+          "isFitted": { "type": "boolean", "default": false },
+          "isLazy": { "type": "boolean", "default": false, "description": "Render panels only when selected" },
+          "isManual": { "type": "boolean", "default": false, "description": "Require click to change tabs" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "tabList": {
+          "role": "tablist",
+          "ariaOrientation": "matches orientation"
+        },
+        "tab": {
+          "role": "tab",
+          "ariaSelected": true,
+          "ariaControls": "ID of panel"
+        },
+        "tabPanel": {
+          "role": "tabpanel",
+          "ariaLabelledby": "ID of tab",
+          "tabIndex": 0
+        },
+        "keyboardInteraction": {
+          "ArrowLeft/ArrowUp": "Previous tab",
+          "ArrowRight/ArrowDown": "Next tab",
+          "Home": "First tab",
+          "End": "Last tab",
+          "Enter/Space": "Activate tab (if isManual)"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "tabList": {
+            "horizontal": "flex border-b border-border",
+            "vertical": "flex flex-col border-r border-border"
+          },
+          "tab": "relative px-4 py-2.5 text-sm font-medium text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-inset",
+          "tabActive": "text-primary",
+          "tabIndicator": {
+            "line": "absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+          },
+          "tabPanel": "py-4 focus:outline-none"
+        }
+      }
+    },
+
+    "Accordion": {
+      "category": "composite",
+      "description": "Expandable content sections for organizing information.",
+
+      "anatomy": {
+        "parts": ["root", "item", "button", "icon", "panel"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["default", "bordered", "separated"],
+          "default": "default"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "index": { "type": "number | number[]", "description": "Controlled expanded index(es)" },
+          "defaultIndex": { "type": "number | number[]" },
+          "onChange": { "type": "(index: number | number[]) => void" },
+          "allowMultiple": { "type": "boolean", "default": false, "description": "Allow multiple items open" },
+          "allowToggle": { "type": "boolean", "default": false, "description": "Allow closing all items" },
+          "variant": { "type": "AccordionVariant", "default": "default" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "button": {
+          "ariaExpanded": true,
+          "ariaControls": "ID of panel"
+        },
+        "panel": {
+          "role": "region",
+          "ariaLabelledby": "ID of button"
+        },
+        "keyboardInteraction": {
+          "Enter/Space": "Toggle item",
+          "ArrowDown": "Next item button",
+          "ArrowUp": "Previous item button",
+          "Home": "First item button",
+          "End": "Last item button"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "divide-y divide-border",
+          "item": "py-2",
+          "button": "w-full flex items-center justify-between py-4 text-left font-medium text-foreground hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-inset",
+          "icon": "w-5 h-5 transition-transform duration-200",
+          "iconExpanded": "rotate-180",
+          "panel": "pb-4 text-foreground-secondary overflow-hidden transition-all duration-300",
+          "panelCollapsed": "h-0 opacity-0",
+          "panelExpanded": "h-auto opacity-100"
+        }
+      }
+    },
+
+    "Alert": {
+      "category": "feedback",
+      "description": "Contextual feedback messages for user actions.",
+
+      "anatomy": {
+        "parts": ["root", "icon", "content", "title", "description", "closeButton"]
+      },
+
+      "variants": {
+        "status": {
+          "values": ["info", "success", "warning", "error"],
+          "default": "info",
+          "tokens": {
+            "info": {
+              "background": "{colors.semantic.info.light}",
+              "borderColor": "{colors.semantic.info.DEFAULT}",
+              "iconColor": "{colors.semantic.info.DEFAULT}",
+              "titleColor": "{colors.semantic.info.dark}"
+            },
+            "success": {
+              "background": "{colors.semantic.success.light}",
+              "borderColor": "{colors.semantic.success.DEFAULT}",
+              "iconColor": "{colors.semantic.success.DEFAULT}",
+              "titleColor": "{colors.semantic.success.dark}"
+            },
+            "warning": {
+              "background": "{colors.semantic.warning.light}",
+              "borderColor": "{colors.semantic.warning.DEFAULT}",
+              "iconColor": "{colors.semantic.warning.dark}",
+              "titleColor": "{colors.semantic.warning.dark}"
+            },
+            "error": {
+              "background": "{colors.semantic.error.light}",
+              "borderColor": "{colors.semantic.error.DEFAULT}",
+              "iconColor": "{colors.semantic.error.DEFAULT}",
+              "titleColor": "{colors.semantic.error.dark}"
+            }
+          }
+        },
+        "variant": {
+          "values": ["subtle", "solid", "left-accent", "top-accent"],
+          "default": "subtle"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "status": { "type": "AlertStatus", "default": "info" },
+          "variant": { "type": "AlertVariant", "default": "subtle" },
+          "title": { "type": "string" },
+          "isClosable": { "type": "boolean", "default": false },
+          "onClose": { "type": "() => void" },
+          "icon": { "type": "ReactElement", "description": "Custom icon" },
+          "children": { "type": "ReactNode", "description": "Description content" }
+        }
+      },
+
+      "accessibility": {
+        "role": "alert",
+        "ariaLive": "polite",
+        "iconAriaHidden": true
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "flex items-start gap-3 p-4 rounded-lg",
+          "subtle": {
+            "info": "bg-info-light text-info-dark",
+            "success": "bg-success-light text-success-dark",
+            "warning": "bg-warning-light text-warning-dark",
+            "error": "bg-error-light text-error-dark"
+          },
+          "leftAccent": "border-l-4",
+          "icon": "w-5 h-5 flex-shrink-0 mt-0.5",
+          "title": "font-semibold",
+          "description": "text-sm",
+          "closeButton": "ml-auto -mr-1 -mt-1 p-1 rounded hover:bg-black/5"
+        }
+      }
+    },
+
+    "Toast": {
+      "category": "feedback",
+      "description": "Brief notification messages that appear temporarily.",
+
+      "anatomy": {
+        "parts": ["root", "icon", "content", "title", "description", "closeButton"]
+      },
+
+      "variants": {
+        "status": {
+          "values": ["info", "success", "warning", "error"],
+          "default": "info"
+        },
+        "position": {
+          "values": ["top", "top-left", "top-right", "bottom", "bottom-left", "bottom-right"],
+          "default": "bottom-right"
+        },
+        "variant": {
+          "values": ["solid", "subtle", "left-accent"],
+          "default": "solid"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "ToastStatus", "default": "info" },
+          "variant": { "type": "ToastVariant", "default": "solid" },
+          "position": { "type": "ToastPosition", "default": "bottom-right" },
+          "duration": { "type": "number | null", "default": 5000, "description": "Auto-close duration in ms" },
+          "isClosable": { "type": "boolean", "default": true },
+          "onClose": { "type": "() => void" },
+          "icon": { "type": "ReactElement" }
+        }
+      },
+
+      "accessibility": {
+        "role": "status",
+        "ariaLive": "polite",
+        "ariaAtomic": true
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "container": "fixed z-toast pointer-events-none flex flex-col gap-2 p-4",
+          "positions": {
+            "top": "top-0 left-1/2 -translate-x-1/2",
+            "top-left": "top-0 left-0",
+            "top-right": "top-0 right-0",
+            "bottom": "bottom-0 left-1/2 -translate-x-1/2",
+            "bottom-left": "bottom-0 left-0",
+            "bottom-right": "bottom-0 right-0"
+          },
+          "toast": "pointer-events-auto flex items-start gap-3 p-4 rounded-lg shadow-lg min-w-[300px] max-w-md",
+          "solid": {
+            "info": "bg-info text-white",
+            "success": "bg-success text-white",
+            "warning": "bg-warning text-foreground",
+            "error": "bg-error text-white"
+          }
+        },
+        "animation": {
+          "enter": "animate-slide-in-up",
+          "exit": "animate-fade-out"
+        }
+      }
+    },
+
+    "Progress": {
+      "category": "feedback",
+      "description": "Visual indicator of progress towards completion.",
+
+      "anatomy": {
+        "parts": ["root", "track", "filledTrack", "label"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["xs", "sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "xs": { "height": "4px" },
+            "sm": { "height": "6px" },
+            "md": { "height": "8px" },
+            "lg": { "height": "12px" }
+          }
+        },
+        "colorScheme": {
+          "values": ["primary", "success", "warning", "error"],
+          "default": "primary"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "value": { "type": "number", "description": "Progress value 0-100" },
+          "min": { "type": "number", "default": 0 },
+          "max": { "type": "number", "default": 100 },
+          "size": { "type": "Size", "default": "md" },
+          "colorScheme": { "type": "ColorScheme", "default": "primary" },
+          "isIndeterminate": { "type": "boolean", "default": false },
+          "hasStripe": { "type": "boolean", "default": false },
+          "isAnimated": { "type": "boolean", "default": false },
+          "borderRadius": { "type": "BorderRadius", "default": "full" }
+        },
+        "aria": {
+          "aria-label": { "type": "string", "required": true },
+          "aria-valuenow": { "type": "number" },
+          "aria-valuemin": { "type": "number" },
+          "aria-valuemax": { "type": "number" }
+        }
+      },
+
+      "accessibility": {
+        "role": "progressbar",
+        "ariaValuenow": "current value",
+        "ariaValuemin": "min value",
+        "ariaValuemax": "max value"
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "track": "w-full bg-neutral-200 rounded-full overflow-hidden",
+          "filledTrack": "h-full rounded-full transition-all duration-300",
+          "sizes": {
+            "xs": "h-1",
+            "sm": "h-1.5",
+            "md": "h-2",
+            "lg": "h-3"
+          },
+          "colors": {
+            "primary": "bg-primary",
+            "success": "bg-success",
+            "warning": "bg-warning",
+            "error": "bg-error"
+          },
+          "indeterminate": "animate-pulse"
+        }
+      }
+    },
+
+    "Skeleton": {
+      "category": "feedback",
+      "description": "Placeholder loading state for content.",
+
+      "anatomy": {
+        "parts": ["root"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["pulse", "wave"],
+          "default": "pulse"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "isLoaded": { "type": "boolean", "default": false, "description": "Show children when true" },
+          "variant": { "type": "SkeletonVariant", "default": "pulse" },
+          "width": { "type": "string" },
+          "height": { "type": "string" },
+          "borderRadius": { "type": "BorderRadius", "default": "md" },
+          "startColor": { "type": "string", "default": "{colors.neutral.200}" },
+          "endColor": { "type": "string", "default": "{colors.neutral.300}" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "ariaHidden": true,
+        "ariaBusy": "true when loading"
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "base": "bg-neutral-200 rounded-md",
+          "pulse": "animate-pulse",
+          "wave": "relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_2s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/60 before:to-transparent"
+        }
+      }
+    },
+
+    "Table": {
+      "category": "data-display",
+      "description": "Data table for displaying structured information.",
+
+      "anatomy": {
+        "parts": ["root", "thead", "tbody", "tfoot", "tr", "th", "td", "caption"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["simple", "striped", "bordered"],
+          "default": "simple"
+        },
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md",
+          "tokens": {
+            "sm": { "cellPadding": "{spacing.2} {spacing.3}", "fontSize": "{typography.fontSizes.sm}" },
+            "md": { "cellPadding": "{spacing.3} {spacing.4}", "fontSize": "{typography.fontSizes.sm}" },
+            "lg": { "cellPadding": "{spacing.4} {spacing.6}", "fontSize": "{typography.fontSizes.base}" }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "variant": { "type": "TableVariant", "default": "simple" },
+          "size": { "type": "Size", "default": "md" },
+          "colorScheme": { "type": "ColorScheme", "default": "neutral" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "semanticElements": ["table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption"],
+        "requirements": [
+          "Use caption or aria-label for table description",
+          "Use th with scope for header cells",
+          "Avoid using tables for layout"
+        ]
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "table": "w-full text-left",
+          "thead": "bg-neutral-50 border-b border-border",
+          "th": "px-4 py-3 font-semibold text-foreground text-sm",
+          "tbody": "divide-y divide-border",
+          "td": "px-4 py-3 text-foreground-secondary",
+          "striped": "[&_tbody_tr:nth-child(odd)]:bg-neutral-50",
+          "bordered": "border border-border [&_th]:border [&_td]:border"
+        }
+      }
+    },
+
+    "Breadcrumb": {
+      "category": "navigation",
+      "description": "Navigation aid showing the current page location within a hierarchy.",
+
+      "anatomy": {
+        "parts": ["root", "list", "item", "link", "separator", "currentPage"]
+      },
+
+      "variants": {
+        "separator": {
+          "values": ["/", ">", "-", "custom"],
+          "default": "/"
+        }
+      },
+
+      "props": {
+        "optional": {
+          "separator": { "type": "ReactNode", "default": "/" },
+          "spacing": { "type": "Spacing", "default": "2" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "accessibility": {
+        "nav": {
+          "ariaLabel": "Breadcrumb"
+        },
+        "list": {
+          "role": "list"
+        },
+        "currentPage": {
+          "ariaCurrent": "page"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "nav": "",
+          "list": "flex items-center gap-2 text-sm",
+          "item": "flex items-center gap-2",
+          "link": "text-foreground-muted hover:text-foreground transition-colors",
+          "linkCurrent": "text-foreground font-medium",
+          "separator": "text-foreground-muted"
+        }
+      }
+    },
+
+    "Pagination": {
+      "category": "navigation",
+      "description": "Navigation for multi-page content.",
+
+      "anatomy": {
+        "parts": ["root", "prevButton", "nextButton", "pageButton", "ellipsis"]
+      },
+
+      "variants": {
+        "size": {
+          "values": ["sm", "md", "lg"],
+          "default": "md"
+        },
+        "variant": {
+          "values": ["outline", "solid", "ghost"],
+          "default": "outline"
+        }
+      },
+
+      "props": {
+        "required": {
+          "count": { "type": "number", "description": "Total number of pages" }
+        },
+        "optional": {
+          "page": { "type": "number", "description": "Controlled current page" },
+          "defaultPage": { "type": "number", "default": 1 },
+          "onChange": { "type": "(page: number) => void" },
+          "siblingCount": { "type": "number", "default": 1, "description": "Pages shown around current" },
+          "boundaryCount": { "type": "number", "default": 1, "description": "Pages shown at start/end" },
+          "size": { "type": "Size", "default": "md" },
+          "variant": { "type": "PaginationVariant", "default": "outline" },
+          "showFirstLast": { "type": "boolean", "default": false },
+          "isDisabled": { "type": "boolean", "default": false }
+        }
+      },
+
+      "accessibility": {
+        "nav": {
+          "ariaLabel": "Pagination"
+        },
+        "pageButton": {
+          "ariaCurrent": "page when active",
+          "ariaLabel": "Page N"
+        },
+        "prevButton": {
+          "ariaLabel": "Previous page"
+        },
+        "nextButton": {
+          "ariaLabel": "Next page"
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "flex items-center gap-1",
+          "button": "min-w-[36px] h-9 px-3 rounded-md font-medium text-sm transition-colors",
+          "buttonOutline": "border border-border hover:bg-neutral-50",
+          "buttonActive": "bg-primary text-white border-primary",
+          "buttonDisabled": "opacity-50 cursor-not-allowed",
+          "ellipsis": "px-2 text-foreground-muted"
+        }
+      }
+    },
+
+    "Header": {
+      "category": "navigation",
+      "description": "Main navigation header following design specifications.",
+
+      "anatomy": {
+        "parts": ["root", "container", "logo", "nav", "actions", "mobileMenuButton"]
+      },
+
+      "variants": {
+        "variant": {
+          "values": ["default", "transparent", "dark"],
+          "default": "default",
+          "tokens": {
+            "default": {
+              "background": "{colors.neutral.0}",
+              "shadow": "{shadows.sm}",
+              "textColor": "#003400"
+            },
+            "transparent": {
+              "background": "transparent",
+              "shadow": "none",
+              "textColor": "#003400"
+            },
+            "dark": {
+              "background": "#003400",
+              "shadow": "{shadows.sm}",
+              "textColor": "{colors.neutral.0}"
+            }
+          }
+        }
+      },
+
+      "props": {
+        "optional": {
+          "variant": { "type": "HeaderVariant", "default": "default" },
+          "isSticky": { "type": "boolean", "default": true },
+          "logo": { "type": "ReactNode" },
+          "children": { "type": "ReactNode", "description": "Navigation items" },
+          "actions": { "type": "ReactNode", "description": "Right-side actions" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "root": "h-[72px] w-full",
+          "sticky": "sticky top-0 z-sticky",
+          "default": "bg-white shadow-sm",
+          "container": "h-full max-w-[1400px] mx-auto px-4 lg:px-8 flex items-center justify-between",
+          "logo": "flex-shrink-0",
+          "nav": "hidden lg:flex items-center gap-8",
+          "actions": "flex items-center gap-4",
+          "mobileMenuButton": "lg:hidden"
+        }
+      }
+    },
+
+    "MegaMenu": {
+      "category": "navigation",
+      "description": "Large dropdown navigation panel for complex site structures. Supports spotlight banners at 900x600px.",
+
+      "anatomy": {
+        "parts": ["trigger", "panel", "section", "sectionTitle", "link", "spotlightBanner"]
+      },
+
+      "props": {
+        "optional": {
+          "trigger": { "type": "ReactNode" },
+          "sections": { "type": "Array<MenuSection>", "description": "Menu sections with links" },
+          "spotlightBanner": { "type": "SpotlightBannerProps", "description": "Featured image banner" },
+          "children": { "type": "ReactNode" }
+        }
+      },
+
+      "implementation": {
+        "tailwindClasses": {
+          "panel": "absolute left-0 right-0 top-full bg-white shadow-lg border-t border-border",
+          "container": "max-w-[1400px] mx-auto px-8 py-6",
+          "grid": "grid grid-cols-4 gap-8",
+          "section": "space-y-3",
+          "sectionTitle": "font-semibold text-foreground text-sm uppercase tracking-wider",
+          "link": "block py-1 text-foreground-secondary hover:text-primary transition-colors",
+          "spotlightBanner": "col-span-2 w-full aspect-[3/2] rounded-xl overflow-hidden"
+        },
+        "dimensions": {
+          "spotlightBanner": { "width": "900px", "height": "600px", "aspectRatio": "3:2" }
+        }
+      }
+    }
+  },
+
+  "patterns": {
+    "composition": {
+      "formField": {
+        "description": "Standard form field pattern with label, input, and helper text",
+        "components": ["FormControl", "FormLabel", "Input | Select | Textarea", "FormHelperText | FormErrorMessage"],
+        "layout": "vertical stack with spacing-1.5 gap"
+      },
+      "actionBar": {
+        "description": "Horizontal bar of action buttons",
+        "components": ["Flex", "Button", "IconButton"],
+        "layout": "horizontal with spacing-2 gap, end-aligned"
+      },
+      "emptyState": {
+        "description": "Placeholder for empty data views",
+        "components": ["Center", "Icon", "Heading", "Text", "Button"],
+        "layout": "centered vertical stack"
+      },
+      "confirmDialog": {
+        "description": "Confirmation modal pattern",
+        "components": ["Modal", "ModalHeader", "ModalBody", "ModalFooter", "Button"],
+        "layout": "Modal with centered content, two buttons in footer"
+      },
+      "searchWithResults": {
+        "description": "Search input with dropdown results",
+        "components": ["Input", "Popover", "Menu"],
+        "layout": "Input triggers Popover with Menu items"
+      }
+    },
+    "layout": {
+      "dashboardLayout": {
+        "description": "Admin dashboard with sidebar",
+        "structure": "Flex > Sidebar + Main[Header + Content]"
+      },
+      "marketingLayout": {
+        "description": "Marketing page with hero",
+        "structure": "Sticky[Header] + Hero + Sections + Footer"
+      },
+      "authLayout": {
+        "description": "Authentication pages",
+        "structure": "Center[Card[Form]]"
+      }
+    }
+  }
+}
