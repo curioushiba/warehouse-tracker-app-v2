@@ -32,11 +32,10 @@ import {
   SyncStatusIndicator,
 } from "@/components/ui";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { getUserTransactions } from "@/lib/actions/transactions";
 import { getItems } from "@/lib/actions/items";
-import { getUsers } from "@/lib/actions/users";
-import type { Transaction, Item, Profile } from "@/lib/supabase/types";
+import type { Transaction, Item } from "@/lib/supabase/types";
 
 type TransactionFilter = "all" | "check_in" | "check_out" | "transfer" | "adjustment";
 type DateFilter = "all" | "today" | "week" | "month";
@@ -47,7 +46,7 @@ interface TransactionWithDetails extends Transaction {
 }
 
 export default function HistoryPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, profile, isLoading: authLoading } = useAuthContext();
 
   const [transactions, setTransactions] = React.useState<TransactionWithDetails[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -68,11 +67,10 @@ export default function HistoryPage() {
     setError(null);
 
     try {
-      // Fetch transactions, items, and users in parallel
-      const [transactionsResult, itemsResult, usersResult] = await Promise.all([
+      // Fetch transactions and items in parallel (no need to fetch all users)
+      const [transactionsResult, itemsResult] = await Promise.all([
         getUserTransactions(user.id),
         getItems(),
-        getUsers(),
       ]);
 
       if (!transactionsResult.success) {
@@ -81,7 +79,7 @@ export default function HistoryPage() {
         return;
       }
 
-      // Create lookup maps
+      // Create item lookup map
       const itemMap = new Map<string, Item>();
       if (itemsResult.success) {
         itemsResult.data.forEach((item) => {
@@ -89,30 +87,23 @@ export default function HistoryPage() {
         });
       }
 
-      const userMap = new Map<string, Profile>();
-      if (usersResult.success) {
-        usersResult.data.forEach((u) => {
-          userMap.set(u.id, u);
-        });
+      // Derive the current user's display name from profile
+      let currentUserName = "Me";
+      if (profile) {
+        if (profile.name) currentUserName = profile.name;
+        else if (profile.first_name && profile.last_name) currentUserName = `${profile.first_name} ${profile.last_name}`;
+        else if (profile.first_name) currentUserName = profile.first_name;
+        else if (profile.username) currentUserName = profile.username;
       }
 
       // Add item and user names to transactions
       const transactionsWithDetails: TransactionWithDetails[] = transactionsResult.data.map(tx => {
         const item = itemMap.get(tx.item_id);
-        const txUser = userMap.get(tx.user_id);
-
-        let userName = "Unknown User";
-        if (txUser) {
-          if (txUser.name) userName = txUser.name;
-          else if (txUser.first_name && txUser.last_name) userName = `${txUser.first_name} ${txUser.last_name}`;
-          else if (txUser.first_name) userName = txUser.first_name;
-          else userName = txUser.username;
-        }
 
         return {
           ...tx,
           itemName: item?.name || 'Unknown Item',
-          userName,
+          userName: currentUserName,
         };
       });
 
@@ -122,7 +113,7 @@ export default function HistoryPage() {
     }
 
     setIsLoading(false);
-  }, [user?.id]);
+  }, [user?.id, profile]);
 
   React.useEffect(() => {
     fetchData();
@@ -445,21 +436,20 @@ export default function HistoryPage() {
                               {transaction.itemName}
                             </p>
                             <p
-                              className={`font-semibold ${
-                                transaction.transaction_type === "check_in" ||
-                                transaction.transaction_type === "return"
+                              className={`font-semibold ${transaction.transaction_type === "check_in" ||
+                                  transaction.transaction_type === "return"
                                   ? "text-success"
                                   : transaction.transaction_type === "check_out"
-                                  ? "text-error"
-                                  : "text-foreground"
-                              }`}
+                                    ? "text-error"
+                                    : "text-foreground"
+                                }`}
                             >
                               {transaction.transaction_type === "check_in" ||
-                              transaction.transaction_type === "return"
+                                transaction.transaction_type === "return"
                                 ? "+"
                                 : transaction.transaction_type === "check_out"
-                                ? "-"
-                                : ""}
+                                  ? "-"
+                                  : ""}
                               {transaction.quantity}
                             </p>
                           </div>
@@ -539,21 +529,20 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-muted">Quantity</span>
                   <span
-                    className={`font-semibold ${
-                      selectedTransaction.transaction_type === "check_in" ||
-                      selectedTransaction.transaction_type === "return"
+                    className={`font-semibold ${selectedTransaction.transaction_type === "check_in" ||
+                        selectedTransaction.transaction_type === "return"
                         ? "text-success"
                         : selectedTransaction.transaction_type === "check_out"
-                        ? "text-error"
-                        : "text-foreground"
-                    }`}
+                          ? "text-error"
+                          : "text-foreground"
+                      }`}
                   >
                     {selectedTransaction.transaction_type === "check_in" ||
-                    selectedTransaction.transaction_type === "return"
+                      selectedTransaction.transaction_type === "return"
                       ? "+"
                       : selectedTransaction.transaction_type === "check_out"
-                      ? "-"
-                      : ""}
+                        ? "-"
+                        : ""}
                     {selectedTransaction.quantity}
                   </span>
                 </div>
