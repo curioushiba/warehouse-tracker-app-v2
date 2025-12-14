@@ -48,6 +48,47 @@ function playBeep() {
 }
 
 /**
+ * Play a double beep sound for duplicate item detection
+ * Two rapid 1kHz tones: 80ms beep, 80ms gap, 80ms beep
+ */
+function playDuplicateBeep() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextClass) return
+
+    const audioContext = new AudioContextClass()
+    const gainNode = audioContext.createGain()
+    gainNode.connect(audioContext.destination)
+    gainNode.gain.value = 0.3 // 30% volume
+
+    // First beep
+    const oscillator1 = audioContext.createOscillator()
+    oscillator1.connect(gainNode)
+    oscillator1.frequency.value = 1000
+    oscillator1.type = 'sine'
+    oscillator1.start(audioContext.currentTime)
+    oscillator1.stop(audioContext.currentTime + 0.08) // 80ms
+
+    // Second beep after 160ms (80ms beep + 80ms gap)
+    const oscillator2 = audioContext.createOscillator()
+    oscillator2.connect(gainNode)
+    oscillator2.frequency.value = 1000
+    oscillator2.type = 'sine'
+    oscillator2.start(audioContext.currentTime + 0.16)
+    oscillator2.stop(audioContext.currentTime + 0.24) // 80ms duration
+
+    // Close AudioContext after second oscillator finishes
+    oscillator2.onended = () => {
+      audioContext.close().catch(() => {
+        // Ignore close errors
+      })
+    }
+  } catch {
+    // Silently fail if audio not supported
+  }
+}
+
+/**
  * Trigger haptic vibration (mobile devices only)
  * Duration: 50ms pulse
  */
@@ -60,6 +101,8 @@ function vibrate() {
 export interface UseScanFeedbackReturn {
   /** Trigger all feedback (visual, audio, haptic) */
   triggerFeedback: (item: ScanFeedbackItem) => void
+  /** Trigger audio-only alert for duplicate item detection (double beep) */
+  triggerDuplicateAlert: () => void
   /** Current item being displayed in overlay (null if hidden) */
   feedbackItem: ScanFeedbackItem | null
   /** Whether the overlay is currently visible */
@@ -116,8 +159,14 @@ export function useScanFeedback(): UseScanFeedbackReturn {
     }, OVERLAY_DURATION)
   }, [])
 
+  const triggerDuplicateAlert = useCallback(() => {
+    // Audio-only feedback for duplicate detection (no visual, no haptic)
+    playDuplicateBeep()
+  }, [])
+
   return {
     triggerFeedback,
+    triggerDuplicateAlert,
     feedbackItem,
     isVisible,
     isExiting,

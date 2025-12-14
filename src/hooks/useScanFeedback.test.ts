@@ -27,6 +27,7 @@ describe('useScanFeedback', () => {
       expect(result.current.isVisible).toBe(false)
       expect(result.current.isExiting).toBe(false)
       expect(typeof result.current.triggerFeedback).toBe('function')
+      expect(typeof result.current.triggerDuplicateAlert).toBe('function')
     })
   })
 
@@ -206,6 +207,44 @@ describe('useScanFeedback', () => {
       if (descriptor) {
         Object.defineProperty(navigator, 'vibrate', descriptor)
       }
+    })
+  })
+
+  describe('triggerDuplicateAlert', () => {
+    it('does not show visual overlay', () => {
+      const { result } = renderHook(() => useScanFeedback())
+
+      act(() => {
+        result.current.triggerDuplicateAlert()
+      })
+
+      // Duplicate alert is audio-only, no visual feedback
+      expect(result.current.feedbackItem).toBeNull()
+      expect(result.current.isVisible).toBe(false)
+      expect(result.current.isExiting).toBe(false)
+    })
+
+    it('does not trigger haptic vibration', () => {
+      const { result } = renderHook(() => useScanFeedback())
+
+      act(() => {
+        result.current.triggerDuplicateAlert()
+      })
+
+      // Duplicate alert should not vibrate
+      expect(navigator.vibrate).not.toHaveBeenCalled()
+    })
+
+    it('does not throw when called multiple times', () => {
+      const { result } = renderHook(() => useScanFeedback())
+
+      expect(() => {
+        act(() => {
+          result.current.triggerDuplicateAlert()
+          result.current.triggerDuplicateAlert()
+          result.current.triggerDuplicateAlert()
+        })
+      }).not.toThrow()
     })
   })
 })

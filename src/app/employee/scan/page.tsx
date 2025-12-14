@@ -72,7 +72,7 @@ export default function ScanPage() {
   const [showDuplicateModal, setShowDuplicateModal] = React.useState(false);
 
   // Scan feedback (audio, haptic, visual)
-  const { triggerFeedback, feedbackItem, isVisible, isExiting } = useScanFeedback();
+  const { triggerFeedback, triggerDuplicateAlert, feedbackItem, isVisible, isExiting } = useScanFeedback();
 
   // Fetch recent items on mount
   React.useEffect(() => {
@@ -99,11 +99,12 @@ export default function ScanPage() {
       triggerFeedback({ itemName: item.name, itemImageUrl: item.image_url });
       setError(null);
     } else {
-      // Item already exists - show duplicate confirmation
+      // Item already exists - play duplicate alert and show confirmation
+      triggerDuplicateAlert();
       setDuplicateItem(item);
       setShowDuplicateModal(true);
     }
-  }, [addItem, triggerFeedback]);
+  }, [addItem, triggerFeedback, triggerDuplicateAlert]);
 
   // Handle duplicate confirmation
   const handleDuplicateConfirm = () => {
