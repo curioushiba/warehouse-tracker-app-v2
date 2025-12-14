@@ -7,7 +7,6 @@ import {
   Package,
   AlertCircle,
   Search,
-  CheckCircle2,
 } from "lucide-react";
 import {
   Card,
@@ -20,9 +19,10 @@ import {
 } from "@/components/ui";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { ItemImage } from "@/components/items";
-import { BarcodeScanner } from "@/components/scanner";
+import { BarcodeScanner, ScanSuccessOverlay } from "@/components/scanner";
 import { BatchMiniList } from "@/components/batch";
 import { useBatchScan } from "@/contexts/BatchScanContext";
+import { useScanFeedback } from "@/hooks";
 import { searchItems, getItemBySku, getItemByBarcode, getItems } from "@/lib/actions";
 import type { Item } from "@/lib/supabase/types";
 
@@ -61,7 +61,6 @@ export default function ScanPage() {
   );
   const [manualCode, setManualCode] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = React.useState(false);
   const [recentItems, setRecentItems] = React.useState<Item[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = React.useState(true);
@@ -72,13 +71,8 @@ export default function ScanPage() {
   const [duplicateItem, setDuplicateItem] = React.useState<Item | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = React.useState(false);
 
-  // Clear success message after delay
-  React.useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(null), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
+  // Scan feedback (audio, haptic, visual)
+  const { triggerFeedback, feedbackItem, isVisible, isExiting } = useScanFeedback();
 
   // Fetch recent items on mount
   React.useEffect(() => {
@@ -102,20 +96,20 @@ export default function ScanPage() {
   const addItemToBatch = React.useCallback((item: Item) => {
     const wasAdded = addItem(item);
     if (wasAdded) {
-      setSuccessMessage(`Added: ${item.name}`);
+      triggerFeedback({ itemName: item.name, itemImageUrl: item.image_url });
       setError(null);
     } else {
       // Item already exists - show duplicate confirmation
       setDuplicateItem(item);
       setShowDuplicateModal(true);
     }
-  }, [addItem]);
+  }, [addItem, triggerFeedback]);
 
   // Handle duplicate confirmation
   const handleDuplicateConfirm = () => {
     if (duplicateItem) {
       incrementItem(duplicateItem.id);
-      setSuccessMessage(`Added another: ${duplicateItem.name}`);
+      triggerFeedback({ itemName: duplicateItem.name, itemImageUrl: duplicateItem.image_url });
     }
     setShowDuplicateModal(false);
     setDuplicateItem(null);
@@ -133,7 +127,6 @@ export default function ScanPage() {
 
     setIsLookingUp(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       // Try to find by barcode first
@@ -172,7 +165,6 @@ export default function ScanPage() {
     if (!manualCode.trim()) return;
 
     setError(null);
-    setSuccessMessage(null);
     setIsSearching(true);
     setSearchResults([]);
 
@@ -298,16 +290,6 @@ export default function ScanPage() {
               </div>
             )}
 
-            {/* Success message */}
-            {successMessage && !isLookingUp && (
-              <div className="text-center py-2">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-success-light text-success rounded-full text-sm">
-                  <CheckCircle2 className="w-4 h-4" />
-                  {successMessage}
-                </div>
-              </div>
-            )}
-
             {/* Error display */}
             {error && !isLookingUp && (
               <Alert status="error" variant="subtle">
@@ -356,16 +338,6 @@ export default function ScanPage() {
                     }
                   }}
                 />
-
-                {/* Success message */}
-                {successMessage && (
-                  <div className="text-center py-2">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-success-light text-success rounded-full text-sm">
-                      <CheckCircle2 className="w-4 h-4" />
-                      {successMessage}
-                    </div>
-                  </div>
-                )}
 
                 {error && (
                   <Alert status="error" variant="subtle">
@@ -572,6 +544,13 @@ export default function ScanPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Scan Success Overlay (audio, haptic, visual feedback) */}
+      <ScanSuccessOverlay
+        item={feedbackItem}
+        isVisible={isVisible}
+        isExiting={isExiting}
+      />
     </div>
   );
 }
