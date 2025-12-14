@@ -59,85 +59,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
-    let authStateChangeHandled = false
+    let loadingResolved = false
 
-    // Get initial session with timeout fallback
-    const initializeAuth = async () => {
-      // Add timeout to prevent infinite hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('getSession timeout after 5s')), 5000)
+    // Helper to fetch profile with timeout to prevent infinite hang
+    // Increased timeout to 8s for slow connections
+    const fetchProfileWithTimeout = async (userId: string, timeoutMs = 8000): Promise<Profile | null> => {
+      const profilePromise = fetchProfile(userId)
+      const timeoutPromise = new Promise<null>((resolve) =>
+        setTimeout(() => {
+          console.warn('[AuthContext] Profile fetch timed out')
+          resolve(null)
+        }, timeoutMs)
       )
-
-      try {
-        const result = await Promise.race([
-          supabase.auth.getSession(),
-          timeoutPromise
-        ]) as Awaited<ReturnType<typeof supabase.auth.getSession>>
-
-        const initialSession = result.data?.session
-
-        if (initialSession?.user && isMounted) {
-          setSession(initialSession)
-          setUser(initialSession.user)
-          const profileData = await fetchProfile(initialSession.user.id)
-          if (isMounted) {
-            setProfile(profileData)
-          }
-
-          // Update last login (don't await - fire and forget)
-          const updateClient = supabase as unknown as { from: (table: string) => { update: (data: Record<string, string>) => { eq: (col: string, val: string) => void } } }
-          void updateClient
-            .from('profiles')
-            .update({ last_login_at: new Date().toISOString() })
-            .eq('id', initialSession.user.id)
-        }
-      } catch (error) {
-        console.error('[AuthContext] Error initializing auth:', error)
-        // If getSession timed out but onAuthStateChange hasn't fired yet, wait for it
-        if (error instanceof Error && error.message.includes('timeout') && !authStateChangeHandled) {
-          // Wait a bit for onAuthStateChange to fire, then set loading to false
-          setTimeout(() => {
-            if (isMounted && !authStateChangeHandled) {
-              setIsLoading(false)
-            }
-          }, 2000)
-          return
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
+      return Promise.race([profilePromise, timeoutPromise])
     }
 
-    initializeAuth()
-
-    // Listen for auth state changes - this is more reliable than getSession
+    // onAuthStateChange fires immediately with current session (INITIAL_SESSION event)
+    // This is more reliable than getSession() which can hang during token refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        authStateChangeHandled = true
-        if (isMounted) {
-          setSession(newSession)
-          setUser(newSession?.user ?? null)
+        if (!isMounted) return
 
-          if (newSession?.user) {
-            const profileData = await fetchProfile(newSession.user.id)
-            if (isMounted) {
-              setProfile(profileData)
-              setIsLoading(false)
+        setSession(newSession)
+        setUser(newSession?.user ?? null)
+
+        if (newSession?.user) {
+          const profileData = await fetchProfileWithTimeout(newSession.user.id)
+          if (isMounted) {
+            setProfile(profileData)
+            loadingResolved = true
+            setIsLoading(false)
+          }
+
+          // Update last login on sign in (fire and forget)
+          if (event === 'SIGNED_IN') {
+            // Type workaround for profiles table update
+            const updateClient = supabase as unknown as {
+              from: (table: string) => {
+                update: (data: Record<string, string>) => {
+                  eq: (col: string, val: string) => void
+                }
+              }
             }
-          } else {
-            if (isMounted) {
-              setProfile(null)
-              setIsLoading(false)
-            }
+            void updateClient
+              .from('profiles')
+              .update({ last_login_at: new Date().toISOString() })
+              .eq('id', newSession.user.id)
+          }
+        } else {
+          if (isMounted) {
+            setProfile(null)
+            loadingResolved = true
+            setIsLoading(false)
           }
         }
       }
     )
 
+    // Safety timeout: if onAuthStateChange hasn't resolved loading after 10s,
+    // assume no session and stop loading to prevent infinite spinner
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted && !loadingResolved) {
+        console.warn('[AuthContext] Safety timeout - no auth state received after 10s')
+        setIsLoading(false)
+      }
+    }, 10000)
+
     return () => {
       isMounted = false
+      clearTimeout(safetyTimeout)
       subscription.unsubscribe()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

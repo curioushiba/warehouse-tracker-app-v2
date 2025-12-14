@@ -19,6 +19,8 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/admin/users": { title: "Users", subtitle: "Manage team members" },
   "/admin/settings": { title: "Settings", subtitle: "System configuration" },
   "/admin/notifications": { title: "Notifications", subtitle: "Alerts and updates" },
+  "/admin/help": { title: "Help & Support", subtitle: "Documentation and resources" },
+  "/admin/sync-errors": { title: "Sync Errors", subtitle: "Failed offline transactions" },
 };
 
 export default function AdminLayoutWrapper({
