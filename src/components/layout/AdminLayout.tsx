@@ -84,7 +84,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {children}
+            <div className="max-w-container-2xl mx-auto w-full">
+              {children}
+            </div>
           </main>
         </div>
       </div>
