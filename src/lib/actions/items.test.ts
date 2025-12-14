@@ -16,6 +16,7 @@ const mockItems: Item[] = [
     max_stock: 200,
     unit_price: 9.99,
     barcode: '1234567890123',
+    image_url: null,
     is_archived: false,
     version: 1,
     created_at: '2024-01-01T00:00:00Z',
@@ -34,6 +35,7 @@ const mockItems: Item[] = [
     max_stock: 50,
     unit_price: 19.99,
     barcode: '9876543210987',
+    image_url: null,
     is_archived: false,
     version: 1,
     created_at: '2024-01-02T00:00:00Z',
@@ -50,8 +52,10 @@ const mockIlike = vi.fn()
 const mockOr = vi.fn()
 const mockLt = vi.fn()
 const mockSingle = vi.fn()
+const mockMaybeSingle = vi.fn()
 const mockOrder = vi.fn()
 const mockFrom = vi.fn()
+const mockRpc = vi.fn()
 
 // Reset and setup mocks before each test
 beforeEach(() => {
@@ -66,6 +70,7 @@ beforeEach(() => {
   mockOr.mockReturnThis()
   mockLt.mockReturnThis()
   mockOrder.mockReturnThis()
+  mockMaybeSingle.mockReturnThis()
 
   mockFrom.mockReturnValue({
     select: mockSelect,
@@ -76,6 +81,7 @@ beforeEach(() => {
     or: mockOr,
     lt: mockLt,
     single: mockSingle,
+    maybeSingle: mockMaybeSingle,
     order: mockOrder,
   })
 })
@@ -89,6 +95,7 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => Promise.resolve({
     from: mockFrom,
+    rpc: mockRpc,
   })),
 }))
 
@@ -528,6 +535,242 @@ describe('Items Server Actions', () => {
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBe('Search failed')
+      }
+    })
+  })
+
+  describe('generateHrgCode', () => {
+    const itemWithoutBarcode: Item = {
+      ...mockItems[0],
+      id: 'item-no-barcode',
+      barcode: null,
+      is_archived: false,
+    }
+
+    it('should generate HRG code for item without barcode', async () => {
+      // Arrange
+      const generatedCode = 'HRG-00001'
+      const updatedItem = { ...itemWithoutBarcode, barcode: generatedCode }
+
+      // RPC returns chainable object with single() method
+      mockRpc.mockReturnValueOnce({
+        single: vi.fn().mockResolvedValueOnce({ data: updatedItem, error: null })
+      })
+
+      // Act
+      const { generateHrgCode } = await import('./items')
+      const result = await generateHrgCode('item-no-barcode')
+
+      // Assert
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.barcode).toBe(generatedCode)
+      }
+      expect(mockRpc).toHaveBeenCalledWith('assign_hrg_code', { p_item_id: 'item-no-barcode' })
+    })
+
+    it('should return error when item already has barcode', async () => {
+      // Arrange - atomic function returns error
+      mockRpc.mockReturnValueOnce({
+        single: vi.fn().mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Item already has a barcode assigned' }
+        })
+      })
+
+      // Act
+      const { generateHrgCode } = await import('./items')
+      const result = await generateHrgCode('1')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Item already has a barcode assigned')
+      }
+    })
+
+    it('should return error when item is archived', async () => {
+      // Arrange - atomic function returns error
+      mockRpc.mockReturnValueOnce({
+        single: vi.fn().mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Cannot generate code for archived item' }
+        })
+      })
+
+      // Act
+      const { generateHrgCode } = await import('./items')
+      const result = await generateHrgCode('archived-item')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Cannot generate code for archived item')
+      }
+    })
+
+    it('should return error when item not found', async () => {
+      // Arrange - atomic function returns error
+      mockRpc.mockReturnValueOnce({
+        single: vi.fn().mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Item not found' }
+        })
+      })
+
+      // Act
+      const { generateHrgCode } = await import('./items')
+      const result = await generateHrgCode('nonexistent')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Item not found')
+      }
+    })
+  })
+
+  describe('registerBarcode', () => {
+    const itemWithoutBarcode: Item = {
+      ...mockItems[0],
+      id: 'item-no-barcode',
+      barcode: null,
+      is_archived: false,
+    }
+
+    const archivedItem: Item = {
+      ...mockItems[0],
+      id: 'archived-item',
+      barcode: null,
+      is_archived: true,
+    }
+
+    it('should register barcode successfully', async () => {
+      // Arrange
+      const newBarcode = '123456789'
+      const updatedItem = { ...itemWithoutBarcode, barcode: newBarcode }
+
+      // First call: check if barcode exists on another item
+      mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null })
+      // Second call: fetch current item
+      mockSingle.mockResolvedValueOnce({ data: itemWithoutBarcode, error: null })
+      // Third call: update item with barcode
+      mockSingle.mockResolvedValueOnce({ data: updatedItem, error: null })
+
+      // Act
+      const { registerBarcode } = await import('./items')
+      const result = await registerBarcode('item-no-barcode', newBarcode)
+
+      // Assert
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.barcode).toBe(newBarcode)
+      }
+    })
+
+    it('should return error when barcode is empty', async () => {
+      // Act
+      const { registerBarcode } = await import('./items')
+      const result = await registerBarcode('item-no-barcode', '')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Barcode cannot be empty')
+      }
+    })
+
+    it('should return error when barcode is whitespace only', async () => {
+      // Act
+      const { registerBarcode } = await import('./items')
+      const result = await registerBarcode('item-no-barcode', '   ')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Barcode cannot be empty')
+      }
+    })
+
+    it('should return error when barcode is too long', async () => {
+      // Act
+      const { registerBarcode } = await import('./items')
+      const longBarcode = 'a'.repeat(101)
+      const result = await registerBarcode('item-no-barcode', longBarcode)
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Barcode is too long')
+      }
+    })
+
+    it('should return error when barcode is already assigned to another item', async () => {
+      // Arrange - barcode exists on different item
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: { id: 'other-item', name: 'Other Item' },
+        error: null
+      })
+
+      // Act
+      const { registerBarcode } = await import('./items')
+      const result = await registerBarcode('item-no-barcode', '123456789')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('This barcode is already assigned to another item')
+      }
+    })
+
+    it('should return error when item is archived', async () => {
+      // Arrange
+      mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null })
+      mockSingle.mockResolvedValueOnce({ data: archivedItem, error: null })
+
+      // Act
+      const { registerBarcode } = await import('./items')
+      const result = await registerBarcode('archived-item', '123456789')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Cannot register barcode for archived item')
+      }
+    })
+  })
+
+  describe('clearBarcode', () => {
+    it('should clear barcode successfully', async () => {
+      // Arrange
+      const clearedItem = { ...mockItems[0], barcode: null }
+      mockSingle.mockResolvedValueOnce({ data: clearedItem, error: null })
+
+      // Act
+      const { clearBarcode } = await import('./items')
+      const result = await clearBarcode('1')
+
+      // Assert
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.barcode).toBeNull()
+      }
+      expect(mockUpdate).toHaveBeenCalledWith({ barcode: null })
+      expect(mockEq).toHaveBeenCalledWith('id', '1')
+    })
+
+    it('should return error when item not found', async () => {
+      // Arrange
+      mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'Item not found' } })
+
+      // Act
+      const { clearBarcode } = await import('./items')
+      const result = await clearBarcode('nonexistent')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('Item not found')
       }
     })
   })

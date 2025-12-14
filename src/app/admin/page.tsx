@@ -27,7 +27,7 @@ import {
   StockLevelBadge,
   TransactionTypeBadge,
 } from "@/components/ui";
-import { getDashboardStats, getRecentActivity, getLowStockItems } from "@/lib/actions";
+import { getDashboardData, getRecentActivity } from "@/lib/actions";
 import type { Item, Alert } from "@/lib/supabase/types";
 import { formatRelativeTime, getStockLevel } from "@/lib/utils";
 
@@ -136,32 +136,28 @@ export default function AdminDashboard() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    async function fetchDashboardData() {
+    async function fetchData() {
       try {
         setIsLoading(true);
         setError(null);
 
-        // Fetch all data in parallel
-        const [statsResult, activityResult, lowStockResult] = await Promise.all([
-          getDashboardStats(),
+        // Fetch data in parallel - getDashboardData includes both stats and low stock items
+        const [dashboardResult, activityResult] = await Promise.all([
+          getDashboardData(),
           getRecentActivity(5),
-          getLowStockItems(),
         ]);
 
-        if (statsResult.success && statsResult.data) {
-          setStats(statsResult.data);
+        if (dashboardResult.success && dashboardResult.data) {
+          setStats(dashboardResult.data.stats);
+          setLowStockItemsList(dashboardResult.data.lowStockItemsList);
         }
 
         if (activityResult.success && activityResult.data) {
           setRecentTransactions(activityResult.data as RecentTransaction[]);
         }
 
-        if (lowStockResult.success && lowStockResult.data) {
-          setLowStockItemsList(lowStockResult.data);
-        }
-
-        if (!statsResult.success) {
-          setError(statsResult.error || "Failed to fetch dashboard stats");
+        if (!dashboardResult.success) {
+          setError(dashboardResult.error || "Failed to fetch dashboard stats");
         }
       } catch (err) {
         setError("Failed to load dashboard data");
@@ -171,7 +167,7 @@ export default function AdminDashboard() {
       }
     }
 
-    fetchDashboardData();
+    fetchData();
   }, []);
 
   const unreadAlerts = stats?.recentAlerts ?? [];

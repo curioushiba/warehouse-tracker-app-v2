@@ -86,8 +86,10 @@ export {
 // Dashboard Actions
 export {
   getDashboardStats,
+  getDashboardData,
   getRecentActivity,
   type DashboardStats,
+  type DashboardData,
 } from './dashboard'
 
 // Sync Errors Actions

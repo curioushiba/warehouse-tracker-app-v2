@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import type { Alert } from '@/lib/supabase/types'
+import type { Alert, Item } from '@/lib/supabase/types'
 
 export interface DashboardStats {
   totalItems: number
@@ -10,6 +10,11 @@ export interface DashboardStats {
   todayTransactions: number
   pendingSync: number
   recentAlerts: Alert[]
+}
+
+export interface DashboardData {
+  stats: DashboardStats
+  lowStockItemsList: Item[]
 }
 
 export interface ActionResult<T> {
@@ -23,7 +28,7 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
-    // Run all queries in parallel
+    // Run all queries in parallel - using the view for low stock count
     const [
       totalItemsResult,
       lowStockResult,
@@ -38,13 +43,11 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
         .select('*', { count: 'exact', head: true })
         .eq('is_archived', false),
 
-      // Low stock items (current_stock <= min_stock but > 0)
+      // Low stock items - use the view for efficient server-side filtering
       supabase
-        .from('inv_items')
+        .from('inv_low_stock_items')
         .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .gt('current_stock', 0)
-        .lte('current_stock', supabase.rpc('get_min_stock_threshold')),
+        .gt('current_stock', 0),
 
       // Critical stock (current_stock = 0)
       supabase
@@ -74,22 +77,11 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
         .limit(5),
     ])
 
-    // For low stock, we need a different approach since we can't use column comparison in Supabase directly
-    // We'll fetch items and count them client-side
-    const { data: items } = await supabase
-      .from('inv_items')
-      .select('current_stock, min_stock')
-      .eq('is_archived', false)
-      .gt('current_stock', 0)
-
-    const typedItems = items as { current_stock: number; min_stock: number }[] | null
-    const lowStockCount = typedItems?.filter(item => item.current_stock <= item.min_stock).length ?? 0
-
     return {
       success: true,
       data: {
         totalItems: totalItemsResult.count ?? 0,
-        lowStockItems: lowStockCount,
+        lowStockItems: lowStockResult.count ?? 0,
         criticalStockItems: criticalStockResult.count ?? 0,
         todayTransactions: todayTransactionsResult.count ?? 0,
         pendingSync: pendingSyncResult.count ?? 0,
@@ -100,6 +92,87 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch dashboard stats',
+    }
+  }
+}
+
+/**
+ * Get dashboard data including stats and low stock items in a single call.
+ * This consolidates what was previously 3 separate API calls into 2.
+ */
+export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
+  try {
+    const supabase = await createClient()
+    const today = new Date().toISOString().split('T')[0]
+
+    // Run all queries in parallel
+    const [
+      totalItemsResult,
+      lowStockItemsResult,
+      criticalStockResult,
+      todayTransactionsResult,
+      pendingSyncResult,
+      alertsResult,
+    ] = await Promise.all([
+      // Total items (non-archived)
+      supabase
+        .from('inv_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_archived', false),
+
+      // Low stock items - get both count and items from the view
+      supabase
+        .from('inv_low_stock_items')
+        .select('*', { count: 'exact' })
+        .gt('current_stock', 0)
+        .limit(5),
+
+      // Critical stock (current_stock = 0)
+      supabase
+        .from('inv_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_archived', false)
+        .eq('current_stock', 0),
+
+      // Today's transactions
+      supabase
+        .from('inv_transactions')
+        .select('*', { count: 'exact', head: true })
+        .gte('server_timestamp', today),
+
+      // Pending sync errors
+      supabase
+        .from('sync_errors')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending'),
+
+      // Recent unread alerts
+      supabase
+        .from('alerts')
+        .select('*')
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ])
+
+    return {
+      success: true,
+      data: {
+        stats: {
+          totalItems: totalItemsResult.count ?? 0,
+          lowStockItems: lowStockItemsResult.count ?? 0,
+          criticalStockItems: criticalStockResult.count ?? 0,
+          todayTransactions: todayTransactionsResult.count ?? 0,
+          pendingSync: pendingSyncResult.count ?? 0,
+          recentAlerts: alertsResult.data ?? [],
+        },
+        lowStockItemsList: (lowStockItemsResult.data ?? []) as Item[],
+      },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch dashboard data',
     }
   }
 }

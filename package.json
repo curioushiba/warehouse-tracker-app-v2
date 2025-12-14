@@ -17,6 +17,7 @@
     "@tanstack/react-table": "^8.11.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.0.0",
+    "html-to-image": "^1.11.13",
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "jspdf": "^2.5.1",

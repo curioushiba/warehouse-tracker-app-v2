@@ -17,6 +17,7 @@ import {
   Alert,
   Skeleton,
 } from "@/components/ui";
+import { ItemImage } from "@/components/items";
 import { BarcodeScanner } from "@/components/scanner";
 import { searchItems, getItemBySku, getItemByBarcode, getItems } from "@/lib/actions";
 import type { Item } from "@/lib/supabase/types";
@@ -291,9 +292,11 @@ export default function ScanPage() {
                     <CardBody className="p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                            <Package className="w-5 h-5 text-primary" />
-                          </div>
+                          <ItemImage
+                            imageUrl={item.image_url}
+                            itemName={item.name}
+                            size="sm"
+                          />
                           <div>
                             <p className="font-medium text-foreground text-sm">
                               {item.name}
@@ -347,9 +350,11 @@ export default function ScanPage() {
                       <CardBody className="p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                              <Package className="w-5 h-5 text-primary" />
-                            </div>
+                            <ItemImage
+                              imageUrl={item.image_url}
+                              itemName={item.name}
+                              size="sm"
+                            />
                             <div>
                               <p className="font-medium text-foreground text-sm">
                                 {item.name}

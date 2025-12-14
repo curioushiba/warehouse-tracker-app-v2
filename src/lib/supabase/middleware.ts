@@ -30,7 +30,6 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh session if expired - important!
   const { data: { user } } = await supabase.auth.getUser()
-  console.log('[Middleware] getUser result:', { hasUser: !!user, pathname: request.nextUrl.pathname })
 
   // Get user profile for role-based routing
   let userProfile: { role: string; is_active: boolean } | null = null
@@ -41,7 +40,6 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
     userProfile = profile as { role: string; is_active: boolean } | null
-    console.log('[Middleware] Profile loaded:', { role: userProfile?.role, isActive: userProfile?.is_active })
   }
 
   const pathname = request.nextUrl.pathname
@@ -57,7 +55,6 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect unauthenticated users to appropriate login
   if (!user && isProtectedRoute) {
-    console.log('[Middleware] Redirecting unauthenticated user:', { pathname, isAdminRoute, isEmployeeRoute })
     const url = request.nextUrl.clone()
     // Employees go to employee login, admins go to main login
     url.pathname = isEmployeeRoute ? '/employee/login' : '/auth/login'

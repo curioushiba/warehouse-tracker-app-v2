@@ -45,6 +45,8 @@ import {
   Alert,
 } from "@/components/ui";
 import { StockLevelBadge, TransactionTypeBadge, SyncStatusIndicator } from "@/components/ui";
+import { ItemImage } from "@/components/items";
+import { ManageCodesCard } from "@/components/codes";
 import { getItemById, archiveItem, restoreItem } from "@/lib/actions/items";
 import { getItemTransactions } from "@/lib/actions/transactions";
 import { getCategories } from "@/lib/actions/categories";
@@ -181,6 +183,11 @@ export default function ItemDetailPage() {
       : user.email || "Unknown";
   };
 
+  // Handle item update (e.g., when barcode changes)
+  const handleItemUpdate = React.useCallback((updatedItem: Item) => {
+    setItem(updatedItem);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -269,9 +276,12 @@ export default function ItemDetailPage() {
         <CardBody className="p-6">
           <div className="flex flex-col md:flex-row gap-6">
             {/* Item Image/Icon */}
-            <div className="w-24 h-24 bg-primary-50 rounded-2xl flex items-center justify-center shrink-0">
-              <Package className="w-12 h-12 text-primary" />
-            </div>
+            <ItemImage
+              imageUrl={item.image_url}
+              itemName={item.name}
+              size="xl"
+              className="rounded-2xl"
+            />
 
             {/* Item Info */}
             <div className="flex-1">
@@ -397,6 +407,9 @@ export default function ItemDetailPage() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Manage Codes */}
+      <ManageCodesCard item={item} onItemUpdate={handleItemUpdate} />
 
       {/* Transaction History */}
       <Card variant="elevated">

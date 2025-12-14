@@ -29,6 +29,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { StockLevelBadge } from "@/components/ui";
+import { ItemImage } from "@/components/items";
 import { getItemById, getLocations, submitTransaction } from "@/lib/actions";
 import type { Item, Location, TransactionType as DBTransactionType } from "@/lib/supabase/types";
 import { getStockLevel } from "@/lib/utils";
@@ -321,9 +322,12 @@ function TransactionContent() {
       <Card variant="elevated">
         <CardBody>
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 bg-primary-50 rounded-xl flex items-center justify-center shrink-0">
-              <Package className="w-8 h-8 text-primary" />
-            </div>
+            <ItemImage
+              imageUrl={item.image_url}
+              itemName={item.name}
+              size="lg"
+              className="rounded-xl"
+            />
             <div className="flex-1 min-w-0">
               <h2 className="font-heading font-semibold text-foreground text-lg">
                 {item.name}

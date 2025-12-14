@@ -19,6 +19,7 @@ import {
   Skeleton,
   Alert,
 } from "@/components/ui";
+import { ImageUpload } from "@/components/items";
 import { getItemById, updateItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import { getLocations } from "@/lib/actions/locations";
@@ -37,6 +38,7 @@ interface ItemFormData {
   min_stock: string;
   max_stock: string;
   unit_price: string;
+  image_url: string | null;
 }
 
 const UNIT_OPTIONS = [
@@ -78,6 +80,7 @@ export default function EditItemPage() {
     min_stock: "0",
     max_stock: "",
     unit_price: "0",
+    image_url: null,
   });
   const [formErrors, setFormErrors] = React.useState<Partial<Record<keyof ItemFormData, string>>>({});
   const [isSaving, setIsSaving] = React.useState(false);
@@ -118,6 +121,7 @@ export default function EditItemPage() {
           min_stock: (i.min_stock ?? 0).toString(),
           max_stock: i.max_stock?.toString() || "",
           unit_price: (i.unit_price ?? 0).toString(),
+          image_url: i.image_url || null,
         });
       } catch (err) {
         setError("An unexpected error occurred");
@@ -198,9 +202,10 @@ export default function EditItemPage() {
         min_stock: formData.min_stock ? parseFloat(formData.min_stock) : 0,
         max_stock: formData.max_stock ? parseFloat(formData.max_stock) : null,
         unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
+        image_url: formData.image_url,
       };
 
-      const result = await updateItem(itemId, updateData);
+      const result = await updateItem(itemId, updateData, item?.version);
 
       if (result.success) {
         router.push(`/admin/items/${itemId}`);
@@ -417,6 +422,20 @@ export default function EditItemPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            <Card variant="elevated">
+              <CardHeader className="p-6 pb-0">
+                <h3 className="font-semibold text-foreground">Item Image</h3>
+              </CardHeader>
+              <CardBody className="p-6">
+                <ImageUpload
+                  value={formData.image_url}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, image_url: url }))}
+                  itemId={itemId}
+                  disabled={isSaving}
+                />
+              </CardBody>
+            </Card>
+
             <Card variant="elevated">
               <CardHeader className="p-6 pb-0">
                 <h3 className="font-semibold text-foreground">Organization</h3>

@@ -129,6 +129,7 @@ export interface Database {
           max_stock: number | null
           unit_price: number | null
           barcode: string | null
+          image_url: string | null
           is_archived: boolean
           version: number
           created_at: string
@@ -147,6 +148,7 @@ export interface Database {
           max_stock?: number | null
           unit_price?: number | null
           barcode?: string | null
+          image_url?: string | null
           is_archived?: boolean
           version?: number
           created_at?: string
@@ -164,6 +166,7 @@ export interface Database {
           max_stock?: number | null
           unit_price?: number | null
           barcode?: string | null
+          image_url?: string | null
           is_archived?: boolean
           version?: number
           updated_at?: string
@@ -267,6 +270,32 @@ export interface Database {
       generate_sku: {
         Args: Record<string, never>
         Returns: string
+      }
+      generate_hrg_code: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      assign_hrg_code: {
+        Args: { p_item_id: string }
+        Returns: {
+          id: string
+          sku: string
+          name: string
+          description: string | null
+          category_id: string | null
+          location_id: string | null
+          unit: string
+          current_stock: number
+          min_stock: number
+          max_stock: number | null
+          unit_price: number | null
+          barcode: string | null
+          image_url: string | null
+          is_archived: boolean
+          version: number
+          created_at: string
+          updated_at: string
+        }[]
       }
       submit_transaction: {
         Args: {
