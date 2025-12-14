@@ -38,19 +38,10 @@ export default function AdminLayoutWrapper({
   // Redirect if not authenticated or not admin
   // Redirect employees to employee portal
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/layout.tsx:40',message:'Redirect effect triggered',data:{isLoading,isAuthenticated,isAdmin,isEmployee,pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4,H5'})}).catch(()=>{});
-    // #endregion
     if (!isLoading) {
       if (!isAuthenticated) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/layout.tsx:43',message:'Redirecting to login',data:{reason:'not authenticated'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         router.push("/auth/login");
       } else if (isEmployee && !isAdmin) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/layout.tsx:45',message:'Redirecting to employee',data:{reason:'employee not admin'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         router.push("/employee");
       }
     }
@@ -85,9 +76,6 @@ export default function AdminLayoutWrapper({
   const displaySyncStatus = isSyncing ? "syncing" : queueCount > 0 ? "pending" : isOnline ? "synced" : "offline";
 
   if (isLoading) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/1cdebf1c-046d-413a-a7aa-3fb720f110d9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin/layout.tsx:78',message:'Showing loading spinner',data:{isLoading,isAuthenticated,hasProfile:!!profile},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1,H2,H4'})}).catch(()=>{});
-    // #endregion
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
