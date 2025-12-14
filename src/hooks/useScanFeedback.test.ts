@@ -210,6 +210,62 @@ describe('useScanFeedback', () => {
     })
   })
 
+  describe('clearFeedback', () => {
+    it('immediately hides visible overlay', () => {
+      const { result } = renderHook(() => useScanFeedback())
+
+      // Trigger feedback to show overlay
+      act(() => {
+        result.current.triggerFeedback({ itemName: 'Test' })
+      })
+      expect(result.current.isVisible).toBe(true)
+
+      // Clear feedback
+      act(() => {
+        result.current.clearFeedback()
+      })
+
+      expect(result.current.isVisible).toBe(false)
+      expect(result.current.feedbackItem).toBeNull()
+      expect(result.current.isExiting).toBe(false)
+    })
+
+    it('clears pending timeouts', () => {
+      const { result } = renderHook(() => useScanFeedback())
+
+      // Trigger feedback
+      act(() => {
+        result.current.triggerFeedback({ itemName: 'Test' })
+      })
+
+      // Clear immediately
+      act(() => {
+        result.current.clearFeedback()
+      })
+
+      // Advance timers - should not change state since cleared
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+
+      expect(result.current.isVisible).toBe(false)
+      expect(result.current.isExiting).toBe(false)
+    })
+
+    it('can be called when nothing is visible', () => {
+      const { result } = renderHook(() => useScanFeedback())
+
+      // Should not throw when clearing with nothing visible
+      expect(() => {
+        act(() => {
+          result.current.clearFeedback()
+        })
+      }).not.toThrow()
+
+      expect(result.current.isVisible).toBe(false)
+    })
+  })
+
   describe('triggerDuplicateAlert', () => {
     it('does not show visual overlay', () => {
       const { result } = renderHook(() => useScanFeedback())

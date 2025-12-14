@@ -103,6 +103,8 @@ export interface UseScanFeedbackReturn {
   triggerFeedback: (item: ScanFeedbackItem) => void
   /** Trigger audio-only alert for duplicate item detection (double beep) */
   triggerDuplicateAlert: () => void
+  /** Immediately hide any visible feedback overlay */
+  clearFeedback: () => void
   /** Current item being displayed in overlay (null if hidden) */
   feedbackItem: ScanFeedbackItem | null
   /** Whether the overlay is currently visible */
@@ -164,9 +166,19 @@ export function useScanFeedback(): UseScanFeedbackReturn {
     playDuplicateBeep()
   }, [])
 
+  const clearFeedback = useCallback(() => {
+    // Immediately hide overlay and clear all pending timers
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current)
+    setIsVisible(false)
+    setFeedbackItem(null)
+    setIsExiting(false)
+  }, [])
+
   return {
     triggerFeedback,
     triggerDuplicateAlert,
+    clearFeedback,
     feedbackItem,
     isVisible,
     isExiting,

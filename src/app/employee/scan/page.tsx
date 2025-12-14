@@ -72,7 +72,7 @@ export default function ScanPage() {
   const [showDuplicateModal, setShowDuplicateModal] = React.useState(false);
 
   // Scan feedback (audio, haptic, visual)
-  const { triggerFeedback, triggerDuplicateAlert, feedbackItem, isVisible, isExiting } = useScanFeedback();
+  const { triggerFeedback, triggerDuplicateAlert, clearFeedback, feedbackItem, isVisible, isExiting } = useScanFeedback();
 
   // Fetch recent items on mount
   React.useEffect(() => {
@@ -99,12 +99,13 @@ export default function ScanPage() {
       triggerFeedback({ itemName: item.name, itemImageUrl: item.image_url });
       setError(null);
     } else {
-      // Item already exists - play duplicate alert and show confirmation
+      // Item already exists - clear any visible overlay and show confirmation
+      clearFeedback();
       triggerDuplicateAlert();
       setDuplicateItem(item);
       setShowDuplicateModal(true);
     }
-  }, [addItem, triggerFeedback, triggerDuplicateAlert]);
+  }, [addItem, triggerFeedback, triggerDuplicateAlert, clearFeedback]);
 
   // Handle duplicate confirmation
   const handleDuplicateConfirm = () => {
@@ -224,8 +225,13 @@ export default function ScanPage() {
     router.push("/employee/batch-review");
   };
 
+  // Gradient background based on transaction type
+  const gradientClass = transactionType === "check_in"
+    ? "before:from-[rgba(40,167,69,0.15)] before:via-[rgba(40,167,69,0.05)]"
+    : "before:from-[rgba(220,53,69,0.15)] before:via-[rgba(220,53,69,0.05)]";
+
   return (
-    <div className="flex flex-col h-full">
+    <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-30% before:to-transparent before:to-50% before:pointer-events-none before:-z-10`}>
       {/* Transaction Type Badge */}
       <div className="flex items-center justify-center mb-4">
         <Badge
