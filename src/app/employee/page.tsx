@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   Minus,
@@ -13,6 +13,7 @@ import {
   TrendingUp,
   PenLine,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import {
   Card,
@@ -75,8 +76,30 @@ function getDisplayName(
 
 export default function EmployeeHomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile, user, isLoading: authLoading, refreshProfile } = useAuthContext();
   const { queueCount, isSyncing, syncQueue, isOnline } = useSyncQueue();
+
+  // Batch success toast state
+  const [showBatchSuccess, setShowBatchSuccess] = React.useState(false);
+  const [batchSuccessCount, setBatchSuccessCount] = React.useState(0);
+
+  // Handle batch success from URL params
+  React.useEffect(() => {
+    const batchSuccess = searchParams.get("batchSuccess");
+    if (batchSuccess) {
+      const count = parseInt(batchSuccess, 10);
+      if (!isNaN(count) && count > 0) {
+        setBatchSuccessCount(count);
+        setShowBatchSuccess(true);
+        // Clear the URL param
+        router.replace("/employee", { scroll: false });
+        // Auto-hide after 5 seconds
+        const timer = setTimeout(() => setShowBatchSuccess(false), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [searchParams, router]);
 
   // Refresh profile on mount to ensure we have the latest data
   React.useEffect(() => {
@@ -204,6 +227,30 @@ export default function EmployeeHomePage() {
 
   return (
     <div className="space-y-6">
+      {/* Batch Success Toast */}
+      {showBatchSuccess && (
+        <div className="bg-success-light border border-success/30 rounded-card p-4 flex items-center gap-3 animate-fade-in">
+          <div className="w-10 h-10 bg-success/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-success" />
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-success-dark">
+              Batch submitted successfully!
+            </p>
+            <p className="text-sm text-success-dark/70">
+              {batchSuccessCount} item{batchSuccessCount !== 1 ? "s" : ""} checked {batchSuccessCount > 0 ? "in/out" : ""}.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowBatchSuccess(false)}
+            className="text-success-dark/50 hover:text-success-dark p-1"
+            aria-label="Dismiss"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Welcome Section */}
       <div className="bg-gradient-to-br from-primary to-primary-700 rounded-card p-6 text-white">
         <div className="flex items-center gap-4 mb-4">

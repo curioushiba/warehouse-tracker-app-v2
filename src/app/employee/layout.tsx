@@ -3,6 +3,7 @@
 import { MobileLayout } from "@/components/layout";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { BatchScanProvider } from "@/contexts/BatchScanContext";
 import { useOnlineStatus } from "@/hooks";
 import { useSyncQueue } from "@/hooks";
 import { useEffect } from "react";
@@ -10,6 +11,7 @@ import { useEffect } from "react";
 const pageTitles: Record<string, string> = {
   "/employee": "Inventory Tracker",
   "/employee/scan": "Scan Item",
+  "/employee/batch-review": "Review Items",
   "/employee/history": "History",
   "/employee/profile": "Profile",
   "/employee/transaction": "Transaction",
@@ -62,14 +64,16 @@ export default function EmployeeLayoutWrapper({
   }
 
   return (
-    <MobileLayout
-      title={title}
-      isOnline={isOnline}
-      syncStatus={displaySyncStatus}
-      pendingCount={queueCount}
-      showNotifications={false}
-    >
-      {children}
-    </MobileLayout>
+    <BatchScanProvider>
+      <MobileLayout
+        title={title}
+        isOnline={isOnline}
+        syncStatus={displaySyncStatus}
+        pendingCount={queueCount}
+        showNotifications={false}
+      >
+        {children}
+      </MobileLayout>
+    </BatchScanProvider>
   );
 }
