@@ -141,7 +141,7 @@ export default function SignUpPage() {
             Create Account
           </h2>
           <p className="text-sm text-foreground-muted mt-1">
-            Sign up to get started with Inventory Tracker
+            Sign up to get started with PackTrack
           </p>
         </div>
 

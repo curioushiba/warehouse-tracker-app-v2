@@ -9,7 +9,7 @@ import { useSyncQueue } from "@/hooks";
 import { useEffect } from "react";
 
 const pageTitles: Record<string, string> = {
-  "/employee": "Inventory Tracker",
+  "/employee": "PackTrack",
   "/employee/scan": "Scan Item",
   "/employee/batch-review": "Review Items",
   "/employee/history": "History",

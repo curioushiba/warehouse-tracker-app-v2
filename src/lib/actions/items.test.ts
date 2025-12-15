@@ -539,7 +539,7 @@ describe('Items Server Actions', () => {
     })
   })
 
-  describe('generateHrgCode', () => {
+  describe('generatePtCode', () => {
     const itemWithoutBarcode: Item = {
       ...mockItems[0],
       id: 'item-no-barcode',
@@ -547,9 +547,9 @@ describe('Items Server Actions', () => {
       is_archived: false,
     }
 
-    it('should generate HRG code for item without barcode', async () => {
+    it('should generate PT code for item without barcode', async () => {
       // Arrange
-      const generatedCode = 'HRG-00001'
+      const generatedCode = 'PT-00001'
       const updatedItem = { ...itemWithoutBarcode, barcode: generatedCode }
 
       // RPC returns chainable object with single() method
@@ -558,15 +558,15 @@ describe('Items Server Actions', () => {
       })
 
       // Act
-      const { generateHrgCode } = await import('./items')
-      const result = await generateHrgCode('item-no-barcode')
+      const { generatePtCode } = await import('./items')
+      const result = await generatePtCode('item-no-barcode')
 
       // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.barcode).toBe(generatedCode)
       }
-      expect(mockRpc).toHaveBeenCalledWith('assign_hrg_code', { p_item_id: 'item-no-barcode' })
+      expect(mockRpc).toHaveBeenCalledWith('assign_pt_code', { p_item_id: 'item-no-barcode' })
     })
 
     it('should return error when item already has barcode', async () => {
@@ -579,8 +579,8 @@ describe('Items Server Actions', () => {
       })
 
       // Act
-      const { generateHrgCode } = await import('./items')
-      const result = await generateHrgCode('1')
+      const { generatePtCode } = await import('./items')
+      const result = await generatePtCode('1')
 
       // Assert
       expect(result.success).toBe(false)
@@ -599,8 +599,8 @@ describe('Items Server Actions', () => {
       })
 
       // Act
-      const { generateHrgCode } = await import('./items')
-      const result = await generateHrgCode('archived-item')
+      const { generatePtCode } = await import('./items')
+      const result = await generatePtCode('archived-item')
 
       // Assert
       expect(result.success).toBe(false)
@@ -619,8 +619,8 @@ describe('Items Server Actions', () => {
       })
 
       // Act
-      const { generateHrgCode } = await import('./items')
-      const result = await generateHrgCode('nonexistent')
+      const { generatePtCode } = await import('./items')
+      const result = await generatePtCode('nonexistent')
 
       // Assert
       expect(result.success).toBe(false)

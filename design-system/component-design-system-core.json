@@ -16,8 +16,8 @@
   },
 
   "meta": {
-    "designSystemName": "Wildlife Reserve Design System",
-    "description": "A nature-inspired design system rooted in the exhortation 'Come to life' - combining conservation messaging with family-friendly accessibility. Built as a 'design playbook for biodiversity'.",
+    "designSystemName": "PackTrack Design System",
+    "description": "A nature-inspired design system with a focus on clean, efficient inventory management interfaces. Built for clarity and usability.",
     "brandTagline": "Come to life",
     "brandPhilosophy": "Wildlife, humans, and nature are simply equal",
     "targetFrameworks": ["react", "react-native"],

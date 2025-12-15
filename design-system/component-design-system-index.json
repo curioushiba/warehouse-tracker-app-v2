@@ -6,8 +6,8 @@
   "sourceTokenFile": "wildlife-reserve-design-system.json",
 
   "meta": {
-    "designSystemName": "Wildlife Reserve Component Design System",
-    "description": "A comprehensive component specification system derived from the Wildlife Reserve design tokens. This system transforms design tokens into actionable component specifications for React/Tailwind development.",
+    "designSystemName": "PackTrack Component Design System",
+    "description": "A comprehensive component specification system derived from the PackTrack design tokens. This system transforms design tokens into actionable component specifications for React/Tailwind development.",
     "brandTagline": "Come to life",
     "brandPhilosophy": "Wildlife, humans, and nature are simply equal",
     "version": "1.0.0",

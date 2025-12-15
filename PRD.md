@@ -1,14 +1,14 @@
-# Warehouse Tracking App — Design Document
+# PackTrack — Design Document
 
-**Project:** Harvey's Restaurant Group Warehouse Tracker  
-**Date:** December 11, 2025  
+**Project:** PackTrack
+**Date:** December 11, 2025
 **Status:** Ready for implementation
 
 ---
 
 ## Overview
 
-A Progressive Web App (PWA) for tracking warehouse inventory for Harvey's Restaurant Group. The central warehouse supplies five restaurant units: Harvey's Wings, Bakugo Ramen, Wildflower Tea House, Fika Cafe, and Harvey's Chicken.
+PackTrack is a Progressive Web App (PWA) for tracking warehouse inventory. The central warehouse supplies multiple business units and locations.
 
 **Key concept:** Single Next.js application with role-based interfaces — admin dashboard for desktop/tablet, simplified employee interface for mobile/tablet.
 
@@ -422,30 +422,31 @@ A Progressive Web App (PWA) for tracking warehouse inventory for Harvey's Restau
 
 ### Custom Code Format
 
-- Prefix: `HRG-` (Harvey's Restaurant Group)
+- Prefix: `PT-` (PackTrack)
 - ID: Auto-incremented number, zero-padded
-- Example: `HRG-00142`
+- Example: `PT-00142`
+- Note: Legacy `HRG-` codes remain valid for backwards compatibility
 
 ### Barcode normalization rules (recommended)
 
 - Treat barcodes as **text**, never numbers (preserve leading zeros).
 - Always `trim()` whitespace.
-- For HRG-generated codes, store as **uppercase** (e.g., `HRG-00142`).
-- Consider enforcing canonicalization server-side (e.g., uppercasing HRG codes on write) to prevent near-duplicates.
+- For PT-generated codes, store as **uppercase** (e.g., `PT-00142`).
+- Consider enforcing canonicalization server-side (e.g., uppercasing PT codes on write) to prevent near-duplicates.
 
-### HRG code generation (concurrency-safe)
+### PT code generation (concurrency-safe)
 
 - Generation must be done server-side (Supabase Postgres) to prevent collisions.
 - Recommended approach:
   - A dedicated Postgres **sequence** (or single-row counter table with locking) generates the next integer.
-  - Expose an RPC like `generate_hrg_code()` that returns the formatted code `HRG-` + zero-padded number.
+  - Expose an RPC like `generate_pt_code()` that returns the formatted code `PT-` + zero-padded number.
   - On assignment, the update must be atomic: generate code → attempt to set `items.barcode` → if conflict, retry.
 
 ### Label Generation
 
 1. Admin creates item without barcode
 2. Click "Generate Label"
-3. System creates `HRG-XXXXX`, saves to item
+3. System creates `PT-XXXXX`, saves to item
 4. Preview shows: QR code + item name + code text
 5. Print options: single label or sheet
 

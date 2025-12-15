@@ -9,9 +9,9 @@ const config: Config = {
   darkMode: "class",
   theme: {
     extend: {
-      // Mandai Wildlife Reserve Color System
+      // PackTrack Design System - Color System
       colors: {
-        // Primary Brand - Fun Green
+        // Primary Brand
         primary: {
           50: "#e6f4eb",
           100: "#b3dfc4",

@@ -1,7 +1,7 @@
 {
-  "name": "Inventory Tracker",
-  "short_name": "InvTrack",
-  "description": "Modern inventory management system for tracking stock and transactions",
+  "name": "PackTrack",
+  "short_name": "PackTrack",
+  "description": "PackTrack - Modern inventory management system for tracking stock and transactions",
   "theme_color": "#1B7F4E",
   "background_color": "#FDF8E8",
   "display": "standalone",

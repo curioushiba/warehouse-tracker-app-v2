@@ -16,7 +16,7 @@ import {
 import { QRCodeDisplay } from './QRCodeDisplay'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
 import { PrintableLabel } from './PrintableLabel'
-import { generateHrgCode, registerBarcode, clearBarcode } from '@/lib/actions/items'
+import { generatePtCode, registerBarcode, clearBarcode } from '@/lib/actions/items'
 import type { Item } from '@/lib/supabase/types'
 import {
   QrCode,
@@ -45,22 +45,23 @@ export function ManageCodesCard({ item, onItemUpdate }: ManageCodesCardProps) {
   const labelRef = React.useRef<HTMLDivElement>(null)
 
   const hasBarcode = !!item.barcode
-  const isHrgCode = item.barcode?.startsWith('HRG-')
+  // Check for PT- (new) or HRG- (legacy) generated codes
+  const isGeneratedCode = item.barcode?.startsWith('PT-') || item.barcode?.startsWith('HRG-')
 
-  // Handle generating HRG code
-  const handleGenerateHrgCode = async () => {
+  // Handle generating PT code
+  const handleGeneratePtCode = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const result = await generateHrgCode(item.id)
+      const result = await generatePtCode(item.id)
       if (result.success) {
         onItemUpdate(result.data)
       } else {
         setError(result.error)
       }
     } catch {
-      setError('Failed to generate HRG code')
+      setError('Failed to generate PT code')
     } finally {
       setIsLoading(false)
     }
@@ -167,7 +168,7 @@ export function ManageCodesCard({ item, onItemUpdate }: ManageCodesCardProps) {
                     {item.barcode}
                   </p>
                   <p className="text-sm text-foreground-muted mt-1">
-                    {isHrgCode ? 'Generated QR Code' : 'Manufacturer Barcode'}
+                    {isGeneratedCode ? 'Generated QR Code' : 'Manufacturer Barcode'}
                   </p>
                 </div>
               </div>
@@ -213,7 +214,7 @@ export function ManageCodesCard({ item, onItemUpdate }: ManageCodesCardProps) {
                 <Button
                   variant="primary"
                   leftIcon={<Plus className="w-4 h-4" />}
-                  onClick={handleGenerateHrgCode}
+                  onClick={handleGeneratePtCode}
                   isLoading={isLoading}
                   disabled={isLoading || item.is_archived}
                 >
@@ -286,7 +287,7 @@ export function ManageCodesCard({ item, onItemUpdate }: ManageCodesCardProps) {
               Are you sure you want to clear the barcode for <strong>{item.name}</strong>?
             </p>
             <p className="text-sm text-foreground-muted">
-              This will remove the {isHrgCode ? 'generated QR code' : 'registered barcode'}.
+              This will remove the {isGeneratedCode ? 'generated QR code' : 'registered barcode'}.
               You can assign a new code afterwards.
             </p>
           </div>

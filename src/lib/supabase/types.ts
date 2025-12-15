@@ -297,6 +297,32 @@ export interface Database {
           updated_at: string
         }[]
       }
+      generate_pt_code: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      assign_pt_code: {
+        Args: { p_item_id: string }
+        Returns: {
+          id: string
+          sku: string
+          name: string
+          description: string | null
+          category_id: string | null
+          location_id: string | null
+          unit: string
+          current_stock: number
+          min_stock: number
+          max_stock: number | null
+          unit_price: number | null
+          barcode: string | null
+          image_url: string | null
+          is_archived: boolean
+          version: number
+          created_at: string
+          updated_at: string
+        }[]
+      }
       submit_transaction: {
         Args: {
           p_transaction_type: TransactionType

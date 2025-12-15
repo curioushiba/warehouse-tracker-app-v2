@@ -49,7 +49,7 @@ export default function AuthLayout({
         </div>
 
         <div className="mt-4 text-foreground-muted/60 text-[10px] font-mono">
-          Wildlife Reserve System v1.1
+          PackTrack v1.0.0
         </div>
       </div>
     </div>

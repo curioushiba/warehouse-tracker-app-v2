@@ -4,13 +4,13 @@ import { SettingsProvider } from "@/contexts/SettingsContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Inventory Tracker",
-  description: "Inventory Management System",
+  title: "PackTrack",
+  description: "PackTrack - Inventory Management System",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Inventory Tracker",
+    title: "PackTrack",
   },
 };
 
@@ -41,7 +41,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Vollkorn:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen bg-background-secondary font-body antialiased">
         <AuthProvider>

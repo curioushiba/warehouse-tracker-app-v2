@@ -165,7 +165,7 @@ export default function ProfilePage() {
 
       {/* App Version */}
       <p className="text-center text-xs text-foreground-muted">
-        Inventory Tracker v1.0.0
+        PackTrack v1.0.0
       </p>
 
       {/* Logout Confirmation Modal */}

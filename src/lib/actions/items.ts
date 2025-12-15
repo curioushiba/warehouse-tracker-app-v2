@@ -407,17 +407,17 @@ export async function searchItems(query: string): Promise<ActionResult<Item[]>> 
 }
 
 /**
- * Generate an HRG code (HRG-XXXXX format) for an item that doesn't have a barcode.
+ * Generate a PT code (PT-XXXXX format) for an item that doesn't have a barcode.
  * Uses an atomic database function to prevent race conditions where concurrent
  * requests could waste sequence numbers.
  */
-export async function generateHrgCode(itemId: string): Promise<ActionResult<Item>> {
+export async function generatePtCode(itemId: string): Promise<ActionResult<Item>> {
   try {
     const supabase = await createClient()
 
     // Use atomic function that handles validation, generation, and update in one transaction
     const { data, error } = await supabase
-      .rpc('assign_hrg_code', { p_item_id: itemId } as never)
+      .rpc('assign_pt_code', { p_item_id: itemId } as never)
       .single()
 
     if (error) {
@@ -439,7 +439,7 @@ export async function generateHrgCode(itemId: string): Promise<ActionResult<Item
     revalidatePath(`/admin/items/${itemId}`)
     return success(updatedItem)
   } catch {
-    return failure('Failed to generate HRG code')
+    return failure('Failed to generate PT code')
   }
 }
 

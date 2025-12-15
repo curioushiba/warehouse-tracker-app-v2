@@ -61,7 +61,7 @@ export default function HomePage() {
 
         {/* Footer */}
         <div className="text-center mt-8 opacity-40 hover:opacity-100 transition-opacity">
-          <p className="text-xs font-mono text-foreground-muted">PackTrack v1.0</p>
+          <p className="text-xs font-mono text-foreground-muted">PackTrack v1.0.0</p>
         </div>
 
       </div>

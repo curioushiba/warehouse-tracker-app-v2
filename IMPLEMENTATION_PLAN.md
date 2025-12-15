@@ -1,4 +1,4 @@
-# Inventory Tracker - Implementation Plan
+# PackTrack - Implementation Plan
 
 **Approach:** UI-First Development
 **Date:** December 13, 2025 (Updated)
@@ -26,9 +26,9 @@
 
 ### Application Context
 
-**Name:** Inventory Tracker
+**Name:** PackTrack
 **Purpose:** A modern inventory management system for tracking stock, managing transactions, and keeping operations running smoothly.
-**Design System:** Mandai Design System (visual styling based on Mandai brand colors/typography)
+**Design System:** PackTrack Design System
 
 ### Architecture Summary
 

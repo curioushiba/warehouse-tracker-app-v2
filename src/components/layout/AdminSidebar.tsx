@@ -144,9 +144,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {!isCollapsed && (
           <div className="flex flex-col">
             <span className="font-heading font-semibold text-sm text-foreground">
-              Inventory Tracker
+              PackTrack
             </span>
-            <span className="text-xs text-foreground-muted">Management System</span>
+            <span className="text-xs text-foreground-muted">Inventory Management</span>
           </div>
         )}
       </div>

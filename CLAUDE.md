@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Progressive Web App (PWA) for Harvey's Restaurant Group warehouse inventory tracking. Role-based interfaces: admin dashboard (desktop/tablet) and employee interface (mobile-optimized) for stock operations.
+PackTrack - A Progressive Web App (PWA) for warehouse inventory tracking. Role-based interfaces: admin dashboard (desktop/tablet) and employee interface (mobile-optimized) for stock operations.
 
 **Tech Stack:** Next.js 14 (App Router), Supabase (database + auth), Tailwind CSS, PWA (next-pwa), Vitest
 
@@ -101,7 +101,7 @@ Items have a `version` field; updates must include expected version. Server reje
 
 ### Barcode System
 - **Manufacturer barcodes**: Stored as-is in `inv_items.barcode`
-- **Custom QR codes**: Server-generated with prefix `HRG-` + zero-padded number
+- **Custom QR codes**: Server-generated with prefix `PT-` + zero-padded number (legacy `HRG-` codes still valid)
 - **Scanner**: `src/components/scanner/BarcodeScanner.tsx` wraps html5-qrcode
 - Barcodes are unique and never reused (even for archived items)
 
