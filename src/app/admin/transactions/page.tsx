@@ -43,11 +43,10 @@ import {
   Badge,
 } from "@/components/ui";
 import { TransactionTypeBadge, SyncStatusIndicator } from "@/components/ui";
-import { getTransactions } from "@/lib/actions/transactions";
-import { getItems } from "@/lib/actions/items";
+import { getTransactionsWithDetails } from "@/lib/actions/transactions";
+import type { TransactionWithDetails } from "@/lib/actions/transactions";
 import { getUsers } from "@/lib/actions/users";
-import { getLocations } from "@/lib/actions/locations";
-import type { Transaction, Item, Profile, Location, TransactionType, SyncStatus } from "@/lib/supabase/types";
+import type { Profile, TransactionType, SyncStatus } from "@/lib/supabase/types";
 import { formatDateTime } from "@/lib/utils";
 
 const TRANSACTION_TYPE_OPTIONS = [
@@ -81,10 +80,8 @@ const getTransactionIcon = (type: TransactionType) => {
 
 export default function TransactionsPage() {
   // Data state
-  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
-  const [items, setItems] = React.useState<Item[]>([]);
+  const [transactions, setTransactions] = React.useState<TransactionWithDetails[]>([]);
   const [users, setUsers] = React.useState<Profile[]>([]);
-  const [locations, setLocations] = React.useState<Location[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -96,27 +93,15 @@ export default function TransactionsPage() {
   const [endDate, setEndDate] = React.useState("");
 
   // Detail modal state
-  const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = React.useState<TransactionWithDetails | null>(null);
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
 
   // Create lookup maps
-  const itemMap = React.useMemo(() => {
-    const map = new Map<string, Item>();
-    items.forEach((item) => map.set(item.id, item));
-    return map;
-  }, [items]);
-
   const userMap = React.useMemo(() => {
     const map = new Map<string, Profile>();
     users.forEach((user) => map.set(user.id, user));
     return map;
   }, [users]);
-
-  const locationMap = React.useMemo(() => {
-    const map = new Map<string, Location>();
-    locations.forEach((loc) => map.set(loc.id, loc));
-    return map;
-  }, [locations]);
 
   // Fetch data
   const fetchData = React.useCallback(async () => {
@@ -124,16 +109,14 @@ export default function TransactionsPage() {
       setIsLoading(true);
       setError(null);
 
-      const [transactionsResult, itemsResult, usersResult, locationsResult] = await Promise.all([
-        getTransactions({
+      const [transactionsResult, usersResult] = await Promise.all([
+        getTransactionsWithDetails({
           transactionType: typeFilter as TransactionType || undefined,
           userId: userFilter || undefined,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
         }),
-        getItems(),
         getUsers(),
-        getLocations(),
       ]);
 
       if (transactionsResult.success) {
@@ -143,16 +126,8 @@ export default function TransactionsPage() {
         return;
       }
 
-      if (itemsResult.success) {
-        setItems(itemsResult.data);
-      }
-
       if (usersResult.success) {
         setUsers(usersResult.data);
-      }
-
-      if (locationsResult.success) {
-        setLocations(locationsResult.data);
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -173,21 +148,26 @@ export default function TransactionsPage() {
 
     const query = searchQuery.toLowerCase();
     return transactions.filter((tx) => {
-      const item = itemMap.get(tx.item_id);
-      const user = userMap.get(tx.user_id);
+      const userFromMap = userMap.get(tx.user_id);
+      const itemName = tx.item?.name?.toLowerCase() || "";
+      const itemSku = tx.item?.sku?.toLowerCase() || "";
+      const userFirst = (tx.user?.first_name ?? userFromMap?.first_name ?? "").toLowerCase();
+      const userLast = (tx.user?.last_name ?? userFromMap?.last_name ?? "").toLowerCase();
+      const userEmail = (tx.user?.email ?? userFromMap?.email ?? "").toLowerCase();
       return (
-        item?.name.toLowerCase().includes(query) ||
-        item?.sku.toLowerCase().includes(query) ||
-        user?.first_name?.toLowerCase().includes(query) ||
-        user?.last_name?.toLowerCase().includes(query) ||
-        tx.notes?.toLowerCase().includes(query) ||
+        itemName.includes(query) ||
+        itemSku.includes(query) ||
+        userFirst.includes(query) ||
+        userLast.includes(query) ||
+        userEmail.includes(query) ||
+        (tx.notes?.toLowerCase() || "").includes(query) ||
         tx.transaction_type.toLowerCase().includes(query)
       );
     });
-  }, [transactions, searchQuery, itemMap, userMap]);
+  }, [transactions, searchQuery, userMap]);
 
   // Handle row click
-  const handleRowClick = (transaction: Transaction) => {
+  const handleRowClick = (transaction: TransactionWithDetails) => {
     setSelectedTransaction(transaction);
     setDetailModalOpen(true);
   };
@@ -204,25 +184,24 @@ export default function TransactionsPage() {
   const hasActiveFilters = searchQuery || typeFilter || userFilter || startDate || endDate;
 
   // Get user display name
-  const getUserName = (userId: string) => {
-    const user = userMap.get(userId);
+  const getUserName = (
+    userId: string,
+    embeddedUser?: TransactionWithDetails["user"]
+  ) => {
+    const user = embeddedUser ?? userMap.get(userId) ?? null;
     if (!user) return "Unknown";
-    return user.first_name && user.last_name
-      ? `${user.first_name} ${user.last_name}`
-      : user.email || "Unknown";
+    const first = (user as { first_name?: string | null }).first_name;
+    const last = (user as { last_name?: string | null }).last_name;
+    const email = (user as { email?: string | null }).email;
+    return first && last ? `${first} ${last}` : email || "Unknown";
   };
 
   // Get item display name
-  const getItemName = (itemId: string) => {
-    const item = itemMap.get(itemId);
-    return item?.name || "Unknown Item";
-  };
-
-  // Get location display name
-  const getLocationName = (locationId: string | null) => {
-    if (!locationId) return "-";
-    const location = locationMap.get(locationId);
-    return location?.name || "Unknown Location";
+  const getItemName = (
+    _itemId: string,
+    embeddedItem?: TransactionWithDetails["item"]
+  ) => {
+    return embeddedItem?.name || "Unknown Item";
   };
 
   // Export to CSV
@@ -231,11 +210,11 @@ export default function TransactionsPage() {
     const rows = filteredTransactions.map((tx) => [
       formatDateTime(tx.server_timestamp),
       tx.transaction_type,
-      getItemName(tx.item_id),
+      getItemName(tx.item_id, tx.item),
       tx.quantity.toString(),
       tx.stock_before?.toString() || "",
       tx.stock_after?.toString() || "",
-      getUserName(tx.user_id),
+      getUserName(tx.user_id, tx.user),
       tx.notes || "",
       tx.sync_status,
     ]);
@@ -409,7 +388,7 @@ export default function TransactionsPage() {
                   />
                 ) : (
                   filteredTransactions.map((tx) => {
-                    const item = itemMap.get(tx.item_id);
+                    const item = tx.item;
                     return (
                       <TableRow
                         key={tx.id}
@@ -469,7 +448,7 @@ export default function TransactionsPage() {
                             <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center">
                               <User className="w-3 h-3 text-primary" />
                             </div>
-                            <span className="text-sm">{getUserName(tx.user_id)}</span>
+                            <span className="text-sm">{getUserName(tx.user_id, tx.user)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -530,10 +509,10 @@ export default function TransactionsPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-foreground">
-                      {getItemName(selectedTransaction.item_id)}
+                      {getItemName(selectedTransaction.item_id, selectedTransaction.item)}
                     </p>
                     <p className="text-sm text-foreground-muted">
-                      {itemMap.get(selectedTransaction.item_id)?.sku || "No SKU"}
+                      {selectedTransaction.item?.sku || "No SKU"}
                     </p>
                   </div>
                 </div>
@@ -551,7 +530,7 @@ export default function TransactionsPage() {
                       ? "+"
                       : "-"}
                     {selectedTransaction.quantity}{" "}
-                    {itemMap.get(selectedTransaction.item_id)?.unit || "units"}
+                    {selectedTransaction.item?.unit || "units"}
                   </p>
                 </div>
                 <div>
@@ -576,7 +555,7 @@ export default function TransactionsPage() {
                     Performed By
                   </p>
                   <p className="font-medium">
-                    {getUserName(selectedTransaction.user_id)}
+                    {getUserName(selectedTransaction.user_id, selectedTransaction.user)}
                   </p>
                 </div>
               </div>
@@ -594,7 +573,7 @@ export default function TransactionsPage() {
                         From
                       </div>
                       <p className="font-medium">
-                        {getLocationName(selectedTransaction.source_location_id)}
+                        {selectedTransaction.source_location?.name || "-"}
                       </p>
                     </div>
                     <ArrowRightLeft className="w-5 h-5 text-foreground-muted" />
@@ -604,7 +583,7 @@ export default function TransactionsPage() {
                         To
                       </div>
                       <p className="font-medium">
-                        {getLocationName(selectedTransaction.destination_location_id)}
+                        {selectedTransaction.destination_location?.name || "-"}
                       </p>
                     </div>
                   </div>

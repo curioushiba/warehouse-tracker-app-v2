@@ -70,6 +70,67 @@ export async function getTransactions(
 }
 
 /**
+ * Get transactions with embedded item/user/location display fields.
+ *
+ * This is optimized for admin UI tables so we don't have to fetch entire
+ * items/users/locations tables just to render names.
+ */
+export type TransactionWithDetails = Transaction & {
+  item: { name: string; sku: string; unit: string | null } | null
+  user: { first_name: string | null; last_name: string | null; email: string | null } | null
+  source_location: { name: string } | null
+  destination_location: { name: string } | null
+}
+
+export async function getTransactionsWithDetails(
+  filters?: TransactionFilters
+): Promise<ActionResult<TransactionWithDetails[]>> {
+  const supabase = await createClient()
+
+  // Note: locations has two FKs from inv_transactions (source/destination).
+  // Use explicit relationship names to avoid ambiguity in PostgREST.
+  let query = supabase
+    .from('inv_transactions')
+    .select(
+      `
+        *,
+        item:inv_items(name, sku, unit),
+        user:profiles(first_name, last_name, email),
+        source_location:locations!inv_transactions_source_location_id_fkey(name),
+        destination_location:locations!inv_transactions_destination_location_id_fkey(name)
+      `
+    )
+
+  if (filters?.transactionType) {
+    query = query.eq('transaction_type', filters.transactionType)
+  }
+
+  if (filters?.itemId) {
+    query = query.eq('item_id', filters.itemId)
+  }
+
+  if (filters?.userId) {
+    query = query.eq('user_id', filters.userId)
+  }
+
+  if (filters?.startDate) {
+    query = query.gte('server_timestamp', filters.startDate)
+  }
+
+  if (filters?.endDate) {
+    query = query.lte('server_timestamp', filters.endDate)
+  }
+
+  const { data, error } = await query.order('server_timestamp', { ascending: false })
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data: (data ?? []) as TransactionWithDetails[] }
+}
+
+/**
  * Get a single transaction by ID
  */
 export async function getTransactionById(

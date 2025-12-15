@@ -40,7 +40,7 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
       // Total items (non-archived)
       supabase
         .from('inv_items')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('is_archived', false),
 
       // Low stock items - use the view for efficient server-side filtering
@@ -52,20 +52,20 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
       // Critical stock (current_stock = 0)
       supabase
         .from('inv_items')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('is_archived', false)
         .eq('current_stock', 0),
 
       // Today's transactions
       supabase
         .from('inv_transactions')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .gte('server_timestamp', today),
 
       // Pending sync errors
       supabase
         .from('sync_errors')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'pending'),
 
       // Recent unread alerts
@@ -117,7 +117,7 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
       // Total items (non-archived)
       supabase
         .from('inv_items')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('is_archived', false),
 
       // Low stock items - get both count and items from the view
@@ -130,20 +130,20 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
       // Critical stock (current_stock = 0)
       supabase
         .from('inv_items')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('is_archived', false)
         .eq('current_stock', 0),
 
       // Today's transactions
       supabase
         .from('inv_transactions')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .gte('server_timestamp', today),
 
       // Pending sync errors
       supabase
         .from('sync_errors')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'pending'),
 
       // Recent unread alerts

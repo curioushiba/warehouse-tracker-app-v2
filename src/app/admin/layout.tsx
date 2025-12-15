@@ -32,22 +32,12 @@ export default function AdminLayoutWrapper({
   const router = useRouter();
   const pageInfo = pageTitles[pathname || ""] || { title: "Admin" };
 
-  const { profile, signOut, isLoading, isAuthenticated, isAdmin, isEmployee } = useAuthContext();
+  // Auth + role routing is already enforced in middleware.
+  // Avoid blocking initial render on client-side profile fetching.
+  const { profile, signOut, isAuthenticated } = useAuthContext();
   const { isOnline } = useOnlineStatus();
   const { queueCount, isSyncing, lastSyncTime } = useSyncQueue();
   const [notificationCount, setNotificationCount] = useState(0);
-
-  // Redirect if not authenticated or not admin
-  // Redirect employees to employee portal
-  useEffect(() => {
-    if (!isLoading) {
-      if (!isAuthenticated) {
-        router.push("/auth/login");
-      } else if (isEmployee && !isAdmin) {
-        router.push("/employee");
-      }
-    }
-  }, [isLoading, isAuthenticated, isAdmin, isEmployee, router, pathname]);
 
   // Fetch notification count
   useEffect(() => {
@@ -76,14 +66,6 @@ export default function AdminLayoutWrapper({
 
   // Determine sync status for display
   const displaySyncStatus = isSyncing ? "syncing" : queueCount > 0 ? "pending" : isOnline ? "synced" : "offline";
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   return (
     <AdminLayout

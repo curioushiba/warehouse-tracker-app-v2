@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useOnlineStatus } from './useOnlineStatus'
-import { useAuth } from './useAuth'
+import { useAuthContext } from '@/contexts/AuthContext'
 import {
   getQueuedTransactions,
   getQueueCount,
@@ -24,7 +24,7 @@ interface SyncState {
 
 export function useSyncQueue() {
   const { isOnline, wasOffline, clearWasOffline } = useOnlineStatus()
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuthContext()
   const [state, setState] = useState<SyncState>({
     queueCount: 0,
     isSyncing: false,

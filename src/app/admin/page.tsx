@@ -1,6 +1,4 @@
-"use client";
-
-import * as React from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Package,
@@ -21,14 +19,13 @@ import {
   Badge,
   Progress,
   Avatar,
-  Skeleton,
 } from "@/components/ui";
 import {
   StockLevelBadge,
   TransactionTypeBadge,
 } from "@/components/ui";
 import { getDashboardData, getRecentActivity } from "@/lib/actions";
-import type { Item, Alert } from "@/lib/supabase/types";
+import type { Item, Alert as AlertType } from "@/lib/supabase/types";
 import { formatRelativeTime, getStockLevel } from "@/lib/utils";
 
 // Stat Card Component
@@ -37,12 +34,12 @@ interface StatCardProps {
   value: string | number;
   change?: number;
   changeLabel?: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   iconColor: string;
   href?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({
+const StatCard = ({
   title,
   value,
   change,
@@ -50,7 +47,7 @@ const StatCard: React.FC<StatCardProps> = ({
   icon,
   iconColor,
   href,
-}) => {
+}: StatCardProps) => {
   const content = (
     <Card
       variant="elevated"
@@ -61,9 +58,7 @@ const StatCard: React.FC<StatCardProps> = ({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-foreground-muted mb-1">{title}</p>
-          <p className="text-2xl font-heading font-semibold text-foreground">
-            {value}
-          </p>
+          <p className="text-2xl font-heading font-semibold text-foreground">{value}</p>
           {change !== undefined && (
             <div className="flex items-center gap-1 mt-2">
               {change >= 0 ? (
@@ -80,9 +75,7 @@ const StatCard: React.FC<StatCardProps> = ({
                 {change}%
               </span>
               {changeLabel && (
-                <span className="text-sm text-foreground-muted">
-                  {changeLabel}
-                </span>
+                <span className="text-sm text-foreground-muted">{changeLabel}</span>
               )}
             </div>
           )}
@@ -118,101 +111,47 @@ interface RecentTransaction {
   user: { first_name: string; last_name: string } | null;
 }
 
-// Dashboard stats type
+// Dashboard stats type (page-local; matches dashboard action payload)
 interface DashboardStats {
   totalItems: number;
   lowStockItems: number;
   criticalStockItems: number;
   todayTransactions: number;
   pendingSync: number;
-  recentAlerts: Alert[];
+  recentAlerts: AlertType[];
 }
 
-export default function AdminDashboard() {
-  const [stats, setStats] = React.useState<DashboardStats | null>(null);
-  const [recentTransactions, setRecentTransactions] = React.useState<RecentTransaction[]>([]);
-  const [lowStockItemsList, setLowStockItemsList] = React.useState<Item[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+export default async function AdminDashboard() {
+  const [dashboardResult, activityResult] = await Promise.all([
+    getDashboardData(),
+    getRecentActivity(5),
+  ]);
 
-  React.useEffect(() => {
-    async function fetchData() {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Fetch data in parallel - getDashboardData includes both stats and low stock items
-        const [dashboardResult, activityResult] = await Promise.all([
-          getDashboardData(),
-          getRecentActivity(5),
-        ]);
-
-        if (dashboardResult.success && dashboardResult.data) {
-          setStats(dashboardResult.data.stats);
-          setLowStockItemsList(dashboardResult.data.lowStockItemsList);
-        }
-
-        if (activityResult.success && activityResult.data) {
-          setRecentTransactions(activityResult.data as RecentTransaction[]);
-        }
-
-        if (!dashboardResult.success) {
-          setError(dashboardResult.error || "Failed to fetch dashboard stats");
-        }
-      } catch (err) {
-        setError("Failed to load dashboard data");
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
-  const unreadAlerts = stats?.recentAlerts ?? [];
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} variant="elevated" size="md">
-              <Skeleton className="h-24 w-full" />
-            </Card>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card variant="elevated" size="md">
-              <Skeleton className="h-64 w-full" />
-            </Card>
-          </div>
-          <Card variant="elevated" size="md">
-            <Skeleton className="h-64 w-full" />
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (!dashboardResult.success || !dashboardResult.data) {
     return (
       <Card variant="elevated" size="md" className="text-center py-12">
         <AlertCircle className="w-12 h-12 mx-auto text-error mb-4" />
         <p className="text-foreground font-medium mb-2">Failed to load dashboard</p>
-        <p className="text-foreground-muted text-sm">{error}</p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-4"
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </Button>
+        <p className="text-foreground-muted text-sm">
+          {dashboardResult.error || "Failed to fetch dashboard stats"}
+        </p>
+        <Link href="/admin">
+          <Button variant="outline" size="sm" className="mt-4">
+            Retry
+          </Button>
+        </Link>
       </Card>
     );
   }
+
+  const stats = dashboardResult.data.stats as DashboardStats;
+  const lowStockItemsList = (dashboardResult.data.lowStockItemsList ?? []) as Item[];
+  const recentTransactions: RecentTransaction[] =
+    activityResult.success && activityResult.data
+      ? (activityResult.data as RecentTransaction[])
+      : [];
+
+  const unreadAlerts = stats?.recentAlerts ?? [];
 
   return (
     <div className="space-y-6">
@@ -220,7 +159,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Items"
-          value={(stats?.totalItems ?? 0).toLocaleString()}
+          value={Intl.NumberFormat("en-US").format(stats?.totalItems ?? 0)}
           icon={<Package className="w-6 h-6 text-white" />}
           iconColor="bg-primary"
           href="/admin/items"
@@ -258,7 +197,11 @@ export default function AdminDashboard() {
               subtitle="Latest inventory movements"
               action={
                 <Link href="/admin/transactions">
-                  <Button variant="ghost" size="sm" rightIcon={<ChevronRight className="w-4 h-4" />}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    rightIcon={<ChevronRight className="w-4 h-4" />}
+                  >
                     View All
                   </Button>
                 </Link>
@@ -287,9 +230,7 @@ export default function AdminDashboard() {
                         <div className="flex items-center gap-4">
                           <Avatar name={userName} size="sm" />
                           <div>
-                            <p className="font-medium text-foreground">
-                              {itemName}
-                            </p>
+                            <p className="font-medium text-foreground">{itemName}</p>
                             <p className="text-sm text-foreground-muted">
                               {userName} &middot;{" "}
                               {formatRelativeTime(transaction.server_timestamp)}
@@ -313,7 +254,17 @@ export default function AdminDashboard() {
                               : ""}
                             {Math.abs(transaction.quantity)}{" "}
                           </span>
-                          <TransactionTypeBadge type={transType as "check_in" | "check_out" | "adjustment" | "transfer" | "return"} size="sm" />
+                          <TransactionTypeBadge
+                            type={
+                              transType as
+                                | "check_in"
+                                | "check_out"
+                                | "adjustment"
+                                | "transfer"
+                                | "return"
+                            }
+                            size="sm"
+                          />
                         </div>
                       </div>
                     );
@@ -352,7 +303,8 @@ export default function AdminDashboard() {
                       <div className="flex items-start gap-3">
                         <div
                           className={`w-2 h-2 rounded-full mt-2 ${
-                            alert.severity === "critical" || alert.severity === "error"
+                            alert.severity === "critical" ||
+                            alert.severity === "error"
                               ? "bg-error"
                               : alert.severity === "warning"
                               ? "bg-warning"
@@ -428,7 +380,10 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-border">
                 {lowStockItemsList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-foreground-muted">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-foreground-muted"
+                    >
                       No low stock items
                     </td>
                   </tr>
@@ -441,9 +396,8 @@ export default function AdminDashboard() {
                       minStock,
                       maxStock
                     );
-                    const percentage = maxStock > 0
-                      ? (item.current_stock / maxStock) * 100
-                      : 0;
+                    const percentage =
+                      maxStock > 0 ? (item.current_stock / maxStock) * 100 : 0;
 
                     return (
                       <tr
@@ -452,12 +406,8 @@ export default function AdminDashboard() {
                       >
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-medium text-foreground">
-                              {item.name}
-                            </p>
-                            <p className="text-sm text-foreground-muted">
-                              {item.sku}
-                            </p>
+                            <p className="font-medium text-foreground">{item.name}</p>
+                            <p className="text-sm text-foreground-muted">{item.sku}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-foreground-muted">

@@ -43,15 +43,13 @@ import {
 import { StockLevelBadge } from "@/components/ui";
 import { getItems, archiveItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
-import { getLocations } from "@/lib/actions/locations";
-import type { Item, Category, Location } from "@/lib/supabase/types";
+import type { Item, Category } from "@/lib/supabase/types";
 import { formatCurrency, getStockLevel, formatDateTime } from "@/lib/utils";
 
 export default function ItemsPage() {
   // Data state
   const [items, setItems] = React.useState<Item[]>([]);
   const [categories, setCategories] = React.useState<Category[]>([]);
-  const [locations, setLocations] = React.useState<Location[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -79,22 +77,15 @@ export default function ItemsPage() {
     return map;
   }, [categories]);
 
-  const locationMap = React.useMemo(() => {
-    const map = new Map<string, Location>();
-    locations.forEach((loc) => map.set(loc.id, loc));
-    return map;
-  }, [locations]);
-
   // Fetch data
   const fetchData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const [itemsResult, categoriesResult, locationsResult] = await Promise.all([
+      const [itemsResult, categoriesResult] = await Promise.all([
         getItems(),
         getCategories(),
-        getLocations(),
       ]);
 
       if (itemsResult.success) {
@@ -106,10 +97,6 @@ export default function ItemsPage() {
 
       if (categoriesResult.success && categoriesResult.data) {
         setCategories(categoriesResult.data);
-      }
-
-      if (locationsResult.success && locationsResult.data) {
-        setLocations(locationsResult.data);
       }
     } catch (err) {
       setError("Failed to load data. Please try again.");
