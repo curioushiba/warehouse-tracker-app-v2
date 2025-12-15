@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Smartphone, Lock } from "lucide-react";
+import { ScanBarcode, PawPrint } from "lucide-react";
 import { Button } from "@/components/ui";
 
 export default function HomePage() {
@@ -44,8 +44,8 @@ export default function HomePage() {
                 size="lg"
                 className="w-full h-14 rounded-full text-lg font-bold shadow-lg hover:shadow-xl bg-cta text-foreground border-none flex items-center justify-center gap-3"
               >
-                <Smartphone className="w-5 h-5" />
-                Launch Employee App
+                <ScanBarcode className="w-5 h-5" />
+                Ready to Scan?
               </Button>
             </Link>
 
@@ -53,15 +53,15 @@ export default function HomePage() {
               href="/admin"
               className="inline-flex items-center gap-2 text-foreground-muted hover:text-primary transition-colors text-sm font-medium"
             >
-              <Lock className="w-4 h-4" />
-              Admin Portal Login
+              <PawPrint className="w-4 h-4" />
+              Admin Dashboard
             </Link>
           </div>
         </div>
 
         {/* Footer */}
         <div className="text-center mt-8 opacity-40 hover:opacity-100 transition-opacity">
-          <p className="text-xs font-mono text-foreground-muted">Wildlife Reserve System v1.0</p>
+          <p className="text-xs font-mono text-foreground-muted">PackTrack v1.0</p>
         </div>
 
       </div>
