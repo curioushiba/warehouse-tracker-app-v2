@@ -407,6 +407,61 @@ export async function searchItems(query: string): Promise<ActionResult<Item[]>> 
 }
 
 /**
+ * Lookup an item by barcode OR sku in a single query.
+ * This replaces the pattern of sequential getItemByBarcode() then getItemBySku() calls.
+ */
+export async function getItemByCode(code: string): Promise<ActionResult<Item>> {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('inv_items')
+      .select('*')
+      .eq('is_archived', false)
+      .or(`barcode.eq.${code},sku.eq.${code}`)
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      return failure(error.message)
+    }
+
+    if (!data) {
+      return failure('Item not found')
+    }
+
+    return success(data)
+  } catch (err) {
+    return failure('Failed to fetch item')
+  }
+}
+
+/**
+ * Get recently updated items with a limit.
+ * Optimized for the scan page "recent items" display.
+ */
+export async function getRecentItems(limit: number = 4): Promise<ActionResult<Item[]>> {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('inv_items')
+      .select('*')
+      .eq('is_archived', false)
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      return failure(error.message)
+    }
+
+    return success(data ?? [])
+  } catch (err) {
+    return failure('Failed to fetch recent items')
+  }
+}
+
+/**
  * Generate a PT code (PT-XXXXX format) for an item that doesn't have a barcode.
  * Uses an atomic database function to prevent race conditions where concurrent
  * requests could waste sequence numbers.

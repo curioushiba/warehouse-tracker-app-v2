@@ -354,6 +354,141 @@ export async function submitTransaction(
 }
 
 /**
+ * Employee-optimized transaction query with embedded item info.
+ * Returns transactions for a specific user with item name/sku/unit joined,
+ * avoiding the need to fetch all items separately.
+ */
+export type EmployeeTransactionWithItem = Transaction & {
+  item: { name: string; sku: string; unit: string | null } | null
+}
+
+export interface GetEmployeeTransactionsOptions {
+  /** Max number of rows to return (default: all) */
+  limit?: number
+  /** Filter to only today's transactions */
+  todayOnly?: boolean
+  /** Offset for pagination (default: 0) */
+  offset?: number
+}
+
+/** Result type for paginated employee transactions */
+export interface EmployeeTransactionsPaginatedResult {
+  data: EmployeeTransactionWithItem[]
+  hasMore: boolean
+  totalCount: number
+}
+
+export async function getEmployeeTransactionsWithItems(
+  userId: string,
+  options?: GetEmployeeTransactionsOptions
+): Promise<ActionResult<EmployeeTransactionWithItem[]>> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('inv_transactions')
+    .select(
+      `
+        *,
+        item:inv_items(name, sku, unit)
+      `
+    )
+    .eq('user_id', userId)
+    .order('server_timestamp', { ascending: false })
+
+  // Filter to today's transactions if requested
+  // Use UTC to avoid timezone offset issues between server and database
+  if (options?.todayOnly) {
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    query = query.gte('server_timestamp', today.toISOString())
+  }
+
+  // Apply limit if specified
+  if (typeof options?.limit === 'number') {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data: (data ?? []) as EmployeeTransactionWithItem[] }
+}
+
+/**
+ * Paginated employee transactions with item details.
+ * Returns data, hasMore flag, and total count for efficient pagination.
+ */
+const DEFAULT_EMPLOYEE_PAGE_SIZE = 20
+
+export async function getEmployeeTransactionsWithItemsPaginated(
+  userId: string,
+  options?: GetEmployeeTransactionsOptions
+): Promise<ActionResult<EmployeeTransactionsPaginatedResult>> {
+  const supabase = await createClient()
+  const limit = options?.limit ?? DEFAULT_EMPLOYEE_PAGE_SIZE
+  const offset = options?.offset ?? 0
+
+  // Build count query first
+  let countQuery = supabase
+    .from('inv_transactions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+
+  // Build data query
+  let dataQuery = supabase
+    .from('inv_transactions')
+    .select(
+      `
+        *,
+        item:inv_items(name, sku, unit)
+      `
+    )
+    .eq('user_id', userId)
+    .order('server_timestamp', { ascending: false })
+
+  // Filter to today's transactions if requested
+  // Use UTC to avoid timezone offset issues between server and database
+  if (options?.todayOnly) {
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    const todayIso = today.toISOString()
+    countQuery = countQuery.gte('server_timestamp', todayIso)
+    dataQuery = dataQuery.gte('server_timestamp', todayIso)
+  }
+
+  // Execute count query
+  const { count, error: countError } = await countQuery
+
+  if (countError) {
+    return { success: false, error: countError.message }
+  }
+
+  // Apply pagination
+  dataQuery = dataQuery.range(offset, offset + limit - 1)
+
+  const { data, error } = await dataQuery
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  const totalCount = count ?? 0
+  const hasMore = offset + limit < totalCount
+
+  return {
+    success: true,
+    data: {
+      data: (data ?? []) as EmployeeTransactionWithItem[],
+      hasMore,
+      totalCount,
+    },
+  }
+}
+
+/**
  * Get recent transactions with a limit
  */
 export async function getRecentTransactions(

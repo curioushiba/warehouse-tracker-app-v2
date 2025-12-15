@@ -16,6 +16,8 @@ export interface BatchConfirmModalProps {
   itemCount: number;
   totalUnits: number;
   isSubmitting?: boolean;
+  /** Progress info for concurrent submission */
+  progress?: { current: number; total: number };
 }
 
 export const BatchConfirmModal: React.FC<BatchConfirmModalProps> = ({
@@ -26,6 +28,7 @@ export const BatchConfirmModal: React.FC<BatchConfirmModalProps> = ({
   itemCount,
   totalUnits,
   isSubmitting = false,
+  progress,
 }) => {
   const isCheckIn = transactionType === "in";
   const typeLabel = isCheckIn ? "CHECK IN" : "CHECK OUT";
@@ -95,7 +98,7 @@ export const BatchConfirmModal: React.FC<BatchConfirmModalProps> = ({
           variant={isCheckIn ? "primary" : "danger"}
           onClick={onConfirm}
           isLoading={isSubmitting}
-          loadingText="Submitting..."
+          loadingText={progress ? `${progress.current}/${progress.total}...` : "Submitting..."}
         >
           Confirm & Submit
         </Button>

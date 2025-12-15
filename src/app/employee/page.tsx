@@ -31,15 +31,12 @@ import {
 import { formatRelativeTime } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
-import { getUserTransactions } from "@/lib/actions/transactions";
-import { getItems } from "@/lib/actions/items";
-import type { Transaction, Item } from "@/lib/supabase/types";
+import {
+  getEmployeeTransactionsWithItems,
+  type EmployeeTransactionWithItem,
+} from "@/lib/actions/transactions";
 
 type TransactionType = "check_in" | "check_out";
-
-interface TransactionWithItemName extends Transaction {
-  itemName?: string;
-}
 
 function getDisplayName(
   profile: { name?: string | null; first_name?: string | null; last_name?: string | null; username?: string | null } | null,
@@ -77,7 +74,7 @@ function getDisplayName(
 export default function EmployeeHomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { profile, user, isLoading: authLoading, refreshProfile } = useAuthContext();
+  const { profile, user, isLoading: authLoading } = useAuthContext();
   const { queueCount, isSyncing, syncQueue, isOnline } = useSyncQueue();
 
   // Batch success toast state
@@ -101,21 +98,21 @@ export default function EmployeeHomePage() {
     }
   }, [searchParams, router]);
 
-  // Refresh profile on mount to ensure we have the latest data
+  // Prefetch likely next routes for faster navigation
   React.useEffect(() => {
-    if (!authLoading && user) {
-      refreshProfile();
-    }
-  }, [authLoading, user, refreshProfile]);
+    router.prefetch("/employee/scan");
+    router.prefetch("/employee/history");
+  }, [router]);
 
-  const [recentTransactions, setRecentTransactions] = React.useState<TransactionWithItemName[]>([]);
+
+  const [recentTransactions, setRecentTransactions] = React.useState<EmployeeTransactionWithItem[]>([]);
   const [todayTransactionsCount, setTodayTransactionsCount] = React.useState(0);
   const [isLoadingData, setIsLoadingData] = React.useState(true);
 
   const [modalOpen, setModalOpen] = React.useState(false);
   const [selectedAction, setSelectedAction] = React.useState<TransactionType | null>(null);
 
-  // Fetch user transactions and items
+  // Fetch user transactions with item details (single optimized query)
   React.useEffect(() => {
     async function fetchData() {
       if (!user?.id) {
@@ -126,49 +123,22 @@ export default function EmployeeHomePage() {
       setIsLoadingData(true);
 
       try {
-        // Fetch transactions and items in parallel
-        const [transactionsResult, itemsResult] = await Promise.all([
-          getUserTransactions(user.id),
-          getItems(),
+        // Fetch recent transactions and today's count in parallel
+        const [recentResult, todayResult] = await Promise.all([
+          getEmployeeTransactionsWithItems(user.id, { limit: 3 }),
+          getEmployeeTransactionsWithItems(user.id, { todayOnly: true }),
         ]);
 
-        // Create item lookup map (even if items fetch failed, we'll show transactions without names)
-        const itemMap = new Map<string, Item>();
-        if (itemsResult.success) {
-          itemsResult.data.forEach((item) => {
-            itemMap.set(item.id, item);
-          });
-        }
-
-        // Process transactions even if items fetch failed
-        if (transactionsResult.success) {
-          // Add item names to transactions (fallback to 'Unknown Item' if item not found)
-          const transactionsWithNames: TransactionWithItemName[] = transactionsResult.data.map(tx => ({
-            ...tx,
-            itemName: itemMap.get(tx.item_id)?.name || 'Unknown Item',
-          }));
-
-          // Get recent 3 transactions
-          setRecentTransactions(transactionsWithNames.slice(0, 3));
-
-          // Calculate today's transactions
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const todayCount = transactionsResult.data.filter(tx => {
-            const txDate = new Date(tx.server_timestamp);
-            return txDate >= today;
-          }).length;
-          setTodayTransactionsCount(todayCount);
+        if (recentResult.success) {
+          setRecentTransactions(recentResult.data);
         } else {
-          // If transactions fetch failed, log error but still set empty state
-          console.error('[EmployeePage] Failed to fetch transactions:', transactionsResult.error);
           setRecentTransactions([]);
-          setTodayTransactionsCount(0);
         }
 
-        // Log warning if items fetch failed but transactions succeeded
-        if (!itemsResult.success && transactionsResult.success) {
-          console.warn('[EmployeePage] Failed to fetch items, showing transactions without item names:', itemsResult.error);
+        if (todayResult.success) {
+          setTodayTransactionsCount(todayResult.data.length);
+        } else {
+          setTodayTransactionsCount(0);
         }
       } catch (error) {
         console.error('[EmployeePage] Exception fetching data:', error);
@@ -202,22 +172,6 @@ export default function EmployeeHomePage() {
       await syncQueue();
     }
   };
-
-  // Debug logging to see what profile data we have
-  React.useEffect(() => {
-    if (!authLoading) {
-      console.log('[EmployeePage] Profile data:', profile);
-      console.log('[EmployeePage] User data:', user);
-      console.log('[EmployeePage] Profile name fields:', {
-        name: profile?.name,
-        first_name: profile?.first_name,
-        last_name: profile?.last_name,
-        username: profile?.username,
-      });
-      const computedName = getDisplayName(profile, user);
-      console.log('[EmployeePage] Computed display name:', computedName);
-    }
-  }, [profile, user, authLoading]);
 
   const displayName = getDisplayName(profile, user);
   // Only show loading for name/avatar if auth is still loading
@@ -446,7 +400,7 @@ export default function EmployeeHomePage() {
                     </div>
                     <div>
                       <p className="font-medium text-foreground text-sm">
-                        {transaction.itemName}
+                        {transaction.item?.name || 'Unknown Item'}
                       </p>
                       <p className="text-xs text-foreground-muted">
                         {formatRelativeTime(transaction.server_timestamp)}

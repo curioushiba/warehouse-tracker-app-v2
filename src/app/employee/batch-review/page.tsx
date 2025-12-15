@@ -29,6 +29,7 @@ export default function BatchReviewPage() {
 
   const [showConfirmModal, setShowConfirmModal] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitProgress, setSubmitProgress] = React.useState({ current: 0, total: 0 });
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [failedItems, setFailedItems] = React.useState<string[]>([]);
 
@@ -69,29 +70,55 @@ export default function BatchReviewPage() {
     setShowConfirmModal(true);
   };
 
-  // Handle confirmed submission
+  // Submit batch items with limited concurrency for better performance
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
     setFailedItems([]);
+    setSubmitProgress({ current: 0, total: batchItems.length });
 
     const newFailedItems: string[] = [];
     const successfulItems: string[] = [];
 
-    for (const batchItem of batchItems) {
-      const result = await submitTransaction({
-        transactionType: apiTransactionType,
-        itemId: batchItem.itemId,
-        quantity: batchItem.quantity,
-        // Use pre-generated idempotency key from when item was added
-        idempotencyKey: batchItem.idempotencyKey,
-      });
+    // Process items in chunks of 5 for limited concurrency
+    const CHUNK_SIZE = 5;
+    const chunks: typeof batchItems[] = [];
+    for (let i = 0; i < batchItems.length; i += CHUNK_SIZE) {
+      chunks.push(batchItems.slice(i, i + CHUNK_SIZE));
+    }
 
-      if (result.success) {
-        successfulItems.push(batchItem.itemId);
-      } else {
-        console.error(`Failed to submit transaction for ${batchItem.item.name}:`, result.error);
-        newFailedItems.push(batchItem.itemId);
+    let processed = 0;
+    for (const chunk of chunks) {
+      // Submit chunk items in parallel
+      const results = await Promise.allSettled(
+        chunk.map(async (batchItem) => {
+          const result = await submitTransaction({
+            transactionType: apiTransactionType,
+            itemId: batchItem.itemId,
+            quantity: batchItem.quantity,
+            idempotencyKey: batchItem.idempotencyKey,
+          });
+          return { itemId: batchItem.itemId, name: batchItem.item.name, result };
+        })
+      );
+
+      // Process results
+      for (const settledResult of results) {
+        processed++;
+        setSubmitProgress({ current: processed, total: batchItems.length });
+
+        if (settledResult.status === 'fulfilled') {
+          const { itemId, result, name } = settledResult.value;
+          if (result.success) {
+            successfulItems.push(itemId);
+          } else {
+            console.error(`Failed to submit transaction for ${name}:`, result.error);
+            newFailedItems.push(itemId);
+          }
+        } else {
+          // Promise rejected - shouldn't happen but handle it
+          console.error('Unexpected submission error:', settledResult.reason);
+        }
       }
     }
 
@@ -230,6 +257,7 @@ export default function BatchReviewPage() {
         itemCount={totalItems}
         totalUnits={totalUnits}
         isSubmitting={isSubmitting}
+        progress={isSubmitting ? submitProgress : undefined}
       />
     </div>
   );

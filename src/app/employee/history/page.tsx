@@ -33,24 +33,28 @@ import {
 } from "@/components/ui";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { getUserTransactions } from "@/lib/actions/transactions";
-import { getItems } from "@/lib/actions/items";
-import type { Transaction, Item } from "@/lib/supabase/types";
+import {
+  getEmployeeTransactionsWithItemsPaginated,
+  type EmployeeTransactionWithItem,
+} from "@/lib/actions/transactions";
 
 type TransactionFilter = "all" | "check_in" | "check_out" | "transfer" | "adjustment";
 type DateFilter = "all" | "today" | "week" | "month";
 
-interface TransactionWithDetails extends Transaction {
-  itemName?: string;
-  userName?: string;
-}
+// Use the base type directly - userName is derived from currentUserName for all transactions
+type TransactionWithDetails = EmployeeTransactionWithItem;
+
+const PAGE_SIZE = 20;
 
 export default function HistoryPage() {
   const { user, profile, isLoading: authLoading } = useAuthContext();
 
   const [transactions, setTransactions] = React.useState<TransactionWithDetails[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [hasMore, setHasMore] = React.useState(false);
+  const [totalCount, setTotalCount] = React.useState(0);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [transactionFilter, setTransactionFilter] =
@@ -59,7 +63,18 @@ export default function HistoryPage() {
   const [selectedTransaction, setSelectedTransaction] = React.useState<TransactionWithDetails | null>(null);
   const [showFilters, setShowFilters] = React.useState(false);
 
-  // Fetch transactions
+  // Derive the current user's display name from profile
+  const currentUserName = React.useMemo(() => {
+    if (profile) {
+      if (profile.name) return profile.name;
+      if (profile.first_name && profile.last_name) return `${profile.first_name} ${profile.last_name}`;
+      if (profile.first_name) return profile.first_name;
+      if (profile.username) return profile.username;
+    }
+    return "Me";
+  }, [profile]);
+
+  // Fetch initial transactions with pagination
   const fetchData = React.useCallback(async () => {
     if (!user?.id) return;
 
@@ -67,53 +82,49 @@ export default function HistoryPage() {
     setError(null);
 
     try {
-      // Fetch transactions and items in parallel (no need to fetch all users)
-      const [transactionsResult, itemsResult] = await Promise.all([
-        getUserTransactions(user.id),
-        getItems(),
-      ]);
+      const result = await getEmployeeTransactionsWithItemsPaginated(user.id, {
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
 
-      if (!transactionsResult.success) {
-        setError(transactionsResult.error);
+      if (!result.success) {
+        setError(result.error);
         setIsLoading(false);
         return;
       }
 
-      // Create item lookup map
-      const itemMap = new Map<string, Item>();
-      if (itemsResult.success) {
-        itemsResult.data.forEach((item) => {
-          itemMap.set(item.id, item);
-        });
-      }
-
-      // Derive the current user's display name from profile
-      let currentUserName = "Me";
-      if (profile) {
-        if (profile.name) currentUserName = profile.name;
-        else if (profile.first_name && profile.last_name) currentUserName = `${profile.first_name} ${profile.last_name}`;
-        else if (profile.first_name) currentUserName = profile.first_name;
-        else if (profile.username) currentUserName = profile.username;
-      }
-
-      // Add item and user names to transactions
-      const transactionsWithDetails: TransactionWithDetails[] = transactionsResult.data.map(tx => {
-        const item = itemMap.get(tx.item_id);
-
-        return {
-          ...tx,
-          itemName: item?.name || 'Unknown Item',
-          userName: currentUserName,
-        };
-      });
-
-      setTransactions(transactionsWithDetails);
+      setTransactions(result.data.data);
+      setHasMore(result.data.hasMore);
+      setTotalCount(result.data.totalCount);
     } catch (err) {
       setError('Failed to load transactions');
     }
 
     setIsLoading(false);
-  }, [user?.id, profile]);
+  }, [user?.id]);
+
+  // Load more transactions
+  const loadMore = React.useCallback(async () => {
+    if (!user?.id || isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+
+    try {
+      const result = await getEmployeeTransactionsWithItemsPaginated(user.id, {
+        limit: PAGE_SIZE,
+        offset: transactions.length,
+      });
+
+      if (result.success) {
+        setTransactions(prev => [...prev, ...result.data.data]);
+        setHasMore(result.data.hasMore);
+      }
+    } catch (err) {
+      console.error('Failed to load more transactions:', err);
+    }
+
+    setIsLoadingMore(false);
+  }, [user?.id, isLoadingMore, hasMore, transactions.length]);
 
   React.useEffect(() => {
     fetchData();
@@ -122,13 +133,11 @@ export default function HistoryPage() {
   const filteredTransactions = React.useMemo(() => {
     let filtered = [...transactions];
 
-    // Search filter
+    // Search filter - search by item name only (all transactions are from current user)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (t) =>
-          t.itemName?.toLowerCase().includes(query) ||
-          t.userName?.toLowerCase().includes(query)
+        (t) => t.item?.name?.toLowerCase().includes(query)
       );
     }
 
@@ -310,7 +319,7 @@ export default function HistoryPage() {
       <div className="flex gap-3">
         <div className="flex-1">
           <SearchInput
-            placeholder="Search items or users..."
+            placeholder="Search items..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onClear={() => setSearchQuery("")}
@@ -375,8 +384,17 @@ export default function HistoryPage() {
       {/* Results Summary */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-foreground-muted">
-          {filteredTransactions.length} transaction
-          {filteredTransactions.length !== 1 ? "s" : ""}
+          {activeFilters > 0 || searchQuery ? (
+            <>
+              {filteredTransactions.length} of {totalCount} transaction
+              {totalCount !== 1 ? "s" : ""}
+            </>
+          ) : (
+            <>
+              Showing {transactions.length} of {totalCount} transaction
+              {totalCount !== 1 ? "s" : ""}
+            </>
+          )}
         </p>
         {activeFilters > 0 && (
           <Badge colorScheme="primary" size="sm">
@@ -433,7 +451,7 @@ export default function HistoryPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
                             <p className="font-medium text-foreground truncate">
-                              {transaction.itemName}
+                              {transaction.item?.name || 'Unknown Item'}
                             </p>
                             <p
                               className={`font-semibold ${transaction.transaction_type === "check_in" ||
@@ -477,6 +495,20 @@ export default function HistoryPage() {
               </div>
             </div>
           ))}
+
+          {/* Load More Button */}
+          {hasMore && !activeFilters && !searchQuery && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="secondary"
+                onClick={loadMore}
+                isLoading={isLoadingMore}
+                leftIcon={!isLoadingMore ? <RefreshCw className="w-4 h-4" /> : undefined}
+              >
+                {isLoadingMore ? "Loading..." : "Load More"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -506,7 +538,7 @@ export default function HistoryPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-heading font-semibold text-foreground text-lg">
-                    {selectedTransaction.itemName}
+                    {selectedTransaction.item?.name || 'Unknown Item'}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <TransactionTypeBadge
@@ -549,7 +581,7 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-muted">Performed by</span>
                   <span className="font-medium text-foreground">
-                    {selectedTransaction.userName}
+                    {currentUserName}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

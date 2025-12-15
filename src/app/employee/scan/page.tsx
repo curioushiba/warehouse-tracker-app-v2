@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Camera,
   Package,
@@ -19,11 +20,27 @@ import {
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { ItemImage } from "@/components/items";
 import { ItemSearchAutocomplete } from "@/components/search";
-import { BarcodeScanner, ScanSuccessOverlay } from "@/components/scanner";
+import { ScanSuccessOverlay } from "@/components/scanner";
 import { BatchMiniList } from "@/components/batch";
+
+// Lazy load BarcodeScanner to reduce initial JS bundle on /employee/scan
+const BarcodeScanner = dynamic(
+  () => import("@/components/scanner/BarcodeScanner").then((mod) => mod.BarcodeScanner),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-square bg-neutral-900 rounded-xl flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-sm">Loading camera...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 import { useBatchScan } from "@/contexts/BatchScanContext";
 import { useScanFeedback } from "@/hooks";
-import { getItemBySku, getItemByBarcode, getItems } from "@/lib/actions";
+import { getItemByCode, getRecentItems } from "@/lib/actions";
 import type { Item } from "@/lib/supabase/types";
 
 type ScanMode = "camera" | "manual";
@@ -71,14 +88,14 @@ export default function ScanPage() {
   // Scan feedback (audio, haptic, visual)
   const { triggerFeedback, triggerDuplicateAlert, clearFeedback, feedbackItem, isVisible, isExiting } = useScanFeedback();
 
-  // Fetch recent items on mount
+  // Fetch recent items on mount (optimized query with limit)
   React.useEffect(() => {
-    async function fetchRecentItems() {
+    async function fetchRecent() {
       try {
         setIsLoadingRecent(true);
-        const result = await getItems({ isArchived: false });
+        const result = await getRecentItems(4);
         if (result.success && result.data) {
-          setRecentItems(result.data.slice(0, 4));
+          setRecentItems(result.data);
         }
       } catch (err) {
         console.error("Failed to fetch recent items:", err);
@@ -86,8 +103,13 @@ export default function ScanPage() {
         setIsLoadingRecent(false);
       }
     }
-    fetchRecentItems();
+    fetchRecent();
   }, []);
+
+  // Prefetch batch-review page for faster navigation
+  React.useEffect(() => {
+    router.prefetch("/employee/batch-review");
+  }, [router]);
 
   // Add item to batch
   const addItemToBatch = React.useCallback((item: Item) => {
@@ -119,7 +141,7 @@ export default function ScanPage() {
     setDuplicateItem(null);
   };
 
-  // Handle barcode scan from camera
+  // Handle barcode scan from camera (single optimized lookup)
   const handleCodeScanned = React.useCallback(async (code: string) => {
     // Prevent multiple lookups
     if (isLookingUp) return;
@@ -128,24 +150,13 @@ export default function ScanPage() {
     setError(null);
 
     try {
-      // Try to find by barcode first
-      const barcodeResult = await getItemByBarcode(code);
-      if (barcodeResult.success && barcodeResult.data) {
-        addItemToBatch(barcodeResult.data);
-        setIsLookingUp(false);
-        return;
+      // Single lookup by barcode OR sku
+      const result = await getItemByCode(code);
+      if (result.success && result.data) {
+        addItemToBatch(result.data);
+      } else {
+        setError(`Item not found for code: ${code}`);
       }
-
-      // Try to find by SKU
-      const skuResult = await getItemBySku(code);
-      if (skuResult.success && skuResult.data) {
-        addItemToBatch(skuResult.data);
-        setIsLookingUp(false);
-        return;
-      }
-
-      // Not found
-      setError(`Item not found for code: ${code}`);
     } catch (err) {
       console.error("Error looking up item:", err);
       setError("Failed to look up item. Please try again.");

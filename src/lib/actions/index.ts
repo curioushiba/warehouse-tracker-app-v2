@@ -17,6 +17,8 @@ export {
   getItemById,
   getItemBySku,
   getItemByBarcode,
+  getItemByCode,
+  getRecentItems,
   createItem,
   updateItem,
   archiveItem,
@@ -53,10 +55,13 @@ export {
   getTransactionById,
   getItemTransactions,
   getUserTransactions,
+  getEmployeeTransactionsWithItems,
   submitTransaction,
   getRecentTransactions,
   type TransactionFilters,
   type TransactionInput,
+  type EmployeeTransactionWithItem,
+  type GetEmployeeTransactionsOptions,
 } from './transactions'
 
 // Users Actions
