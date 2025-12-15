@@ -3,10 +3,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Item, ItemInsert, ItemUpdate } from '@/lib/supabase/types'
-import { type ActionResult, success, failure } from '@/lib/types/action-result'
+import { type ActionResult, type PaginatedResult, success, failure, paginatedSuccess } from '@/lib/types/action-result'
 
 // Re-export for backwards compatibility
-export type { ActionResult } from '@/lib/types/action-result'
+export type { ActionResult, PaginatedResult } from '@/lib/types/action-result'
 
 export interface ItemFilters {
   categoryId?: string
@@ -14,6 +14,11 @@ export interface ItemFilters {
   isArchived?: boolean
   search?: string
   stockLevel?: 'critical' | 'low' | 'normal' | 'overstocked'
+}
+
+export interface PaginatedItemFilters extends ItemFilters {
+  page?: number
+  pageSize?: number
 }
 
 export async function getItems(filters?: ItemFilters): Promise<ActionResult<Item[]>> {
@@ -49,6 +54,104 @@ export async function getItems(filters?: ItemFilters): Promise<ActionResult<Item
     }
 
     return success(data ?? [])
+  } catch (err) {
+    return failure('Failed to fetch items')
+  }
+}
+
+const DEFAULT_PAGE_SIZE = 25
+
+/**
+ * Get items with server-side pagination, filtering, and search.
+ * This is optimized for admin list views with large datasets.
+ */
+export async function getItemsPaginated(
+  filters?: PaginatedItemFilters
+): Promise<ActionResult<PaginatedResult<Item>>> {
+  try {
+    const supabase = await createClient()
+    const page = filters?.page ?? 1
+    const pageSize = filters?.pageSize ?? DEFAULT_PAGE_SIZE
+    const offset = (page - 1) * pageSize
+
+    // Build base query for count
+    let countQuery = supabase
+      .from('inv_items')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_archived', filters?.isArchived ?? false)
+
+    // Build data query
+    let dataQuery = supabase
+      .from('inv_items')
+      .select('*')
+      .eq('is_archived', filters?.isArchived ?? false)
+
+    // Apply category filter
+    if (filters?.categoryId) {
+      countQuery = countQuery.eq('category_id', filters.categoryId)
+      dataQuery = dataQuery.eq('category_id', filters.categoryId)
+    }
+
+    // Apply location filter
+    if (filters?.locationId) {
+      countQuery = countQuery.eq('location_id', filters.locationId)
+      dataQuery = dataQuery.eq('location_id', filters.locationId)
+    }
+
+    // Apply search filter (server-side)
+    if (filters?.search) {
+      const searchPattern = `%${filters.search}%`
+      countQuery = countQuery.or(`name.ilike.${searchPattern},sku.ilike.${searchPattern},barcode.ilike.${searchPattern}`)
+      dataQuery = dataQuery.or(`name.ilike.${searchPattern},sku.ilike.${searchPattern},barcode.ilike.${searchPattern}`)
+    }
+
+    // Apply stock level filter (requires server-side calculation)
+    // Note: Stock levels are derived from current_stock, min_stock, max_stock
+    // This filter is applied after fetching for now, but could be optimized with a DB view
+
+    // Execute count query
+    const { count, error: countError } = await countQuery
+
+    if (countError) {
+      return failure(countError.message)
+    }
+
+    // Apply pagination and ordering to data query
+    dataQuery = dataQuery
+      .order('name')
+      .range(offset, offset + pageSize - 1)
+
+    const { data, error } = await dataQuery
+
+    if (error) {
+      return failure(error.message)
+    }
+
+    // Apply stock level filter client-side if specified
+    // (This could be moved to a database view for better performance at scale)
+    let filteredData = (data ?? []) as Item[]
+    if (filters?.stockLevel) {
+      filteredData = filteredData.filter((item) => {
+        const stock = item.current_stock ?? 0
+        const minStock = item.min_stock ?? 0
+        const maxStock = item.max_stock ?? Infinity
+
+        switch (filters.stockLevel) {
+          case 'critical':
+            return stock <= 0
+          case 'low':
+            return stock > 0 && stock < minStock
+          case 'normal':
+            return stock >= minStock && stock <= maxStock
+          case 'overstocked':
+            return maxStock !== null && stock > maxStock
+          default:
+            return true
+        }
+      })
+    }
+
+    return paginatedSuccess(filteredData, count ?? 0, page, pageSize)
   } catch (err) {
     return failure('Failed to fetch items')
   }

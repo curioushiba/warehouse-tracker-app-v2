@@ -2,11 +2,15 @@
 
 import { createClient } from '@/lib/supabase/server'
 import type { Transaction, TransactionType } from '@/lib/supabase/types'
+import { type PaginatedResult, paginatedSuccess } from '@/lib/types/action-result'
 
 // Result type for consistent error handling
 export type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string }
+
+// Re-export for convenience
+export type { PaginatedResult } from '@/lib/types/action-result'
 
 // Filter interface for getTransactions
 export interface TransactionFilters {
@@ -15,6 +19,12 @@ export interface TransactionFilters {
   userId?: string
   startDate?: string
   endDate?: string
+}
+
+export interface PaginatedTransactionFilters extends TransactionFilters {
+  page?: number
+  pageSize?: number
+  search?: string
 }
 
 // Input interface for submitTransaction
@@ -128,6 +138,107 @@ export async function getTransactionsWithDetails(
   }
 
   return { success: true, data: (data ?? []) as TransactionWithDetails[] }
+}
+
+const DEFAULT_PAGE_SIZE = 25
+
+/**
+ * Get transactions with server-side pagination, filtering, and search.
+ * This is optimized for admin list views with large datasets.
+ */
+export async function getTransactionsWithDetailsPaginated(
+  filters?: PaginatedTransactionFilters
+): Promise<ActionResult<PaginatedResult<TransactionWithDetails>>> {
+  const supabase = await createClient()
+  const page = filters?.page ?? 1
+  const pageSize = filters?.pageSize ?? DEFAULT_PAGE_SIZE
+  const offset = (page - 1) * pageSize
+
+  // Build count query
+  let countQuery = supabase
+    .from('inv_transactions')
+    .select('*', { count: 'exact', head: true })
+
+  // Build data query with joins
+  let dataQuery = supabase
+    .from('inv_transactions')
+    .select(
+      `
+        *,
+        item:inv_items(name, sku, unit),
+        user:profiles(first_name, last_name, email),
+        source_location:locations!inv_transactions_source_location_id_fkey(name),
+        destination_location:locations!inv_transactions_destination_location_id_fkey(name)
+      `
+    )
+
+  // Apply transaction type filter
+  if (filters?.transactionType) {
+    countQuery = countQuery.eq('transaction_type', filters.transactionType)
+    dataQuery = dataQuery.eq('transaction_type', filters.transactionType)
+  }
+
+  // Apply item filter
+  if (filters?.itemId) {
+    countQuery = countQuery.eq('item_id', filters.itemId)
+    dataQuery = dataQuery.eq('item_id', filters.itemId)
+  }
+
+  // Apply user filter
+  if (filters?.userId) {
+    countQuery = countQuery.eq('user_id', filters.userId)
+    dataQuery = dataQuery.eq('user_id', filters.userId)
+  }
+
+  // Apply date filters
+  if (filters?.startDate) {
+    countQuery = countQuery.gte('server_timestamp', filters.startDate)
+    dataQuery = dataQuery.gte('server_timestamp', filters.startDate)
+  }
+
+  if (filters?.endDate) {
+    countQuery = countQuery.lte('server_timestamp', filters.endDate)
+    dataQuery = dataQuery.lte('server_timestamp', filters.endDate)
+  }
+
+  // Execute count query
+  const { count, error: countError } = await countQuery
+
+  if (countError) {
+    return { success: false, error: countError.message }
+  }
+
+  // Apply pagination and ordering to data query
+  dataQuery = dataQuery
+    .order('server_timestamp', { ascending: false })
+    .range(offset, offset + pageSize - 1)
+
+  const { data, error } = await dataQuery
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  // Apply client-side search filter if specified
+  // (Search spans item name, SKU, user name - requires joined data)
+  let filteredData = (data ?? []) as TransactionWithDetails[]
+  if (filters?.search) {
+    const searchLower = filters.search.toLowerCase()
+    filteredData = filteredData.filter((tx) => {
+      const itemName = tx.item?.name?.toLowerCase() ?? ''
+      const itemSku = tx.item?.sku?.toLowerCase() ?? ''
+      const userName = `${tx.user?.first_name ?? ''} ${tx.user?.last_name ?? ''}`.toLowerCase()
+      const notes = tx.notes?.toLowerCase() ?? ''
+      return (
+        itemName.includes(searchLower) ||
+        itemSku.includes(searchLower) ||
+        userName.includes(searchLower) ||
+        notes.includes(searchLower)
+      )
+    })
+  }
+
+  return paginatedSuccess(filteredData, count ?? 0, page, pageSize)
 }
 
 /**

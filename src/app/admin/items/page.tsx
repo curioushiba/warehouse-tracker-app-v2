@@ -41,10 +41,11 @@ import {
   Alert,
 } from "@/components/ui";
 import { StockLevelBadge } from "@/components/ui";
-import { getItems, archiveItem } from "@/lib/actions/items";
+import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import type { Item, Category } from "@/lib/supabase/types";
 import { formatCurrency, getStockLevel, formatDateTime } from "@/lib/utils";
+import type { PaginatedResult } from "@/lib/types/action-result";
 
 export default function ItemsPage() {
   // Data state
@@ -53,10 +54,21 @@ export default function ItemsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // UI state
+  // Pagination state (server-side)
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(25);
+  const [totalCount, setTotalCount] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(0);
+
+  // Filter state (synced to server)
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("");
   const [stockFilter, setStockFilter] = React.useState("");
+
+  // Debounced search for server-side filtering
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+
+  // UI state
   const [selectedItems, setSelectedItems] = React.useState<string[]>([]);
   const [sortConfig, setSortConfig] = React.useState<{
     key: string;
@@ -66,10 +78,6 @@ export default function ItemsPage() {
   const [itemToDelete, setItemToDelete] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const [itemsPerPage, setItemsPerPage] = React.useState(25);
-
   // Create lookup maps
   const categoryMap = React.useMemo(() => {
     const map = new Map<string, Category>();
@@ -77,19 +85,43 @@ export default function ItemsPage() {
     return map;
   }, [categories]);
 
-  // Fetch data
+  // Debounce search input
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to page 1 on search change
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [categoryFilter, stockFilter]);
+
+  // Fetch data with server-side pagination
   const fetchData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      const filters: PaginatedItemFilters = {
+        page: currentPage,
+        pageSize: itemsPerPage,
+        search: debouncedSearch || undefined,
+        categoryId: categoryFilter || undefined,
+        stockLevel: stockFilter as PaginatedItemFilters['stockLevel'] || undefined,
+      };
+
       const [itemsResult, categoriesResult] = await Promise.all([
-        getItems(),
+        getItemsPaginated(filters),
         getCategories(),
       ]);
 
       if (itemsResult.success) {
-        setItems(itemsResult.data);
+        setItems(itemsResult.data.data);
+        setTotalCount(itemsResult.data.totalCount);
+        setTotalPages(itemsResult.data.totalPages);
       } else {
         setError(itemsResult.error || "Failed to load items");
         return;
@@ -103,91 +135,53 @@ export default function ItemsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentPage, itemsPerPage, debouncedSearch, categoryFilter, stockFilter]);
 
   React.useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Filter and sort items
-  const filteredItems = React.useMemo(() => {
-    let result = [...items];
+  // Client-side sorting only (filtering and pagination done server-side)
+  const sortedItems = React.useMemo(() => {
+    if (!sortConfig) return items;
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter((item) => {
-        const categoryName = item.category_id ? categoryMap.get(item.category_id)?.name || "" : "";
-        return (
-          item.name.toLowerCase().includes(query) ||
-          item.sku.toLowerCase().includes(query) ||
-          categoryName.toLowerCase().includes(query)
-        );
-      });
-    }
+    const result = [...items];
+    result.sort((a, b) => {
+      let aValue: string | number | null = null;
+      let bValue: string | number | null = null;
 
-    // Category filter
-    if (categoryFilter) {
-      result = result.filter((item) => item.category_id === categoryFilter);
-    }
+      switch (sortConfig.key) {
+        case "name":
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case "category":
+          aValue = categoryMap.get(a.category_id || "")?.name?.toLowerCase() || "";
+          bValue = categoryMap.get(b.category_id || "")?.name?.toLowerCase() || "";
+          break;
+        case "current_stock":
+          aValue = a.current_stock;
+          bValue = b.current_stock;
+          break;
+        case "unit_price":
+          aValue = a.unit_price || 0;
+          bValue = b.unit_price || 0;
+          break;
+        default:
+          return 0;
+      }
 
-    // Stock level filter
-    if (stockFilter) {
-      result = result.filter((item) => {
-        const level = getStockLevel(item.current_stock, item.min_stock, item.max_stock || 0);
-        return level === stockFilter;
-      });
-    }
-
-    // Sort
-    if (sortConfig) {
-      result.sort((a, b) => {
-        let aValue: string | number | null = null;
-        let bValue: string | number | null = null;
-
-        switch (sortConfig.key) {
-          case "name":
-            aValue = a.name.toLowerCase();
-            bValue = b.name.toLowerCase();
-            break;
-          case "category":
-            aValue = categoryMap.get(a.category_id || "")?.name?.toLowerCase() || "";
-            bValue = categoryMap.get(b.category_id || "")?.name?.toLowerCase() || "";
-            break;
-          case "current_stock":
-            aValue = a.current_stock;
-            bValue = b.current_stock;
-            break;
-          case "unit_price":
-            aValue = a.unit_price || 0;
-            bValue = b.unit_price || 0;
-            break;
-          default:
-            return 0;
-        }
-
-        if (aValue === null || bValue === null) return 0;
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
+      if (aValue === null || bValue === null) return 0;
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
 
     return result;
-  }, [items, searchQuery, categoryFilter, stockFilter, sortConfig, categoryMap]);
+  }, [items, sortConfig, categoryMap]);
 
-  // Reset page when filters change
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, categoryFilter, stockFilter]);
-
-  // Paginated items
-  const paginatedItems = React.useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredItems.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredItems, currentPage, itemsPerPage]);
-
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  // Items to display (already paginated from server)
+  const displayItems = sortedItems;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -207,7 +201,7 @@ export default function ItemsPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedItems(paginatedItems.map((item) => item.id));
+      setSelectedItems(displayItems.map((item) => item.id));
     } else {
       setSelectedItems([]);
     }
@@ -267,7 +261,7 @@ export default function ItemsPage() {
 
   const handleExport = () => {
     const headers = ["SKU", "Name", "Category", "Stock", "Unit", "Price"];
-    const rows = filteredItems.map((item) => [
+    const rows = displayItems.map((item) => [
       item.sku,
       item.name,
       categoryMap.get(item.category_id || "")?.name || "",
@@ -433,12 +427,12 @@ export default function ItemsPage() {
               <TableHead className="w-12">
                 <Checkbox
                   isChecked={
-                    selectedItems.length === paginatedItems.length &&
-                    paginatedItems.length > 0
+                    selectedItems.length === displayItems.length &&
+                    displayItems.length > 0
                   }
                   isIndeterminate={
                     selectedItems.length > 0 &&
-                    selectedItems.length < paginatedItems.length
+                    selectedItems.length < displayItems.length
                   }
                   onChange={(e) => handleSelectAll(e.target.checked)}
                   aria-label="Select all items"
@@ -486,7 +480,7 @@ export default function ItemsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedItems.length === 0 ? (
+            {displayItems.length === 0 ? (
               <TableEmpty
                 title="No items found"
                 description="Try adjusting your search or filters"
@@ -507,7 +501,7 @@ export default function ItemsPage() {
                 colSpan={8}
               />
             ) : (
-              paginatedItems.map((item) => {
+              displayItems.map((item) => {
                 const level = getStockLevel(
                   item.current_stock,
                   item.min_stock,
@@ -612,7 +606,7 @@ export default function ItemsPage() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <p className="text-sm text-foreground-muted">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredItems.length)} of {filteredItems.length} items
+            Showing {totalCount === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
           </p>
           <div className="flex items-center gap-2">
             <span className="text-sm text-foreground-muted">Items per page:</span>

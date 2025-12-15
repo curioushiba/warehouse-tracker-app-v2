@@ -43,7 +43,7 @@ import {
   Badge,
 } from "@/components/ui";
 import { TransactionTypeBadge, SyncStatusIndicator } from "@/components/ui";
-import { getTransactionsWithDetails } from "@/lib/actions/transactions";
+import { getTransactionsWithDetailsPaginated, type PaginatedTransactionFilters } from "@/lib/actions/transactions";
 import type { TransactionWithDetails } from "@/lib/actions/transactions";
 import { getUsers } from "@/lib/actions/users";
 import type { Profile, TransactionType, SyncStatus } from "@/lib/supabase/types";
@@ -85,8 +85,15 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Pagination state (server-side)
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  const [totalCount, setTotalCount] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(0);
+
   // Filter state
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState("");
   const [userFilter, setUserFilter] = React.useState("");
   const [startDate, setStartDate] = React.useState("");
@@ -103,24 +110,45 @@ export default function TransactionsPage() {
     return map;
   }, [users]);
 
-  // Fetch data
+  // Debounce search input
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to page 1 on search change
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [typeFilter, userFilter, startDate, endDate]);
+
+  // Fetch data with server-side pagination
   const fetchData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      const filters: PaginatedTransactionFilters = {
+        page: currentPage,
+        pageSize: pageSize,
+        search: debouncedSearch || undefined,
+        transactionType: typeFilter as TransactionType || undefined,
+        userId: userFilter || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      };
+
       const [transactionsResult, usersResult] = await Promise.all([
-        getTransactionsWithDetails({
-          transactionType: typeFilter as TransactionType || undefined,
-          userId: userFilter || undefined,
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-        }),
+        getTransactionsWithDetailsPaginated(filters),
         getUsers(),
       ]);
 
       if (transactionsResult.success) {
-        setTransactions(transactionsResult.data);
+        setTransactions(transactionsResult.data.data);
+        setTotalCount(transactionsResult.data.totalCount);
+        setTotalPages(transactionsResult.data.totalPages);
       } else {
         setError(transactionsResult.error || "Failed to load transactions");
         return;
@@ -135,36 +163,20 @@ export default function TransactionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [typeFilter, userFilter, startDate, endDate]);
+  }, [currentPage, pageSize, debouncedSearch, typeFilter, userFilter, startDate, endDate]);
 
   // Initial fetch
   React.useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Filter transactions by search query
-  const filteredTransactions = React.useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
+  // Page change handler
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
-    const query = searchQuery.toLowerCase();
-    return transactions.filter((tx) => {
-      const userFromMap = userMap.get(tx.user_id);
-      const itemName = tx.item?.name?.toLowerCase() || "";
-      const itemSku = tx.item?.sku?.toLowerCase() || "";
-      const userFirst = (tx.user?.first_name ?? userFromMap?.first_name ?? "").toLowerCase();
-      const userLast = (tx.user?.last_name ?? userFromMap?.last_name ?? "").toLowerCase();
-      const userEmail = (tx.user?.email ?? userFromMap?.email ?? "").toLowerCase();
-      return (
-        itemName.includes(query) ||
-        itemSku.includes(query) ||
-        userFirst.includes(query) ||
-        userLast.includes(query) ||
-        userEmail.includes(query) ||
-        (tx.notes?.toLowerCase() || "").includes(query) ||
-        tx.transaction_type.toLowerCase().includes(query)
-      );
-    });
-  }, [transactions, searchQuery, userMap]);
+  // Transactions to display (already filtered and paginated from server)
+  const displayTransactions = transactions;
 
   // Handle row click
   const handleRowClick = (transaction: TransactionWithDetails) => {
@@ -181,7 +193,7 @@ export default function TransactionsPage() {
     setEndDate("");
   };
 
-  const hasActiveFilters = searchQuery || typeFilter || userFilter || startDate || endDate;
+  const hasActiveFilters = debouncedSearch || typeFilter || userFilter || startDate || endDate;
 
   // Get user display name
   const getUserName = (
@@ -207,7 +219,7 @@ export default function TransactionsPage() {
   // Export to CSV
   const handleExport = () => {
     const headers = ["Date", "Type", "Item", "Quantity", "Stock Before", "Stock After", "User", "Notes", "Status"];
-    const rows = filteredTransactions.map((tx) => [
+    const rows = displayTransactions.map((tx) => [
       formatDateTime(tx.server_timestamp),
       tx.transaction_type,
       getItemName(tx.item_id, tx.item),
@@ -246,7 +258,7 @@ export default function TransactionsPage() {
             variant="outline"
             leftIcon={<Download className="w-4 h-4" />}
             onClick={handleExport}
-            disabled={isLoading || filteredTransactions.length === 0}
+            disabled={isLoading || displayTransactions.length === 0}
           >
             Export
           </Button>
@@ -369,7 +381,7 @@ export default function TransactionsPage() {
                       ))}
                     </TableRow>
                   ))
-                ) : filteredTransactions.length === 0 ? (
+                ) : displayTransactions.length === 0 ? (
                   <TableEmpty
                     icon={<Package className="w-12 h-12" />}
                     title="No transactions found"
@@ -387,7 +399,7 @@ export default function TransactionsPage() {
                     }
                   />
                 ) : (
-                  filteredTransactions.map((tx) => {
+                  displayTransactions.map((tx) => {
                     const item = tx.item;
                     return (
                       <TableRow
@@ -468,14 +480,76 @@ export default function TransactionsPage() {
         </CardBody>
 
         {/* Results count */}
-        {!isLoading && filteredTransactions.length > 0 && (
+        {!isLoading && displayTransactions.length > 0 && (
           <div className="px-6 py-4 border-t border-neutral-100">
             <p className="text-sm text-foreground-muted">
-              Showing {filteredTransactions.length} of {transactions.length} transactions
+              Showing {totalCount === 0 ? 0 : ((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount} transactions
             </p>
           </div>
         )}
       </Card>
+
+      {/* Pagination */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground-muted">Items per page:</span>
+              <Select
+                options={[
+                  { value: "10", label: "10" },
+                  { value: "25", label: "25" },
+                  { value: "50", label: "50" },
+                  { value: "100", label: "100" },
+                ]}
+                value={pageSize.toString()}
+                onChange={(value) => {
+                  setPageSize(parseInt(value));
+                  setCurrentPage(1);
+                }}
+                className="w-20"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              First
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-foreground-muted px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              Next
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage >= totalPages}
+            >
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Transaction Detail Modal */}
       <Modal
