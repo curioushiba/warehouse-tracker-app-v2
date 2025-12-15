@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Lock, AlertCircle } from "lucide-react";
 import {
@@ -75,14 +74,16 @@ export default function EmployeeLoginPage() {
         <Card variant="elevated" className="shadow-lg">
           <CardBody className="p-6">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <User className="w-8 h-8 text-primary" />
-              </div>
+              <img
+                src="/icons/scan-icon-circle.png"
+                alt="PackTrack"
+                className="w-16 h-16 mx-auto mb-4"
+              />
               <h2 className="font-heading text-xl font-semibold text-foreground">
-                Employee Login
+                Ready to Scan?
               </h2>
               <p className="text-sm text-foreground-muted mt-1">
-                Sign in with your employee credentials
+                Log in to start scanning
               </p>
             </div>
 
@@ -158,17 +159,6 @@ export default function EmployeeLoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-sm text-foreground-muted">
-                Are you an admin?{" "}
-                <Link
-                  href="/auth/login"
-                  className="text-primary font-medium hover:text-primary-dark transition-colors"
-                >
-                  Admin Login
-                </Link>
-              </p>
-            </div>
           </CardBody>
         </Card>
       </div>
