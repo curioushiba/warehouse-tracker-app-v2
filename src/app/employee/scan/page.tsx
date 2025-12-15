@@ -227,11 +227,11 @@ export default function ScanPage() {
 
   // Gradient background based on transaction type
   const gradientClass = transactionType === "check_in"
-    ? "before:from-[rgba(40,167,69,0.15)] before:via-[rgba(40,167,69,0.05)]"
-    : "before:from-[rgba(220,53,69,0.15)] before:via-[rgba(220,53,69,0.05)]";
+    ? "before:from-[rgba(40,167,69,0.55)] before:via-[rgba(40,167,69,0.15)]"
+    : "before:from-[rgba(220,53,69,0.55)] before:via-[rgba(220,53,69,0.15)]";
 
   return (
-    <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-30% before:to-transparent before:to-50% before:pointer-events-none before:-z-10`}>
+    <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-40% before:to-transparent before:to-75% before:pointer-events-none before:-z-10`}>
       {/* Transaction Type Badge */}
       <div className="flex items-center justify-center mb-4">
         <Badge

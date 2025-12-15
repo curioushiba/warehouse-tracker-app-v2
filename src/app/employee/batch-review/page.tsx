@@ -133,8 +133,13 @@ export default function BatchReviewPage() {
     );
   }
 
+  // Gradient background based on transaction type
+  const gradientClass = transactionType === "in"
+    ? "before:from-[rgba(40,167,69,0.55)] before:via-[rgba(40,167,69,0.15)]"
+    : "before:from-[rgba(220,53,69,0.55)] before:via-[rgba(220,53,69,0.15)]";
+
   return (
-    <div className="flex flex-col h-full">
+    <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-40% before:to-transparent before:to-75% before:pointer-events-none before:-z-10`}>
       {/* Header with back button and transaction type */}
       <div className="flex items-center justify-between mb-4">
         <Button
