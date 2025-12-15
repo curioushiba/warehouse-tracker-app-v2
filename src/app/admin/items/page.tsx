@@ -15,7 +15,8 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import { ItemImage } from "@/components/items";
+import { ItemImage, BulkAddModal } from "@/components/items";
+import { useToastHelpers } from "@/components/ui/Toast";
 import {
   Card,
   CardHeader,
@@ -77,6 +78,10 @@ export default function ItemsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [itemToDelete, setItemToDelete] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isBulkAddOpen, setIsBulkAddOpen] = React.useState(false);
+
+  // Toast notifications
+  const toast = useToastHelpers();
 
   // Create lookup maps
   const categoryMap = React.useMemo(() => {
@@ -387,6 +392,13 @@ export default function ItemsPage() {
           >
             Export
           </Button>
+          <Button
+            variant="secondary"
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={() => setIsBulkAddOpen(true)}
+          >
+            Bulk Add
+          </Button>
           <Link href="/admin/items/new">
             <Button variant="cta" leftIcon={<Plus className="w-4 h-4" />}>
               Add Item
@@ -693,6 +705,19 @@ export default function ItemsPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Bulk Add Modal */}
+      <BulkAddModal
+        isOpen={isBulkAddOpen}
+        onClose={() => setIsBulkAddOpen(false)}
+        onSuccess={(count) => {
+          toast.success(
+            `${count} item${count > 1 ? "s" : ""} added`,
+            "Items have been created with default values"
+          );
+          fetchData(); // Refresh the list
+        }}
+      />
     </div>
   );
 }

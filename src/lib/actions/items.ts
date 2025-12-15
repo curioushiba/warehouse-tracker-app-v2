@@ -529,3 +529,80 @@ export async function clearBarcode(itemId: string): Promise<ActionResult<Item>> 
     return failure('Failed to clear barcode')
   }
 }
+
+const MAX_BULK_ITEMS = 100
+const MAX_NAME_LENGTH = 255
+
+/**
+ * Bulk create multiple items with default values.
+ * Each item gets a database-generated SKU, unit="pcs", and stock=0.
+ */
+export async function bulkCreateItems(names: string[]): Promise<ActionResult<Item[]>> {
+  try {
+    const supabase = await createClient()
+
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return failure('Not authorized')
+    }
+
+    // Verify user has admin role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const profileData = profile as { role: string } | null
+    if (profileData?.role !== 'admin') {
+      return failure('Not authorized')
+    }
+
+    // Validate input array
+    if (!Array.isArray(names) || names.length === 0) {
+      return failure('At least one item name required')
+    }
+
+    // Limit bulk operations to reasonable size
+    if (names.length > MAX_BULK_ITEMS) {
+      return failure(`Cannot add more than ${MAX_BULK_ITEMS} items at once`)
+    }
+
+    // Validate and clean names
+    const cleanedNames = names.map((name) => (typeof name === 'string' ? name.trim() : ''))
+
+    // Check for empty names
+    if (cleanedNames.some((name) => name === '')) {
+      return failure('All item names must be non-empty')
+    }
+
+    // Check for names that are too long
+    if (cleanedNames.some((name) => name.length > MAX_NAME_LENGTH)) {
+      return failure(`Item names must not exceed ${MAX_NAME_LENGTH} characters`)
+    }
+
+    // Build insert array with defaults (SKU uses database default via generate_sku())
+    const itemsToInsert: Omit<ItemInsert, 'sku'>[] = cleanedNames.map((name) => ({
+      name,
+      unit: 'pcs',
+      current_stock: 0,
+      min_stock: 0,
+    }))
+
+    // Single atomic insert
+    const { data: createdItems, error } = await supabase
+      .from('inv_items')
+      .insert(itemsToInsert as never[])
+      .select()
+
+    if (error) {
+      return failure(error.message)
+    }
+
+    revalidatePath('/admin/items')
+    return success((createdItems ?? []) as Item[])
+  } catch (err) {
+    return failure('Failed to create items')
+  }
+}
