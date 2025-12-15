@@ -1,4 +1,5 @@
 export { useAuth } from './useAuth'
+export { useDebounce } from './useDebounce'
 export { useOnlineStatus } from './useOnlineStatus'
 export { useSyncQueue } from './useSyncQueue'
 export { useScanFeedback } from './useScanFeedback'

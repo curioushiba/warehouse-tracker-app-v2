@@ -375,16 +375,26 @@ export async function getLowStockItems(limit?: number): Promise<ActionResult<Ite
   }
 }
 
+/**
+ * Escape special LIKE pattern characters to prevent SQL injection via wildcards.
+ * Characters % and _ have special meaning in LIKE patterns.
+ */
+function escapeLikePattern(query: string): string {
+  return query.replace(/[%_\\]/g, '\\$&')
+}
+
 export async function searchItems(query: string): Promise<ActionResult<Item[]>> {
   try {
     const supabase = await createClient()
+    const escaped = escapeLikePattern(query)
 
     const { data, error } = await supabase
       .from('inv_items')
       .select('*')
       .eq('is_archived', false)
-      .or(`name.ilike.%${query}%,sku.ilike.%${query}%,barcode.ilike.%${query}%`)
+      .or(`name.ilike.%${escaped}%,sku.ilike.%${escaped}%,barcode.ilike.%${escaped}%`)
       .order('name')
+      .limit(15)
 
     if (error) {
       return failure(error.message)

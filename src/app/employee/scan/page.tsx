@@ -12,18 +12,18 @@ import {
   Card,
   CardBody,
   Button,
-  SearchInput,
   Badge,
   Alert,
   Skeleton,
 } from "@/components/ui";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { ItemImage } from "@/components/items";
+import { ItemSearchAutocomplete } from "@/components/search";
 import { BarcodeScanner, ScanSuccessOverlay } from "@/components/scanner";
 import { BatchMiniList } from "@/components/batch";
 import { useBatchScan } from "@/contexts/BatchScanContext";
 import { useScanFeedback } from "@/hooks";
-import { searchItems, getItemBySku, getItemByBarcode, getItems } from "@/lib/actions";
+import { getItemBySku, getItemByBarcode, getItems } from "@/lib/actions";
 import type { Item } from "@/lib/supabase/types";
 
 type ScanMode = "camera" | "manual";
@@ -59,13 +59,10 @@ export default function ScanPage() {
   const [scanMode, setScanMode] = React.useState<ScanMode>(
     modeParam === "manual" ? "manual" : "camera"
   );
-  const [manualCode, setManualCode] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = React.useState(false);
   const [recentItems, setRecentItems] = React.useState<Item[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = React.useState(true);
-  const [isSearching, setIsSearching] = React.useState(false);
-  const [searchResults, setSearchResults] = React.useState<Item[]>([]);
 
   // Duplicate confirmation modal state
   const [duplicateItem, setDuplicateItem] = React.useState<Item | null>(null);
@@ -163,61 +160,9 @@ export default function ScanPage() {
     setError(errorMessage);
   }, []);
 
-  const handleManualSearch = async () => {
-    if (!manualCode.trim()) return;
-
-    setError(null);
-    setIsSearching(true);
-    setSearchResults([]);
-
-    try {
-      // Try to find by SKU first (exact match)
-      const skuResult = await getItemBySku(manualCode.trim());
-      if (skuResult.success && skuResult.data) {
-        addItemToBatch(skuResult.data);
-        setManualCode("");
-        setIsSearching(false);
-        return;
-      }
-
-      // Try to find by barcode (exact match)
-      const barcodeResult = await getItemByBarcode(manualCode.trim());
-      if (barcodeResult.success && barcodeResult.data) {
-        addItemToBatch(barcodeResult.data);
-        setManualCode("");
-        setIsSearching(false);
-        return;
-      }
-
-      // Search by name/sku/barcode (partial match)
-      const searchResult = await searchItems(manualCode.trim());
-      if (searchResult.success && searchResult.data && searchResult.data.length > 0) {
-        if (searchResult.data.length === 1) {
-          // Single match - add directly to batch
-          addItemToBatch(searchResult.data[0]);
-          setManualCode("");
-        } else {
-          // Multiple matches - show results list
-          setSearchResults(searchResult.data);
-        }
-        setIsSearching(false);
-        return;
-      }
-
-      setError("Item not found. Please check the search term and try again.");
-    } catch (err) {
-      setError("Search failed. Please try again.");
-      console.error("Search error:", err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Handle item selection from list
+  // Handle item selection from autocomplete or recent items
   const handleItemSelect = (item: Item) => {
     addItemToBatch(item);
-    setSearchResults([]);
-    setManualCode("");
   };
 
   // Navigate to batch review page
@@ -249,7 +194,6 @@ export default function ScanPage() {
           onClick={() => {
             setScanMode("camera");
             setError(null);
-            setSearchResults([]);
           }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${scanMode === "camera"
               ? "bg-white text-foreground shadow-sm"
@@ -263,7 +207,6 @@ export default function ScanPage() {
           onClick={() => {
             setScanMode("manual");
             setError(null);
-            setSearchResults([]);
           }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${scanMode === "manual"
               ? "bg-white text-foreground shadow-sm"
@@ -316,10 +259,10 @@ export default function ScanPage() {
           </>
         ) : (
           <>
-            {/* Manual Entry */}
+            {/* Manual Entry Header */}
             <Card variant="elevated">
-              <CardBody className="space-y-4">
-                <div className="text-center mb-4">
+              <CardBody>
+                <div className="text-center">
                   <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                     <Package className="w-8 h-8 text-primary" />
                   </div>
@@ -327,44 +270,22 @@ export default function ScanPage() {
                     Find Item
                   </h3>
                   <p className="text-sm text-foreground-muted mt-1">
-                    Enter SKU, barcode, or item name
+                    Type to search and tap to add
                   </p>
                 </div>
-
-                <SearchInput
-                  placeholder="Enter SKU, barcode, or name"
-                  value={manualCode}
-                  onChange={(e) => setManualCode(e.target.value)}
-                  onClear={() => {
-                    setManualCode("");
-                    setSearchResults([]);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleManualSearch();
-                    }
-                  }}
-                />
-
-                {error && (
-                  <Alert status="error" variant="subtle">
-                    <AlertCircle className="w-4 h-4" />
-                    {error}
-                  </Alert>
-                )}
-
-                <Button
-                  variant="primary"
-                  isFullWidth
-                  size="lg"
-                  onClick={handleManualSearch}
-                  disabled={!manualCode.trim() || isSearching}
-                  isLoading={isSearching}
-                >
-                  Add to List
-                </Button>
               </CardBody>
             </Card>
+
+            {/* Search Autocomplete - outside Card to prevent overflow clipping */}
+            <div className="mt-4">
+              <ItemSearchAutocomplete
+                onItemSelect={handleItemSelect}
+                isItemInBatch={hasItem}
+                placeholder="Enter SKU, barcode, or name"
+                minCharacters={2}
+                debounceMs={300}
+              />
+            </div>
 
             {/* Batch Mini List in Manual Mode */}
             {batchItems.length > 0 && (
@@ -377,59 +298,8 @@ export default function ScanPage() {
               </div>
             )}
 
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-3">
-                  Search Results ({searchResults.length})
-                </h3>
-                <div className="space-y-2">
-                  {searchResults.map((item) => (
-                    <Card
-                      key={item.id}
-                      variant="outline"
-                      isHoverable
-                      className="cursor-pointer"
-                      onClick={() => handleItemSelect(item)}
-                    >
-                      <CardBody className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <ItemImage
-                              imageUrl={item.image_url}
-                              itemName={item.name}
-                              size="sm"
-                            />
-                            <div>
-                              <p className="font-medium text-foreground text-sm">
-                                {item.name}
-                              </p>
-                              <p className="text-xs text-foreground-muted">
-                                {item.sku}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge colorScheme="neutral" size="sm">
-                              {item.current_stock} {item.unit}
-                            </Badge>
-                            {hasItem(item.id) && (
-                              <Badge colorScheme="success" size="sm">
-                                In list
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick Select (Recent Items) - only show if no search results */}
-            {searchResults.length === 0 && (
-              <div>
+            {/* Quick Select (Recent Items) */}
+            <div>
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-3">
                   Recent Items
                 </h3>
@@ -490,8 +360,7 @@ export default function ScanPage() {
                     ))
                   )}
                 </div>
-              </div>
-            )}
+            </div>
           </>
         )}
       </div>
