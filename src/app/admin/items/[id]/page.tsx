@@ -1,13 +1,6 @@
-"use client";
-
-import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Edit,
-  Archive,
-  RotateCcw,
   Package,
   MapPin,
   FolderOpen,
@@ -19,10 +12,9 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ArrowRightLeft,
+  RotateCcw,
   Wrench,
   Trash2,
-  AlertCircle,
-  RefreshCw,
 } from "lucide-react";
 import {
   Card,
@@ -37,23 +29,18 @@ import {
   TableHead,
   TableCell,
   TableEmpty,
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Skeleton,
   Alert,
 } from "@/components/ui";
 import { StockLevelBadge, TransactionTypeBadge, SyncStatusIndicator } from "@/components/ui";
 import { ItemImage } from "@/components/items";
-import { ManageCodesCard } from "@/components/codes";
-import { getItemById, archiveItem, restoreItem } from "@/lib/actions/items";
-import { getItemTransactions } from "@/lib/actions/transactions";
-import { getCategories } from "@/lib/actions/categories";
-import { getLocations } from "@/lib/actions/locations";
-import { getUsers } from "@/lib/actions/users";
-import type { Item, Transaction, Category, Location, Profile, TransactionType, SyncStatus } from "@/lib/supabase/types";
+import { getItemById } from "@/lib/actions/items";
+import { getCategoryById } from "@/lib/actions/categories";
+import { getLocationById } from "@/lib/actions/locations";
+import { getTransactionsWithDetails, type TransactionWithDetails } from "@/lib/actions/transactions";
+import type { TransactionType, SyncStatus } from "@/lib/supabase/types";
 import { formatCurrency, formatDateTime, getStockLevel } from "@/lib/utils";
+import { ItemDetailActions } from "./ItemDetailActions";
+import { ManageCodesLazy } from "./ManageCodesLazy";
 
 const getTransactionIcon = (type: TransactionType) => {
   switch (type) {
@@ -74,140 +61,18 @@ const getTransactionIcon = (type: TransactionType) => {
   }
 };
 
-export default function ItemDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const itemId = params.id as string;
+const getUserName = (tx: TransactionWithDetails) => {
+  const user = tx.user;
+  if (!user) return "Unknown";
+  return user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email || "Unknown";
+};
 
-  // Data state
-  const [item, setItem] = React.useState<Item | null>(null);
-  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
-  const [category, setCategory] = React.useState<Category | null>(null);
-  const [location, setLocation] = React.useState<Location | null>(null);
-  const [users, setUsers] = React.useState<Profile[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+export default async function ItemDetailPage({ params }: { params: { id: string } }) {
+  const itemId = params.id;
 
-  // Modal state
-  const [archiveModalOpen, setArchiveModalOpen] = React.useState(false);
-  const [isArchiving, setIsArchiving] = React.useState(false);
+  const itemResult = await getItemById(itemId);
 
-  // User lookup map
-  const userMap = React.useMemo(() => {
-    const map = new Map<string, Profile>();
-    users.forEach((u) => map.set(u.id, u));
-    return map;
-  }, [users]);
-
-  // Fetch all data
-  const fetchData = React.useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const [itemResult, categoriesResult, locationsResult, usersResult] = await Promise.all([
-        getItemById(itemId),
-        getCategories(),
-        getLocations(),
-        getUsers(),
-      ]);
-
-      if (!itemResult.success) {
-        setError(itemResult.error || "Failed to load item");
-        return;
-      }
-
-      setItem(itemResult.data);
-      setUsers(usersResult.success ? usersResult.data : []);
-
-      // Find category and location
-      if (categoriesResult.success && itemResult.data.category_id) {
-        const cat = categoriesResult.data.find((c) => c.id === itemResult.data.category_id);
-        setCategory(cat || null);
-      }
-
-      if (locationsResult.success && itemResult.data.location_id) {
-        const loc = locationsResult.data.find((l) => l.id === itemResult.data.location_id);
-        setLocation(loc || null);
-      }
-
-      // Fetch transactions for this item
-      const txResult = await getItemTransactions(itemId);
-      if (txResult.success) {
-        setTransactions(txResult.data);
-      }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      console.error("Error fetching data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [itemId]);
-
-  // Initial fetch
-  React.useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Handle archive/restore
-  const handleArchiveToggle = async () => {
-    if (!item) return;
-
-    setIsArchiving(true);
-
-    try {
-      const result = item.is_archived
-        ? await restoreItem(item.id)
-        : await archiveItem(item.id);
-
-      if (result.success) {
-        setItem(result.data);
-        setArchiveModalOpen(false);
-      } else {
-        setError(result.error);
-      }
-    } catch (err) {
-      setError("Failed to update item status");
-      console.error("Error updating item:", err);
-    } finally {
-      setIsArchiving(false);
-    }
-  };
-
-  // Get user name
-  const getUserName = (userId: string) => {
-    const user = userMap.get(userId);
-    if (!user) return "Unknown";
-    return user.first_name && user.last_name
-      ? `${user.first_name} ${user.last_name}`
-      : user.email || "Unknown";
-  };
-
-  // Handle item update (e.g., when barcode changes)
-  const handleItemUpdate = React.useCallback((updatedItem: Item) => {
-    setItem(updatedItem);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Card variant="elevated">
-          <CardBody className="p-6 space-y-4">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-32" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error || !item) {
+  if (!itemResult.success) {
     return (
       <div className="space-y-6">
         <Link href="/admin/items">
@@ -216,13 +81,33 @@ export default function ItemDetailPage() {
           </Button>
         </Link>
         <Alert status="error" variant="subtle">
-          {error || "Item not found"}
+          {itemResult.error || "Item not found"}
         </Alert>
       </div>
     );
   }
 
+  const item = itemResult.data;
+
+  const categoryPromise = item.category_id ? getCategoryById(item.category_id) : Promise.resolve(null);
+  const locationPromise = item.location_id ? getLocationById(item.location_id) : Promise.resolve(null);
+  const transactionsPromise = getTransactionsWithDetails({ itemId }, { limit: 11 });
+
+  const [categoryResult, locationResult, transactionsResult] = await Promise.all([
+    categoryPromise,
+    locationPromise,
+    transactionsPromise,
+  ]);
+
+  const category =
+    categoryResult && categoryResult.success ? categoryResult.data : null;
+  const location =
+    locationResult && locationResult.success ? locationResult.data : null;
+  const transactions = transactionsResult.success ? transactionsResult.data : [];
+
   const stockLevel = getStockLevel(item.current_stock, item.min_stock ?? 0, item.max_stock ?? 100);
+  const displayTransactions = transactions.slice(0, 10);
+  const hasMoreTransactions = transactions.length > 10;
 
   return (
     <div className="space-y-6">
@@ -248,27 +133,8 @@ export default function ItemDetailPage() {
             <p className="text-foreground-muted text-sm">{item.sku}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            leftIcon={<RefreshCw className="w-4 h-4" />}
-            onClick={fetchData}
-          >
-            Refresh
-          </Button>
-          <Link href={`/admin/items/${item.id}/edit`}>
-            <Button variant="outline" leftIcon={<Edit className="w-4 h-4" />}>
-              Edit
-            </Button>
-          </Link>
-          <Button
-            variant={item.is_archived ? "primary" : "outline"}
-            leftIcon={item.is_archived ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-            onClick={() => setArchiveModalOpen(true)}
-          >
-            {item.is_archived ? "Restore" : "Archive"}
-          </Button>
-        </div>
+
+        <ItemDetailActions itemId={item.id} itemName={item.name} isArchived={item.is_archived} />
       </div>
 
       {/* Item Details Card */}
@@ -409,7 +275,7 @@ export default function ItemDetailPage() {
       </div>
 
       {/* Manage Codes */}
-      <ManageCodesCard item={item} onItemUpdate={handleItemUpdate} />
+      <ManageCodesLazy item={item} />
 
       {/* Transaction History */}
       <Card variant="elevated">
@@ -432,7 +298,7 @@ export default function ItemDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.length === 0 ? (
+                {displayTransactions.length === 0 ? (
                   <TableEmpty
                     icon={<Clock className="w-12 h-12" />}
                     title="No transactions yet"
@@ -440,7 +306,7 @@ export default function ItemDetailPage() {
                     colSpan={7}
                   />
                 ) : (
-                  transactions.slice(0, 10).map((tx) => (
+                  displayTransactions.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell className="text-sm">
                         {formatDateTime(tx.server_timestamp)}
@@ -476,7 +342,7 @@ export default function ItemDetailPage() {
                         {tx.stock_after ?? "-"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {getUserName(tx.user_id)}
+                        {getUserName(tx)}
                       </TableCell>
                       <TableCell>
                         <SyncStatusIndicator
@@ -492,62 +358,15 @@ export default function ItemDetailPage() {
             </Table>
           </div>
 
-          {transactions.length > 10 && (
+          {hasMoreTransactions && (
             <div className="mt-4 text-center">
               <p className="text-sm text-foreground-muted">
-                Showing 10 of {transactions.length} transactions
+                Showing latest 10 transactions
               </p>
             </div>
           )}
         </CardBody>
       </Card>
-
-      {/* Archive Confirmation Modal */}
-      <Modal
-        isOpen={archiveModalOpen}
-        onClose={() => setArchiveModalOpen(false)}
-        size="sm"
-      >
-        <ModalHeader showCloseButton onClose={() => setArchiveModalOpen(false)}>
-          {item.is_archived ? "Restore Item" : "Archive Item"}
-        </ModalHeader>
-        <ModalBody>
-          <div className="text-center">
-            <div className={`w-16 h-16 ${item.is_archived ? "bg-primary-50" : "bg-warning-50"} rounded-full flex items-center justify-center mx-auto mb-4`}>
-              {item.is_archived ? (
-                <RotateCcw className="w-8 h-8 text-primary" />
-              ) : (
-                <AlertCircle className="w-8 h-8 text-warning" />
-              )}
-            </div>
-            <p className="text-foreground mb-2">
-              {item.is_archived ? (
-                <>Are you sure you want to restore <strong>{item.name}</strong>?</>
-              ) : (
-                <>Are you sure you want to archive <strong>{item.name}</strong>?</>
-              )}
-            </p>
-            <p className="text-sm text-foreground-muted">
-              {item.is_archived
-                ? "The item will be active and visible again."
-                : "The item will be hidden but can be restored later."}
-            </p>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="outline" onClick={() => setArchiveModalOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant={item.is_archived ? "primary" : "danger"}
-            onClick={handleArchiveToggle}
-            isLoading={isArchiving}
-            disabled={isArchiving}
-          >
-            {item.is_archived ? "Restore" : "Archive"}
-          </Button>
-        </ModalFooter>
-      </Modal>
     </div>
   );
 }

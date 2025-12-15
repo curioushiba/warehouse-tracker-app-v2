@@ -92,8 +92,14 @@ export type TransactionWithDetails = Transaction & {
   destination_location: { name: string } | null
 }
 
+export interface GetTransactionsWithDetailsOptions {
+  /** Max number of rows to return */
+  limit?: number
+}
+
 export async function getTransactionsWithDetails(
-  filters?: TransactionFilters
+  filters?: TransactionFilters,
+  options?: GetTransactionsWithDetailsOptions
 ): Promise<ActionResult<TransactionWithDetails[]>> {
   const supabase = await createClient()
 
@@ -131,7 +137,14 @@ export async function getTransactionsWithDetails(
     query = query.lte('server_timestamp', filters.endDate)
   }
 
-  const { data, error } = await query.order('server_timestamp', { ascending: false })
+  query = query.order('server_timestamp', { ascending: false })
+
+  const limit = options?.limit
+  if (typeof limit === 'number') {
+    query = query.limit(limit)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return { success: false, error: error.message }
