@@ -54,7 +54,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 text-foreground-muted hover:text-primary transition-colors text-sm font-medium"
             >
               <PawPrint className="w-4 h-4" />
-              Admin Dashboard
+              The Dog House
             </Link>
           </div>
         </div>
