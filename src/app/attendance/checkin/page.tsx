@@ -11,12 +11,13 @@ import { Alert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { BarcodeScanner } from '@/components/scanner/BarcodeScanner'
 import { getStoreByQrCode } from '@/lib/actions/attendance/stores'
 import { recordAttendance } from '@/lib/actions/attendance/records'
 import { getDeviceInfo } from '@/lib/attendance/auth-utils'
 import type { AttStore, RecordAttendanceResult } from '@/lib/supabase/attendance-types'
 
-type PageState = 'loading' | 'no-store' | 'store-not-found' | 'confirm' | 'submitting' | 'success' | 'cooldown' | 'error'
+type PageState = 'loading' | 'scan' | 'no-store' | 'store-not-found' | 'confirm' | 'submitting' | 'success' | 'cooldown' | 'error'
 
 function CheckInContent() {
   const router = useRouter()
@@ -30,14 +31,16 @@ function CheckInContent() {
   const [result, setResult] = useState<RecordAttendanceResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Load store on mount
+  // Load store on mount or when store code changes
   useEffect(() => {
     const loadStore = async () => {
       if (!storeCode) {
-        setPageState('no-store')
+        // No store code - show scanner to scan store QR
+        setPageState('scan')
         return
       }
 
+      setPageState('loading')
       const storeResult = await getStoreByQrCode(storeCode)
 
       if (!storeResult.success) {
@@ -52,6 +55,27 @@ function CheckInContent() {
 
     loadStore()
   }, [storeCode])
+
+  // Handle scanned QR code
+  const handleScan = async (scannedCode: string) => {
+    // QR codes contain URLs like: https://example.com/attendance/checkin?store=ATT-00001
+    // or just the store code like: ATT-00001
+    let extractedStoreCode = scannedCode
+
+    // Try to extract store code from URL
+    try {
+      const url = new URL(scannedCode)
+      const storeParam = url.searchParams.get('store')
+      if (storeParam) {
+        extractedStoreCode = storeParam
+      }
+    } catch {
+      // Not a URL, use as-is (might be just the store code)
+    }
+
+    // Navigate to the same page with store code
+    router.replace(`/attendance/checkin?store=${encodeURIComponent(extractedStoreCode)}`)
+  }
 
   const handleConfirm = async () => {
     if (!store || !employee) return
@@ -108,7 +132,32 @@ function CheckInContent() {
     )
   }
 
+  if (pageState === 'scan') {
+    return (
+      <div className="min-h-screen flex flex-col p-4 bg-gray-50">
+        <div className="text-center mb-4 pt-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Clock In</h2>
+          <p className="text-gray-600 text-sm">
+            Scan a store QR code to record your attendance
+          </p>
+        </div>
+        <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
+          <BarcodeScanner
+            onScan={handleScan}
+            aspectRatio={1}
+            enableTorch
+            className="flex-shrink-0"
+          />
+          <p className="text-center text-gray-500 text-sm mt-4">
+            Point your camera at the store&apos;s QR code
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (pageState === 'no-store') {
+    // Fallback - should not reach here normally
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md">
@@ -117,8 +166,8 @@ function CheckInContent() {
             <p className="text-gray-600 mb-4">
               Please scan a store QR code to clock in.
             </p>
-            <Button variant="secondary" onClick={() => router.push('/attendance/login')}>
-              Go to Login
+            <Button variant="secondary" onClick={() => setPageState('scan')}>
+              Scan QR Code
             </Button>
           </CardBody>
         </Card>
@@ -138,8 +187,11 @@ function CheckInContent() {
             {error && (
               <Alert status="error" className="mb-4 text-left">{error}</Alert>
             )}
-            <Button variant="secondary" onClick={() => router.push('/attendance/login')}>
-              Try Again
+            <Button variant="primary" onClick={() => {
+              setError(null)
+              router.replace('/attendance/checkin')
+            }}>
+              Scan Again
             </Button>
           </CardBody>
         </Card>

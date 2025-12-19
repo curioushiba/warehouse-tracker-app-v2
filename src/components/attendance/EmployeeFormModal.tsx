@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { FormControl, FormLabel, FormErrorMessage, FormHelperText } from '@/components/ui/Form'
 import { Switch } from '@/components/ui/Switch'
+import { Alert } from '@/components/ui/Alert'
 import type { AttEmployee, AttEmployeeInsert, AttEmployeeUpdate } from '@/lib/supabase/attendance-types'
 
 interface EmployeeFormModalProps {
@@ -14,6 +15,7 @@ interface EmployeeFormModalProps {
   onSubmit: (data: AttEmployeeInsert | AttEmployeeUpdate) => Promise<void>
   employee?: AttEmployee | null
   isSubmitting?: boolean
+  serverError?: string | null
 }
 
 interface FormData {
@@ -37,6 +39,7 @@ export function EmployeeFormModal({
   onSubmit,
   employee,
   isSubmitting = false,
+  serverError,
 }: EmployeeFormModalProps) {
   const isEditing = !!employee
 
@@ -145,6 +148,10 @@ export function EmployeeFormModal({
         </ModalHeader>
 
         <ModalBody className="space-y-4">
+          {serverError && (
+            <Alert status="error">{serverError}</Alert>
+          )}
+
           <FormControl isRequired isInvalid={!!errors.username}>
             <FormLabel>Username</FormLabel>
             <Input

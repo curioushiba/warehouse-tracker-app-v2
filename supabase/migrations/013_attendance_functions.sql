@@ -178,8 +178,8 @@ BEGIN
         );
     END IF;
 
-    -- Verify password using pgcrypto
-    IF v_employee.password_hash != crypt(p_password, v_employee.password_hash) THEN
+    -- Verify password using pgcrypto (with extensions schema)
+    IF v_employee.password_hash != extensions.crypt(p_password, v_employee.password_hash) THEN
         RETURN jsonb_build_object(
             'success', false,
             'error', 'Invalid username or password'
@@ -221,7 +221,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-    -- Ensure pgcrypto is available
-    RETURN crypt(p_password, gen_salt('bf', 10));
+    -- Use extensions schema for pgcrypto functions
+    RETURN extensions.crypt(p_password, extensions.gen_salt('bf', 10));
 END;
 $$;

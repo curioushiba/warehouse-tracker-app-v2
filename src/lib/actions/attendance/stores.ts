@@ -111,10 +111,11 @@ export async function getStoreById(id: string): Promise<ActionResult<AttStore>> 
 
 // ============================================
 // GET STORE BY QR CODE (for clock-in)
+// Uses admin client since attendance employees don't have Supabase Auth
 // ============================================
 export async function getStoreByQrCode(qrCode: string): Promise<ActionResult<AttStore>> {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     const { data, error } = await supabase
       .from('att_stores')

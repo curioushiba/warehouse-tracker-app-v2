@@ -308,6 +308,7 @@ export default function EmployeesPage() {
         onSubmit={handleFormSubmit}
         employee={selectedEmployee}
         isSubmitting={isSubmitting}
+        serverError={actionError}
       />
 
       {/* Delete Confirmation Modal */}
