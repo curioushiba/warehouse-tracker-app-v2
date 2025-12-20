@@ -85,6 +85,24 @@ export default function EditItemPage() {
   const [formErrors, setFormErrors] = React.useState<Partial<Record<keyof ItemFormData, string>>>({});
   const [isSaving, setIsSaving] = React.useState(false);
 
+  // Helper to populate form from item data
+  const populateFormFromItem = React.useCallback((i: Item) => {
+    setFormData({
+      name: i.name,
+      sku: i.sku,
+      barcode: i.barcode || "",
+      description: i.description || "",
+      category_id: i.category_id || "",
+      location_id: i.location_id || "",
+      unit: i.unit,
+      current_stock: i.current_stock.toString(),
+      min_stock: (i.min_stock ?? 0).toString(),
+      max_stock: i.max_stock?.toString() || "",
+      unit_price: (i.unit_price ?? 0).toString(),
+      image_url: i.image_url || null,
+    });
+  }, []);
+
   // Fetch data
   React.useEffect(() => {
     async function fetchData() {
@@ -108,21 +126,7 @@ export default function EditItemPage() {
         setLocations(locationsResult.success ? locationsResult.data.filter((l) => l.is_active) : []);
 
         // Populate form
-        const i = itemResult.data;
-        setFormData({
-          name: i.name,
-          sku: i.sku,
-          barcode: i.barcode || "",
-          description: i.description || "",
-          category_id: i.category_id || "",
-          location_id: i.location_id || "",
-          unit: i.unit,
-          current_stock: i.current_stock.toString(),
-          min_stock: (i.min_stock ?? 0).toString(),
-          max_stock: i.max_stock?.toString() || "",
-          unit_price: (i.unit_price ?? 0).toString(),
-          image_url: i.image_url || null,
-        });
+        populateFormFromItem(itemResult.data);
       } catch (err) {
         setError("An unexpected error occurred");
         console.error("Error fetching data:", err);
@@ -132,7 +136,7 @@ export default function EditItemPage() {
     }
 
     fetchData();
-  }, [itemId]);
+  }, [itemId, populateFormFromItem]);
 
   // Validate form
   const validateForm = (): boolean => {
@@ -209,6 +213,16 @@ export default function EditItemPage() {
 
       if (result.success) {
         router.push(`/admin/items/${itemId}`);
+      } else if (result.error === 'Item was modified, please refresh') {
+        // Auto-refresh: fetch latest item data on version conflict
+        const freshResult = await getItemById(itemId);
+        if (freshResult.success) {
+          setItem(freshResult.data);
+          populateFormFromItem(freshResult.data);
+          setError('This item was updated by another user. Form refreshed with latest data.');
+        } else {
+          setError('Item was modified. Please go back and try again.');
+        }
       } else {
         setError(result.error);
       }
