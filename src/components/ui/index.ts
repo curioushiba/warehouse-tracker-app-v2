@@ -146,6 +146,10 @@ export type {
   TabPanelProps,
 } from "./Tabs";
 
+// Stat Card (Warm Design)
+export { StatCardWarm } from "./StatCardWarm";
+export type { StatCardWarmProps, AccentColor, IconName } from "./StatCardWarm";
+
 // Status Indicators
 export {
   OnlineIndicator,

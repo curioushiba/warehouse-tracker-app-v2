@@ -1,15 +1,14 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Package,
-  AlertTriangle,
   AlertCircle,
-  ArrowLeftRight,
   TrendingUp,
   TrendingDown,
   ChevronRight,
   Clock,
   Eye,
+  ArrowLeftRight,
+  CornerUpRight,
 } from "lucide-react";
 import {
   Card,
@@ -19,87 +18,13 @@ import {
   Badge,
   Progress,
   Avatar,
-} from "@/components/ui";
-import {
+  StatCardWarm,
   StockLevelBadge,
   TransactionTypeBadge,
 } from "@/components/ui";
 import { getDashboardData, getRecentActivity } from "@/lib/actions";
 import type { Item, Alert as AlertType } from "@/lib/supabase/types";
 import { formatRelativeTime, getStockLevel } from "@/lib/utils";
-
-// Stat Card Component
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  change?: number;
-  changeLabel?: string;
-  icon: ReactNode;
-  iconColor: string;
-  href?: string;
-}
-
-const StatCard = ({
-  title,
-  value,
-  change,
-  changeLabel,
-  icon,
-  iconColor,
-  href,
-}: StatCardProps) => {
-  const content = (
-    <Card
-      variant="elevated"
-      size="md"
-      isHoverable={!!href}
-      className="relative overflow-hidden"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-foreground-muted mb-1">{title}</p>
-          <p className="text-2xl font-heading font-semibold text-foreground">{value}</p>
-          {change !== undefined && (
-            <div className="flex items-center gap-1 mt-2">
-              {change >= 0 ? (
-                <TrendingUp className="w-4 h-4 text-success" />
-              ) : (
-                <TrendingDown className="w-4 h-4 text-error" />
-              )}
-              <span
-                className={`text-sm font-medium ${
-                  change >= 0 ? "text-success" : "text-error"
-                }`}
-              >
-                {change >= 0 ? "+" : ""}
-                {change}%
-              </span>
-              {changeLabel && (
-                <span className="text-sm text-foreground-muted">{changeLabel}</span>
-              )}
-            </div>
-          )}
-        </div>
-        <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${iconColor}`}
-        >
-          {icon}
-        </div>
-      </div>
-      {href && (
-        <div className="absolute bottom-4 right-4">
-          <ChevronRight className="w-5 h-5 text-foreground-muted" />
-        </div>
-      )}
-    </Card>
-  );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-
-  return content;
-};
 
 // Transaction type for recent activity
 interface RecentTransaction {
@@ -157,32 +82,36 @@ export default async function AdminDashboard() {
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Items"
-          value={Intl.NumberFormat("en-US").format(stats?.totalItems ?? 0)}
-          icon={<Package className="w-6 h-6 text-white" />}
-          iconColor="bg-primary"
+        <StatCardWarm
+          label="Total Items"
+          value={stats?.totalItems ?? 0}
+          subtitle="in inventory"
+          icon="package"
+          accentColor="emerald"
           href="/admin/items"
         />
-        <StatCard
-          title="Low Stock Items"
+        <StatCardWarm
+          label="Low Stock Items"
           value={stats?.lowStockItems ?? 0}
-          icon={<AlertTriangle className="w-6 h-6 text-white" />}
-          iconColor="bg-warning"
+          subtitle="need attention"
+          icon="alert-triangle"
+          accentColor="amber"
           href="/admin/items?filter=low_stock"
         />
-        <StatCard
-          title="Critical Stock"
+        <StatCardWarm
+          label="Critical Stock"
           value={stats?.criticalStockItems ?? 0}
-          icon={<AlertCircle className="w-6 h-6 text-white" />}
-          iconColor="bg-error"
+          subtitle="urgent"
+          icon="alert-circle"
+          accentColor="rose"
           href="/admin/items?filter=critical"
         />
-        <StatCard
-          title="Today's Transactions"
+        <StatCardWarm
+          label="Today's Transactions"
           value={stats?.todayTransactions ?? 0}
-          icon={<ArrowLeftRight className="w-6 h-6 text-white" />}
-          iconColor="bg-info"
+          subtitle="today"
+          icon="arrow-left-right"
+          accentColor="blue"
           href="/admin/transactions"
         />
       </div>
@@ -341,43 +270,54 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      {/* Low Stock Items */}
-      <Card variant="elevated" size="md">
+      {/* Low Stock Items - Warm Design */}
+      <Card variant="elevated" size="md" className="bg-white">
         <CardHeader
-          title="Items Needing Attention"
-          subtitle="Low and critical stock levels"
+          title={
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <span className="font-heading font-semibold text-lg text-foreground">
+                Items Needing Attention
+              </span>
+            </div>
+          }
+          subtitle={`${lowStockItemsList.length} items below threshold`}
           action={
             <Link href="/admin/items?filter=low_stock">
-              <Button variant="outline" size="sm">
+              <Button
+                size="sm"
+                className="bg-cta hover:bg-cta-hover text-foreground rounded-full px-5"
+              >
                 View All
               </Button>
             </Link>
           }
           hasBorder
+          className="border-border-secondary"
         />
         <CardBody className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-neutral-50 border-b border-border">
+              <thead className="border-b border-border-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground-muted uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
                     Item
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground-muted uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground-muted uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
                     Stock Level
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground-muted uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-foreground-muted uppercase tracking-wider">
-                    Action
+                  <th className="px-6 py-3 text-right text-sm font-medium text-secondary-800">
+                    Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border-secondary">
                 {lowStockItemsList.length === 0 ? (
                   <tr>
                     <td
@@ -402,24 +342,21 @@ export default async function AdminDashboard() {
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-neutral-50 transition-colors"
+                        className="hover:bg-foreground/[0.02] transition-colors"
                       >
                         <td className="px-6 py-4">
                           <div>
                             <p className="font-medium text-foreground">{item.name}</p>
-                            <p className="text-sm text-foreground-muted">{item.sku}</p>
+                            <p className="text-sm text-secondary-700">{item.sku}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-foreground-muted">
-                          {item.category_id ?? "—"}
+                          {item.category_id ? item.category_id : (
+                            <span className="text-secondary-600 italic">Uncategorized</span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="w-32">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium">
-                                {item.current_stock} / {maxStock}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-3">
                             <Progress
                               value={percentage}
                               colorScheme={
@@ -430,19 +367,30 @@ export default async function AdminDashboard() {
                                   : "success"
                               }
                               size="sm"
+                              className="w-24"
                               aria-label={`Stock level: ${percentage}%`}
                             />
+                            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                              {item.current_stock} / {maxStock}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <StockLevelBadge level={level} size="sm" />
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <Link href={`/admin/items/${item.id}`}>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </Link>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-1">
+                            <Link href={`/admin/items/${item.id}`}>
+                              <Button variant="ghost" size="sm" className="text-secondary-700 hover:text-foreground">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                            <Link href={`/admin/items/${item.id}`}>
+                              <Button variant="ghost" size="sm" className="text-secondary-700 hover:text-foreground">
+                                <CornerUpRight className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );

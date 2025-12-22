@@ -183,6 +183,7 @@ const stockLevelConfig: Record<
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     colorScheme: "error" | "warning" | "success" | "info";
+    hideIcon?: boolean;
   }
 > = {
   critical: {
@@ -193,7 +194,8 @@ const stockLevelConfig: Record<
   low: {
     label: "Low Stock",
     icon: AlertTriangle,
-    colorScheme: "warning",
+    colorScheme: "error",
+    hideIcon: true,
   },
   normal: {
     label: "In Stock",
@@ -216,13 +218,14 @@ export const StockLevelBadge: React.FC<StockLevelBadgeProps> = ({
 }) => {
   const config = stockLevelConfig[level];
   const IconComponent = config.icon;
+  const shouldShowIcon = showIcon && !config.hideIcon;
 
   return (
     <Badge
       colorScheme={config.colorScheme}
       variant="subtle"
       size={size}
-      leftIcon={showIcon ? <IconComponent /> : undefined}
+      leftIcon={shouldShowIcon ? <IconComponent /> : undefined}
       className={className}
     >
       {currentStock !== undefined ? `${currentStock} - ${config.label}` : config.label}
