@@ -9,6 +9,9 @@ import {
   Eye,
   ArrowLeftRight,
   CornerUpRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   Card,
@@ -46,7 +49,57 @@ interface DashboardStats {
   recentAlerts: AlertType[];
 }
 
-export default async function AdminDashboard() {
+// Sortable column types for low stock table
+type SortColumn = "name" | "category" | "stock" | "status";
+type SortDirection = "asc" | "desc";
+
+interface PageProps {
+  searchParams: Promise<{ sort?: string; dir?: string }>;
+}
+
+// Sortable header component
+function SortableHeader({
+  column,
+  label,
+  currentSort,
+  currentDir,
+}: {
+  column: SortColumn;
+  label: string;
+  currentSort: SortColumn | null;
+  currentDir: SortDirection;
+}) {
+  const isActive = currentSort === column;
+  const nextDir = isActive && currentDir === "asc" ? "desc" : "asc";
+
+  return (
+    <th className="px-6 py-3 text-left text-sm font-medium">
+      <Link
+        href={`/admin?sort=${column}&dir=${nextDir}`}
+        className="inline-flex items-center gap-1.5 text-foreground hover:text-primary transition-colors group"
+      >
+        {label}
+        <span className="text-foreground/40 group-hover:text-primary/60">
+          {isActive ? (
+            currentDir === "asc" ? (
+              <ArrowUp className="w-3.5 h-3.5" />
+            ) : (
+              <ArrowDown className="w-3.5 h-3.5" />
+            )
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5" />
+          )}
+        </span>
+      </Link>
+    </th>
+  );
+}
+
+export default async function AdminDashboard({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const sortColumn = (params.sort as SortColumn) || null;
+  const sortDir = (params.dir as SortDirection) || "asc";
+
   const [dashboardResult, activityResult] = await Promise.all([
     getDashboardData(),
     getRecentActivity(5),
@@ -70,11 +123,41 @@ export default async function AdminDashboard() {
   }
 
   const stats = dashboardResult.data.stats as DashboardStats;
-  const lowStockItemsList = (dashboardResult.data.lowStockItemsList ?? []) as Item[];
+  const lowStockItemsRaw = (dashboardResult.data.lowStockItemsList ?? []) as Item[];
   const recentTransactions: RecentTransaction[] =
     activityResult.success && activityResult.data
       ? (activityResult.data as RecentTransaction[])
       : [];
+
+  // Sort low stock items based on URL params
+  const lowStockItemsList = [...lowStockItemsRaw].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let comparison = 0;
+    switch (sortColumn) {
+      case "name":
+        comparison = a.name.localeCompare(b.name);
+        break;
+      case "category":
+        comparison = (a.category_id || "").localeCompare(b.category_id || "");
+        break;
+      case "stock":
+        comparison = a.current_stock - b.current_stock;
+        break;
+      case "status": {
+        const getStockPriority = (item: Item) => {
+          const minStock = item.min_stock ?? 0;
+          if (item.current_stock <= 0) return 0; // critical
+          if (item.current_stock <= minStock) return 1; // low
+          return 2; // normal
+        };
+        comparison = getStockPriority(a) - getStockPriority(b);
+        break;
+      }
+    }
+
+    return sortDir === "desc" ? -comparison : comparison;
+  });
 
   const unreadAlerts = stats?.recentAlerts ?? [];
 
@@ -300,19 +383,31 @@ export default async function AdminDashboard() {
             <table className="w-full">
               <thead className="border-b border-border-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
-                    Item
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
-                    Stock Level
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-secondary-800">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-sm font-medium text-secondary-800">
+                  <SortableHeader
+                    column="name"
+                    label="Item"
+                    currentSort={sortColumn}
+                    currentDir={sortDir}
+                  />
+                  <SortableHeader
+                    column="category"
+                    label="Category"
+                    currentSort={sortColumn}
+                    currentDir={sortDir}
+                  />
+                  <SortableHeader
+                    column="stock"
+                    label="Stock Level"
+                    currentSort={sortColumn}
+                    currentDir={sortDir}
+                  />
+                  <SortableHeader
+                    column="status"
+                    label="Status"
+                    currentSort={sortColumn}
+                    currentDir={sortDir}
+                  />
+                  <th className="px-6 py-3 text-right text-sm font-medium text-foreground">
                     Actions
                   </th>
                 </tr>
