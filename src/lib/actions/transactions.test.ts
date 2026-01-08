@@ -6,6 +6,7 @@ import {
   getUserTransactions,
   submitTransaction,
   getRecentTransactions,
+  getTransactionsWithDetails,
 } from './transactions'
 import type { Transaction, TransactionType } from '@/lib/supabase/types'
 
@@ -399,6 +400,21 @@ describe('transactions actions', () => {
       if (!result.success) {
         expect(result.error).toBe('Query failed')
       }
+    })
+  })
+
+  describe('getTransactionsWithDetails', () => {
+    it('should order transactions by event_timestamp descending', async () => {
+      const transactions = [sampleTransaction]
+      mockOrder.mockResolvedValueOnce({ data: transactions, error: null })
+
+      const result = await getTransactionsWithDetails()
+
+      expect(result.success).toBe(true)
+      // This test verifies that transactions are ordered by event_timestamp, not server_timestamp
+      // Per CLAUDE.md: "event_timestamp for reporting/analytics, server_timestamp for audit ordering"
+      // UI displays should use event_timestamp for chronological user-facing ordering
+      expect(mockOrder).toHaveBeenCalledWith('event_timestamp', { ascending: false })
     })
   })
 })
