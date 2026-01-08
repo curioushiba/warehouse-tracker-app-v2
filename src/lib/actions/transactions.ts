@@ -63,14 +63,14 @@ export async function getTransactions(
   }
 
   if (filters?.startDate) {
-    query = query.gte('server_timestamp', filters.startDate)
+    query = query.gte('event_timestamp', filters.startDate)
   }
 
   if (filters?.endDate) {
-    query = query.lte('server_timestamp', filters.endDate)
+    query = query.lte('event_timestamp', filters.endDate)
   }
 
-  const { data, error } = await query.order('server_timestamp', { ascending: false })
+  const { data, error } = await query.order('event_timestamp', { ascending: false })
 
   if (error) {
     return { success: false, error: error.message }
@@ -130,14 +130,14 @@ export async function getTransactionsWithDetails(
   }
 
   if (filters?.startDate) {
-    query = query.gte('server_timestamp', filters.startDate)
+    query = query.gte('event_timestamp', filters.startDate)
   }
 
   if (filters?.endDate) {
-    query = query.lte('server_timestamp', filters.endDate)
+    query = query.lte('event_timestamp', filters.endDate)
   }
 
-  query = query.order('server_timestamp', { ascending: false })
+  query = query.order('event_timestamp', { ascending: false })
 
   const limit = options?.limit
   if (typeof limit === 'number') {
@@ -205,13 +205,13 @@ export async function getTransactionsWithDetailsPaginated(
 
   // Apply date filters
   if (filters?.startDate) {
-    countQuery = countQuery.gte('server_timestamp', filters.startDate)
-    dataQuery = dataQuery.gte('server_timestamp', filters.startDate)
+    countQuery = countQuery.gte('event_timestamp', filters.startDate)
+    dataQuery = dataQuery.gte('event_timestamp', filters.startDate)
   }
 
   if (filters?.endDate) {
-    countQuery = countQuery.lte('server_timestamp', filters.endDate)
-    dataQuery = dataQuery.lte('server_timestamp', filters.endDate)
+    countQuery = countQuery.lte('event_timestamp', filters.endDate)
+    dataQuery = dataQuery.lte('event_timestamp', filters.endDate)
   }
 
   // Execute count query
@@ -223,7 +223,7 @@ export async function getTransactionsWithDetailsPaginated(
 
   // Apply pagination and ordering to data query
   dataQuery = dataQuery
-    .order('server_timestamp', { ascending: false })
+    .order('event_timestamp', { ascending: false })
     .range(offset, offset + pageSize - 1)
 
   const { data, error } = await dataQuery
@@ -287,7 +287,7 @@ export async function getItemTransactions(
     .from('inv_transactions')
     .select('*')
     .eq('item_id', itemId)
-    .order('server_timestamp', { ascending: false })
+    .order('event_timestamp', { ascending: false })
 
   if (error) {
     return { success: false, error: error.message }
@@ -308,7 +308,7 @@ export async function getUserTransactions(
     .from('inv_transactions')
     .select('*')
     .eq('user_id', userId)
-    .order('server_timestamp', { ascending: false })
+    .order('event_timestamp', { ascending: false })
 
   if (error) {
     return { success: false, error: error.message }
@@ -393,14 +393,14 @@ export async function getEmployeeTransactionsWithItems(
       `
     )
     .eq('user_id', userId)
-    .order('server_timestamp', { ascending: false })
+    .order('event_timestamp', { ascending: false })
 
   // Filter to today's transactions if requested
   // Use UTC to avoid timezone offset issues between server and database
   if (options?.todayOnly) {
     const today = new Date()
     today.setUTCHours(0, 0, 0, 0)
-    query = query.gte('server_timestamp', today.toISOString())
+    query = query.gte('event_timestamp', today.toISOString())
   }
 
   // Apply limit if specified
@@ -447,7 +447,7 @@ export async function getEmployeeTransactionsWithItemsPaginated(
       `
     )
     .eq('user_id', userId)
-    .order('server_timestamp', { ascending: false })
+    .order('event_timestamp', { ascending: false })
 
   // Filter to today's transactions if requested
   // Use UTC to avoid timezone offset issues between server and database
@@ -455,8 +455,8 @@ export async function getEmployeeTransactionsWithItemsPaginated(
     const today = new Date()
     today.setUTCHours(0, 0, 0, 0)
     const todayIso = today.toISOString()
-    countQuery = countQuery.gte('server_timestamp', todayIso)
-    dataQuery = dataQuery.gte('server_timestamp', todayIso)
+    countQuery = countQuery.gte('event_timestamp', todayIso)
+    dataQuery = dataQuery.gte('event_timestamp', todayIso)
   }
 
   // Execute count query
@@ -499,7 +499,7 @@ export async function getRecentTransactions(
   const { data, error } = await supabase
     .from('inv_transactions')
     .select('*')
-    .order('server_timestamp', { ascending: false })
+    .order('event_timestamp', { ascending: false })
     .limit(limit)
 
   if (error) {

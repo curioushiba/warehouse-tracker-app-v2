@@ -52,6 +52,7 @@ const sampleTransaction: Transaction = {
   user_id: 'user-1',
   notes: 'Received shipment',
   device_timestamp: '2024-01-15T10:00:00Z',
+  event_timestamp: '2024-01-15T10:00:00Z',
   server_timestamp: '2024-01-15T10:00:01Z',
   sync_status: 'synced',
   idempotency_key: 'key-1',
@@ -135,8 +136,8 @@ describe('transactions actions', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockGte).toHaveBeenCalledWith('server_timestamp', '2024-01-01')
-      expect(mockLte).toHaveBeenCalledWith('server_timestamp', '2024-01-31')
+      expect(mockGte).toHaveBeenCalledWith('event_timestamp', '2024-01-01')
+      expect(mockLte).toHaveBeenCalledWith('event_timestamp', '2024-01-31')
     })
 
     it('filters by item ID', async () => {
@@ -378,7 +379,7 @@ describe('transactions actions', () => {
         expect(result.data).toEqual(transactions)
       }
       expect(mockLimit).toHaveBeenCalledWith(10)
-      expect(mockOrder).toHaveBeenCalledWith('server_timestamp', { ascending: false })
+      expect(mockOrder).toHaveBeenCalledWith('event_timestamp', { ascending: false })
     })
 
     it('returns recent transactions with custom limit', async () => {
