@@ -185,6 +185,7 @@ export interface Database {
           user_id: string
           notes: string | null
           device_timestamp: string
+          event_timestamp: string
           server_timestamp: string
           sync_status: SyncStatus
           idempotency_key: string | null
@@ -347,6 +348,7 @@ export interface Database {
           user_id: string
           notes: string | null
           device_timestamp: string
+          event_timestamp: string
           server_timestamp: string
           sync_status: SyncStatus
           idempotency_key: string | null
