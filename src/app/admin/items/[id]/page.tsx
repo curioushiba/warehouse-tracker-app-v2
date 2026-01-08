@@ -309,7 +309,7 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
                   displayTransactions.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell className="text-sm">
-                        {formatDateTime(tx.server_timestamp)}
+                        {formatDateTime(tx.event_timestamp)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
