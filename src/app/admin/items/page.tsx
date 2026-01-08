@@ -14,6 +14,7 @@ import {
   Package,
   AlertCircle,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { ItemImage, BulkAddModal } from "@/components/items";
 import { useToastHelpers } from "@/components/ui/Toast";
@@ -53,6 +54,7 @@ export default function ItemsPage() {
   const [items, setItems] = React.useState<Item[]>([]);
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Pagination state (server-side)
@@ -135,6 +137,8 @@ export default function ItemsPage() {
       if (categoriesResult.success && categoriesResult.data) {
         setCategories(categoriesResult.data);
       }
+
+      setIsInitialLoad(false);
     } catch (err) {
       setError("Failed to load data. Please try again.");
     } finally {
@@ -298,8 +302,8 @@ export default function ItemsPage() {
     { value: "overstocked", label: "Overstocked" },
   ];
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - only show full skeleton on initial load
+  if (isLoading && isInitialLoad) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
@@ -432,7 +436,13 @@ export default function ItemsPage() {
       )}
 
       {/* Items Table */}
-      <Card variant="elevated" className="overflow-hidden">
+      <Card variant="elevated" className="overflow-hidden relative">
+        {/* Subtle loading overlay for subsequent loads */}
+        {isLoading && !isInitialLoad && (
+          <div className="absolute inset-0 bg-white/60 dark:bg-neutral-900/60 z-10 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        )}
         <Table variant="simple" size="md">
           <TableHeader>
             <TableRow>
