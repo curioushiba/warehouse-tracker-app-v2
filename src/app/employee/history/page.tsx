@@ -160,14 +160,14 @@ export default function HistoryPage() {
       }
 
       filtered = filtered.filter(
-        (t) => new Date(t.server_timestamp) >= filterDate
+        (t) => new Date(t.event_timestamp) >= filterDate
       );
     }
 
     // Sort by date (most recent first)
     filtered.sort(
       (a, b) =>
-        new Date(b.server_timestamp).getTime() - new Date(a.server_timestamp).getTime()
+        new Date(b.event_timestamp).getTime() - new Date(a.event_timestamp).getTime()
     );
 
     return filtered;
@@ -227,7 +227,7 @@ export default function HistoryPage() {
     const groups: Record<string, TransactionWithDetails[]> = {};
 
     filteredTransactions.forEach((transaction) => {
-      const date = new Date(transaction.server_timestamp);
+      const date = new Date(transaction.event_timestamp);
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(today.getDate() - 1);
@@ -473,7 +473,7 @@ export default function HistoryPage() {
                           </div>
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-foreground-muted">
-                              {formatRelativeTime(transaction.server_timestamp)}
+                              {formatRelativeTime(transaction.event_timestamp)}
                             </p>
                             <div className="flex items-center gap-2">
                               <SyncStatusIndicator
@@ -587,7 +587,7 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-muted">Date & Time</span>
                   <span className="font-medium text-foreground">
-                    {formatDateTime(selectedTransaction.server_timestamp)}
+                    {formatDateTime(selectedTransaction.event_timestamp)}
                   </span>
                 </div>
                 {selectedTransaction.stock_before !== null && (
