@@ -34,7 +34,7 @@ interface RecentTransaction {
   id: string;
   transaction_type: string;
   quantity: number;
-  server_timestamp: string;
+  event_timestamp: string;
   item: { name: string; sku: string } | null;
   user: { first_name: string; last_name: string } | null;
 }
@@ -245,7 +245,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
                             <p className="font-medium text-foreground">{itemName}</p>
                             <p className="text-sm text-foreground-muted">
                               {userName} &middot;{" "}
-                              {formatRelativeTime(transaction.server_timestamp)}
+                              {formatRelativeTime(transaction.event_timestamp)}
                             </p>
                           </div>
                         </div>
