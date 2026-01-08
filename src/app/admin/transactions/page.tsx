@@ -220,7 +220,7 @@ export default function TransactionsPage() {
   const handleExport = () => {
     const headers = ["Date", "Type", "Item", "Quantity", "Stock Before", "Stock After", "User", "Notes", "Status"];
     const rows = displayTransactions.map((tx) => [
-      formatDateTime(tx.server_timestamp),
+      formatDateTime(tx.event_timestamp),
       tx.transaction_type,
       getItemName(tx.item_id, tx.item),
       tx.quantity.toString(),
@@ -411,7 +411,7 @@ export default function TransactionsPage() {
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-foreground-muted" />
                             <span className="text-sm">
-                              {formatDateTime(tx.server_timestamp)}
+                              {formatDateTime(tx.event_timestamp)}
                             </span>
                           </div>
                         </TableCell>
@@ -621,7 +621,7 @@ export default function TransactionsPage() {
                     Date & Time
                   </p>
                   <p className="font-medium">
-                    {formatDateTime(selectedTransaction.server_timestamp)}
+                    {formatDateTime(selectedTransaction.event_timestamp)}
                   </p>
                 </div>
                 <div>
