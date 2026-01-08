@@ -18,7 +18,6 @@ import {
   ChevronRight,
   LogOut,
   HelpCircle,
-  ClipboardCheck,
 } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import { Tooltip } from "@/components/ui";
@@ -56,14 +55,6 @@ const navSections: NavSection[] = [
     items: [
       { label: "Transactions", href: "/admin/transactions", icon: ArrowLeftRight },
       { label: "Reports", href: "/admin/reports", icon: BarChart3 },
-    ],
-  },
-  {
-    title: "Attendance",
-    items: [
-      { label: "Stores", href: "/admin/attendance/stores", icon: ClipboardCheck },
-      { label: "Employees", href: "/admin/attendance/employees", icon: Users },
-      { label: "Records", href: "/admin/attendance/records", icon: BarChart3 },
     ],
   },
   {
