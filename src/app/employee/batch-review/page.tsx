@@ -10,12 +10,11 @@ import {
 import { Button, Badge, Alert } from "@/components/ui";
 import { BatchItemRow, BatchConfirmModal } from "@/components/batch";
 import { useBatchScan } from "@/contexts/BatchScanContext";
-import { submitTransaction } from "@/lib/actions";
-import { useOnlineStatus } from "@/hooks";
+import { useSyncQueue } from "@/hooks/useSyncQueue";
 
 export default function BatchReviewPage() {
   const router = useRouter();
-  const { isOnline } = useOnlineStatus();
+  const { queueTransaction, isOnline } = useSyncQueue();
   const {
     items: batchItems,
     transactionType,
@@ -70,7 +69,8 @@ export default function BatchReviewPage() {
     setShowConfirmModal(true);
   };
 
-  // Submit batch items with limited concurrency for better performance
+  // Queue all batch items - they will sync immediately if online,
+  // or be queued for later sync if offline. The queue handles retries.
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -78,67 +78,51 @@ export default function BatchReviewPage() {
     setSubmitProgress({ current: 0, total: batchItems.length });
 
     const newFailedItems: string[] = [];
-    const successfulItems: string[] = [];
 
-    // Process items in chunks of 5 for limited concurrency
-    const CHUNK_SIZE = 5;
-    const chunks: typeof batchItems[] = [];
-    for (let i = 0; i < batchItems.length; i += CHUNK_SIZE) {
-      chunks.push(batchItems.slice(i, i + CHUNK_SIZE));
-    }
-
-    let processed = 0;
-    for (const chunk of chunks) {
-      // Submit chunk items in parallel
-      const results = await Promise.allSettled(
-        chunk.map(async (batchItem) => {
-          const result = await submitTransaction({
+    try {
+      // Queue all items - this is a fast local operation
+      for (let i = 0; i < batchItems.length; i++) {
+        const batchItem = batchItems[i];
+        try {
+          await queueTransaction({
             transactionType: apiTransactionType,
             itemId: batchItem.itemId,
             quantity: batchItem.quantity,
-            idempotencyKey: batchItem.idempotencyKey,
+            deviceTimestamp: new Date().toISOString(),
           });
-          return { itemId: batchItem.itemId, name: batchItem.item.name, result };
-        })
-      );
-
-      // Process results
-      for (const settledResult of results) {
-        processed++;
-        setSubmitProgress({ current: processed, total: batchItems.length });
-
-        if (settledResult.status === 'fulfilled') {
-          const { itemId, result, name } = settledResult.value;
-          if (result.success) {
-            successfulItems.push(itemId);
-          } else {
-            console.error(`Failed to submit transaction for ${name}:`, result.error);
-            newFailedItems.push(itemId);
-          }
-        } else {
-          // Promise rejected - shouldn't happen but handle it
-          console.error('Unexpected submission error:', settledResult.reason);
+          setSubmitProgress({ current: i + 1, total: batchItems.length });
+        } catch (err) {
+          console.error(`Failed to queue transaction for ${batchItem.item.name}:`, err);
+          newFailedItems.push(batchItem.itemId);
         }
       }
-    }
 
-    setIsSubmitting(false);
-    setShowConfirmModal(false);
+      setIsSubmitting(false);
+      setShowConfirmModal(false);
 
-    if (newFailedItems.length > 0) {
-      // Remove successful items from batch, keep failed ones for retry
-      if (successfulItems.length > 0) {
-        removeItems(successfulItems);
+      if (newFailedItems.length > 0) {
+        // Some items failed to queue - keep them for retry
+        const successfulItems = batchItems
+          .filter((item) => !newFailedItems.includes(item.itemId))
+          .map((item) => item.itemId);
+        if (successfulItems.length > 0) {
+          removeItems(successfulItems);
+        }
+        setFailedItems(newFailedItems);
+        setSubmitError(
+          `${newFailedItems.length} item(s) failed to queue. ${successfulItems.length} queued successfully.`
+        );
+      } else {
+        // All items queued successfully - clear batch and navigate home
+        // The queue will handle syncing in the background
+        clearBatch();
+        router.push("/employee?batchSuccess=" + totalItems);
       }
-      setFailedItems(newFailedItems);
-      setSubmitError(
-        `${newFailedItems.length} item(s) failed to submit. ${successfulItems.length} succeeded.`
-      );
-    } else {
-      // All succeeded - clear batch and navigate home
-      clearBatch();
-      // Show success toast by navigating with a success param
-      router.push("/employee?batchSuccess=" + totalItems);
+    } catch (err) {
+      setIsSubmitting(false);
+      setShowConfirmModal(false);
+      setSubmitError("Failed to queue transactions. Please try again.");
+      console.error("Batch queue error:", err);
     }
   };
 

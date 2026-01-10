@@ -30,7 +30,8 @@ import {
 } from "@/components/ui";
 import { StockLevelBadge } from "@/components/ui";
 import { ItemImage } from "@/components/items";
-import { getItemById, getLocations, submitTransaction } from "@/lib/actions";
+import { getItemById, getLocations } from "@/lib/actions";
+import { useSyncQueue } from "@/hooks/useSyncQueue";
 import type { Item, Location, TransactionType as DBTransactionType } from "@/lib/supabase/types";
 import { getStockLevel } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ type TransactionType = "check_in" | "check_out" | "transfer" | "adjustment";
 function TransactionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { queueTransaction, isOnline } = useSyncQueue();
 
   const itemId = searchParams.get("itemId");
   const typeParam = searchParams.get("type") as TransactionType | null;
@@ -247,24 +249,24 @@ function TransactionContent() {
     setError(null);
 
     try {
-      const result = await submitTransaction({
+      // Queue the transaction - it will sync immediately if online,
+      // or be queued for later sync if offline. The queue handles
+      // retries and ensures no data loss.
+      await queueTransaction({
         transactionType: transactionType as DBTransactionType,
         itemId: item.id,
         quantity,
         notes: notes || undefined,
         sourceLocationId: item.location_id ?? undefined,
         destinationLocationId: selectedLocation || undefined,
-        idempotencyKey: crypto.randomUUID(), // Generate a proper UUID
+        deviceTimestamp: new Date().toISOString(),
       });
 
-      if (result.success) {
-        setShowSuccess(true);
-      } else {
-        setError(result.error || "Transaction failed");
-      }
+      // Show success immediately - the queue will handle sync
+      setShowSuccess(true);
     } catch (err) {
-      setError("Failed to submit transaction. Please try again.");
-      console.error("Transaction error:", err);
+      setError("Failed to queue transaction. Please try again.");
+      console.error("Transaction queue error:", err);
     } finally {
       setIsSubmitting(false);
     }

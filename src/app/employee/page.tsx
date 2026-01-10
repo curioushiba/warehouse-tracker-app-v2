@@ -75,7 +75,7 @@ export default function EmployeeHomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, user, isLoading: authLoading } = useAuthContext();
-  const { queueCount, isSyncing, syncQueue, isOnline } = useSyncQueue();
+  const { queueCount, isSyncing, syncQueue, isOnline, lastSyncTime } = useSyncQueue();
 
   // Batch success toast state
   const [showBatchSuccess, setShowBatchSuccess] = React.useState(false);
@@ -113,6 +113,7 @@ export default function EmployeeHomePage() {
   const [selectedAction, setSelectedAction] = React.useState<TransactionType | null>(null);
 
   // Fetch user transactions with item details (single optimized query)
+  // Refetch when lastSyncTime changes to show newly synced transactions
   React.useEffect(() => {
     async function fetchData() {
       if (!user?.id) {
@@ -150,7 +151,7 @@ export default function EmployeeHomePage() {
     }
 
     fetchData();
-  }, [user?.id]);
+  }, [user?.id, lastSyncTime]);
 
   const handleActionClick = (action: TransactionType) => {
     setSelectedAction(action);
