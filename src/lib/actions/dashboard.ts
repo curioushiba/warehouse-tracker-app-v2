@@ -247,12 +247,11 @@ export async function getLowStockDetails(): Promise<ActionResult<LowStockDetails
       console.warn('Could not fetch consumption rates:', ratesError.message)
     }
 
-    // Create a map for quick lookup
+    // Create a map for quick lookup - cast needed as Supabase doesn't generate types for views
     const ratesMap = new Map<string, number>()
-    if (consumptionRates) {
-      for (const rate of consumptionRates) {
-        ratesMap.set(rate.item_id, rate.daily_consumption_rate)
-      }
+    const rates = (consumptionRates ?? []) as { item_id: string; daily_consumption_rate: number }[]
+    for (const rate of rates) {
+      ratesMap.set(rate.item_id, rate.daily_consumption_rate)
     }
 
     // Calculate days to stockout and priority for each item
