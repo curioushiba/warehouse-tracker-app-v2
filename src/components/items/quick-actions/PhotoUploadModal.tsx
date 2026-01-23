@@ -60,12 +60,18 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   };
 
   const handleCameraCapture = async (file: File) => {
+    setError(null);
+
     // Process the file through ImageUpload to handle upload
     if (imageUploadRef.current) {
-      await imageUploadRef.current.processFile(file);
+      const success = await imageUploadRef.current.processFile(file);
+      if (success) {
+        // Switch to gallery tab to show the preview
+        setActiveTabIndex(0);
+      } else {
+        setError("Failed to upload photo. Please try again.");
+      }
     }
-    // Switch to gallery tab to show the preview
-    setActiveTabIndex(0);
   };
 
   const handleCameraError = (errorMsg: string) => {

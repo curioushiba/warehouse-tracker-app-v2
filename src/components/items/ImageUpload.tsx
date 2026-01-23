@@ -15,8 +15,10 @@ export interface ImageUploadProps {
 
 /** Ref handle for programmatic file processing */
 export interface ImageUploadRef {
-  /** Process a file programmatically (e.g., from camera capture) */
-  processFile: (file: File) => Promise<void>;
+  /** Process a file programmatically (e.g., from camera capture)
+   * @returns true if upload succeeded, false if failed
+   */
+  processFile: (file: File) => Promise<boolean>;
 }
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -125,14 +127,14 @@ export const ImageUpload = React.forwardRef<ImageUploadRef, ImageUploadProps>(
       return urlData.publicUrl;
     }, [itemId]);
 
-    const handleFile = React.useCallback(async (file: File) => {
+    const handleFile = React.useCallback(async (file: File): Promise<boolean> => {
       setError(null);
 
       // Validate file
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
-        return;
+        return false;
       }
 
       // Create local preview immediately
@@ -150,10 +152,13 @@ export const ImageUpload = React.forwardRef<ImageUploadRef, ImageUploadProps>(
           }
           onChange(publicUrl);
           setPreviewUrl(publicUrl);
+          return true;
         }
+        return false;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed");
         setPreviewUrl(value); // Revert to original
+        return false;
       } finally {
         setIsUploading(false);
         URL.revokeObjectURL(localPreview);
