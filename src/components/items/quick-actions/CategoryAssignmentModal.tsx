@@ -97,7 +97,7 @@ export const CategoryAssignmentModal: React.FC<CategoryAssignmentModalProps> = (
                 value={categoryId}
                 onChange={setCategoryId}
                 placeholder="Select a category"
-                disabled={isSubmitting}
+                isDisabled={isSubmitting}
               />
             </div>
           </div>
