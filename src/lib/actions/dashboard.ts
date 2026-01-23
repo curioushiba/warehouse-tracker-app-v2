@@ -232,8 +232,11 @@ export async function getLowStockDetails(): Promise<ActionResult<LowStockDetails
       return success({ items: [], totalCount: 0 })
     }
 
+    // Cast to Item[] - view returns same columns as inv_items but Supabase types don't include views
+    const items = lowStockItems as Item[]
+
     // Get consumption rates for these items
-    const itemIds = lowStockItems.map((item) => item.id)
+    const itemIds = items.map((item) => item.id)
     const { data: consumptionRates, error: ratesError } = await supabase
       .from('inv_item_consumption_rates')
       .select('item_id, daily_consumption_rate')
@@ -253,7 +256,7 @@ export async function getLowStockDetails(): Promise<ActionResult<LowStockDetails
     }
 
     // Calculate days to stockout and priority for each item
-    const items: LowStockDetailItem[] = lowStockItems.map((item) => {
+    const detailItems: LowStockDetailItem[] = items.map((item) => {
       const dailyRate = ratesMap.get(item.id) ?? 0
       const daysToStockout = dailyRate > 0 ? Math.floor(item.current_stock / dailyRate) : null
       const reorderQty = item.max_stock != null ? item.max_stock - item.current_stock : null
@@ -295,7 +298,7 @@ export async function getLowStockDetails(): Promise<ActionResult<LowStockDetails
 
     // Sort by priority (critical first), then by days to stockout
     const priorityOrder: Record<PriorityLevel, number> = { critical: 0, urgent: 1, watch: 2 }
-    items.sort((a, b) => {
+    detailItems.sort((a, b) => {
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
       if (priorityDiff !== 0) return priorityDiff
 
@@ -309,7 +312,7 @@ export async function getLowStockDetails(): Promise<ActionResult<LowStockDetails
       return 0
     })
 
-    return success({ items, totalCount: count ?? items.length })
+    return success({ items: detailItems, totalCount: count ?? detailItems.length })
   } catch (error) {
     return failure(error instanceof Error ? error.message : 'Failed to fetch low stock details')
   }
