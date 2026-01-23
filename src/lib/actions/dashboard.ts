@@ -173,7 +173,7 @@ export async function getRecentActivity(limit: number = 10) {
         item:inv_items(name, sku),
         user:profiles(first_name, last_name)
       `)
-      .order('server_timestamp', { ascending: false })
+      .order('event_timestamp', { ascending: false })
       .limit(limit)
 
     if (error) {
