@@ -36,6 +36,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 }) => {
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [activeTabIndex, setActiveTabIndex] = React.useState(0);
@@ -43,6 +44,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   const imageUploadRef = React.useRef<ImageUploadRef>(null);
 
   const isCameraTab = activeTabIndex === 1;
+  const isBusy = isSubmitting || isUploading;
 
   // Reset form when modal opens
   React.useEffect(() => {
@@ -50,6 +52,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
       setImageUrl(item.image_url);
       setError(null);
       setHasChanges(false);
+      setIsUploading(false);
       setActiveTabIndex(0); // Reset to gallery tab
     }
   }, [isOpen, item.image_url]);
@@ -61,16 +64,23 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
   const handleCameraCapture = async (file: File) => {
     setError(null);
+    setIsUploading(true);
 
-    // Process the file through ImageUpload to handle upload
-    if (imageUploadRef.current) {
-      const success = await imageUploadRef.current.processFile(file);
-      if (success) {
-        // Switch to gallery tab to show the preview
-        setActiveTabIndex(0);
-      } else {
-        setError("Failed to upload photo. Please try again.");
+    try {
+      // Process the file through ImageUpload to handle upload
+      if (imageUploadRef.current) {
+        const success = await imageUploadRef.current.processFile(file);
+        if (success) {
+          // Switch to gallery tab to show the preview
+          setActiveTabIndex(0);
+        } else {
+          setError("Failed to upload photo. Please try again.");
+        }
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -104,9 +114,15 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm">
-      <ModalHeader showCloseButton onClose={onClose}>
-        Update Photo
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="sm"
+      closeOnOverlayClick={!isBusy}
+      closeOnEsc={!isBusy}
+    >
+      <ModalHeader showCloseButton={!isBusy} onClose={onClose}>
+        {isUploading ? "Uploading Photo..." : "Update Photo"}
       </ModalHeader>
       <ModalBody>
         <div className="space-y-4">
@@ -133,7 +149,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                   <span>Gallery</span>
                 </span>
               </Tab>
-              <Tab index={1} isDisabled={isSubmitting}>
+              <Tab index={1} isDisabled={isBusy}>
                 <span className="flex items-center gap-2">
                   <Camera className="w-4 h-4" />
                   <span>Take Photo</span>
@@ -148,7 +164,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                   value={imageUrl}
                   onChange={handleImageChange}
                   itemId={item.id}
-                  disabled={isSubmitting}
+                  disabled={isBusy}
                 />
               </TabPanel>
 
@@ -159,6 +175,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                     onCapture={handleCameraCapture}
                     onError={handleCameraError}
                     disabled={isSubmitting}
+                    isUploading={isUploading}
                   />
                 )}
               </TabPanel>
@@ -171,7 +188,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
           type="button"
           variant="secondary"
           onClick={onClose}
-          disabled={isSubmitting}
+          disabled={isBusy}
         >
           Cancel
         </Button>
@@ -180,7 +197,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
           variant="primary"
           onClick={handleSubmit}
           isLoading={isSubmitting}
-          disabled={!hasChanges}
+          disabled={!hasChanges || isUploading}
         >
           Save
         </Button>

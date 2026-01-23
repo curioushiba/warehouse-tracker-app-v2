@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, CameraOff, RefreshCw, Check, RotateCcw } from "lucide-react";
+import { Camera, CameraOff, RefreshCw, Check, RotateCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,8 @@ export interface CameraCaptureProps {
   onError?: (error: string) => void;
   /** Whether the component is disabled */
   disabled?: boolean;
+  /** Whether an upload is in progress (shows loading on Use Photo button) */
+  isUploading?: boolean;
   /** Custom class name for the container */
   className?: string;
 }
@@ -27,6 +29,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   onCapture,
   onError,
   disabled = false,
+  isUploading = false,
   className,
 }) => {
   const [cameraState, setCameraState] =
@@ -58,6 +61,27 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
     // Stop any existing stream first
     stopCamera();
+
+    // Check if mediaDevices API is available (requires secure context)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const isHttps = window.location.protocol === "https:";
+      const isLocalhost =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+
+      let errorMsg: string;
+      if (!isHttps && !isLocalhost) {
+        errorMsg =
+          "Camera requires HTTPS. Please access via localhost or use: npm run dev:https";
+      } else {
+        errorMsg = "Camera not supported in this browser.";
+      }
+
+      setCameraState("error");
+      setErrorMessage(errorMsg);
+      onError?.(errorMsg);
+      return;
+    }
 
     try {
       // Request camera access with preference for back camera
@@ -227,7 +251,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         {cameraState === "ready" && "Camera ready. Point camera at item and press capture button."}
         {cameraState === "permission_denied" && "Camera access denied. Please enable camera permissions."}
         {cameraState === "error" && errorMessage}
-        {cameraState === "captured" && "Photo captured. You can use this photo or retake."}
+        {cameraState === "captured" && !isUploading && "Photo captured. You can use this photo or retake."}
+        {cameraState === "captured" && isUploading && "Uploading photo. Please wait."}
       </div>
 
       {/* Camera viewport container */}
@@ -333,16 +358,18 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
               variant="secondary"
               leftIcon={<RotateCcw className="w-4 h-4" />}
               onClick={handleRetake}
-              className="bg-black/70 text-white border-white/30 hover:bg-black/80"
+              disabled={isUploading}
+              className="bg-black/70 text-white border-white/30 hover:bg-black/80 disabled:opacity-50"
             >
               Retake
             </Button>
             <Button
               variant="primary"
-              leftIcon={<Check className="w-4 h-4" />}
+              leftIcon={isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               onClick={handleUsePhoto}
+              disabled={isUploading}
             >
-              Use Photo
+              {isUploading ? "Uploading..." : "Use Photo"}
             </Button>
           </div>
         )}
