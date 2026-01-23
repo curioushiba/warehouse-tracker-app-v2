@@ -461,13 +461,13 @@ export async function getTotalItemsBreakdown(): Promise<ActionResult<TotalItemsB
     }
 
     const categoryBreakdown: CategoryBreakdown[] = []
-    for (const [catId, count] of categoryCountMap) {
+    categoryCountMap.forEach((count, catId) => {
       categoryBreakdown.push({
         id: catId,
         name: catId ? categoryNameMap.get(catId) ?? 'Unknown' : 'Uncategorized',
         count,
       })
-    }
+    })
 
     // Sort by count descending
     categoryBreakdown.sort((a, b) => b.count - a.count)
