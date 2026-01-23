@@ -8,10 +8,18 @@ import {
   ModalFooter,
   Button,
   Alert,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
 } from "@/components/ui";
 import { ImageUpload } from "@/components/items";
+import type { ImageUploadRef } from "@/components/items";
+import { CameraCapture } from "@/components/camera";
 import { updateItem } from "@/lib/actions/items";
 import type { Item } from "@/lib/supabase/types";
+import { Image, Camera } from "lucide-react";
 
 export interface PhotoUploadModalProps {
   isOpen: boolean;
@@ -30,6 +38,11 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [hasChanges, setHasChanges] = React.useState(false);
+  const [activeTabIndex, setActiveTabIndex] = React.useState(0);
+
+  const imageUploadRef = React.useRef<ImageUploadRef>(null);
+
+  const isCameraTab = activeTabIndex === 1;
 
   // Reset form when modal opens
   React.useEffect(() => {
@@ -37,12 +50,26 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
       setImageUrl(item.image_url);
       setError(null);
       setHasChanges(false);
+      setActiveTabIndex(0); // Reset to gallery tab
     }
   }, [isOpen, item.image_url]);
 
   const handleImageChange = (url: string | null) => {
     setImageUrl(url);
     setHasChanges(url !== item.image_url);
+  };
+
+  const handleCameraCapture = async (file: File) => {
+    // Process the file through ImageUpload to handle upload
+    if (imageUploadRef.current) {
+      await imageUploadRef.current.processFile(file);
+    }
+    // Switch to gallery tab to show the preview
+    setActiveTabIndex(0);
+  };
+
+  const handleCameraError = (errorMsg: string) => {
+    setError(errorMsg);
   };
 
   const handleSubmit = async () => {
@@ -87,12 +114,50 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
             </Alert>
           )}
 
-          <ImageUpload
-            value={imageUrl}
-            onChange={handleImageChange}
-            itemId={item.id}
-            disabled={isSubmitting}
-          />
+          <Tabs
+            index={activeTabIndex}
+            onChange={setActiveTabIndex}
+            variant="enclosed"
+            isFitted
+          >
+            <TabList>
+              <Tab index={0}>
+                <span className="flex items-center gap-2">
+                  <Image className="w-4 h-4" />
+                  <span>Gallery</span>
+                </span>
+              </Tab>
+              <Tab index={1} isDisabled={isSubmitting}>
+                <span className="flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  <span>Take Photo</span>
+                </span>
+              </Tab>
+            </TabList>
+
+            <TabPanels>
+              <TabPanel index={0} className="py-3">
+                <ImageUpload
+                  ref={imageUploadRef}
+                  value={imageUrl}
+                  onChange={handleImageChange}
+                  itemId={item.id}
+                  disabled={isSubmitting}
+                />
+              </TabPanel>
+
+              <TabPanel index={1} className="py-3">
+                {/* Only render camera when tab is active to avoid resource usage */}
+                {isCameraTab && (
+                  <CameraCapture
+                    onCapture={handleCameraCapture}
+                    onError={handleCameraError}
+                    disabled={isSubmitting}
+                  />
+                )}
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
         </div>
       </ModalBody>
       <ModalFooter>

@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Upload, X, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Upload, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
 export interface ImageUploadProps {
@@ -12,6 +11,12 @@ export interface ImageUploadProps {
   itemId?: string;
   disabled?: boolean;
   className?: string;
+}
+
+/** Ref handle for programmatic file processing */
+export interface ImageUploadRef {
+  /** Process a file programmatically (e.g., from camera capture) */
+  processFile: (file: File) => Promise<void>;
 }
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -34,13 +39,14 @@ const extractStoragePath = (url: string, bucketName: string): string | null => {
   }
 };
 
-export const ImageUpload = React.forwardRef<HTMLDivElement, ImageUploadProps>(
+export const ImageUpload = React.forwardRef<ImageUploadRef, ImageUploadProps>(
   ({ value, onChange, itemId, disabled = false, className }, ref) => {
     const [isDragging, setIsDragging] = React.useState(false);
     const [isUploading, setIsUploading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const containerRef = React.useRef<HTMLDivElement>(null);
     // Track temp uploads for cleanup on unmount
     const tempUploadRef = React.useRef<string | null>(null);
 
@@ -119,7 +125,7 @@ export const ImageUpload = React.forwardRef<HTMLDivElement, ImageUploadProps>(
       return urlData.publicUrl;
     };
 
-    const handleFile = async (file: File) => {
+    const handleFile = React.useCallback(async (file: File) => {
       setError(null);
 
       // Validate file
@@ -152,7 +158,7 @@ export const ImageUpload = React.forwardRef<HTMLDivElement, ImageUploadProps>(
         setIsUploading(false);
         URL.revokeObjectURL(localPreview);
       }
-    };
+    }, [itemId, onChange, value]);
 
     const handleDrop = (e: React.DragEvent) => {
       e.preventDefault();
@@ -216,8 +222,13 @@ export const ImageUpload = React.forwardRef<HTMLDivElement, ImageUploadProps>(
       }
     };
 
+    // Expose processFile method for programmatic file handling (e.g., camera capture)
+    React.useImperativeHandle(ref, () => ({
+      processFile: handleFile,
+    }), [handleFile]);
+
     return (
-      <div ref={ref} className={cn("space-y-2", className)}>
+      <div ref={containerRef} className={cn("space-y-2", className)}>
         <div
           onClick={handleClick}
           onDrop={handleDrop}

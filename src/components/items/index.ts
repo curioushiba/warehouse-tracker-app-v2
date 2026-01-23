@@ -4,7 +4,11 @@ export type { ItemImageProps, ItemImageSize } from "./ItemImage";
 
 // Item Upload Components
 export { ImageUpload } from "./ImageUpload";
-export type { ImageUploadProps } from "./ImageUpload";
+export type { ImageUploadProps, ImageUploadRef } from "./ImageUpload";
+
+// Camera Components (re-exported for convenience)
+export { CameraCapture } from "@/components/camera";
+export type { CameraCaptureProps } from "@/components/camera";
 
 // Item Modal Components
 export { BulkAddModal } from "./BulkAddModal";
