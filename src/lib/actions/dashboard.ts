@@ -354,8 +354,11 @@ export async function getCriticalStockDetails(): Promise<ActionResult<CriticalSt
       return success({ items: [], totalCount: 0 })
     }
 
+    // Cast to expected type - Supabase type inference can fail with partial selects
+    const stockItems = zeroStockItems as { id: string; name: string; sku: string; max_stock: number | null }[]
+
     // Get last transaction date for each item
-    const itemIds = zeroStockItems.map((item) => item.id)
+    const itemIds = stockItems.map((item) => item.id)
     const { data: lastTransactions, error: transError } = await supabase
       .from('inv_transactions')
       .select('item_id, event_timestamp')
@@ -376,7 +379,7 @@ export async function getCriticalStockDetails(): Promise<ActionResult<CriticalSt
       }
     }
 
-    const items: CriticalStockItem[] = zeroStockItems.map((item) => ({
+    const items: CriticalStockItem[] = stockItems.map((item) => ({
       id: item.id,
       name: item.name,
       sku: item.sku,
