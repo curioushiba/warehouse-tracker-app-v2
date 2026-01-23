@@ -16,7 +16,16 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react";
-import { ItemImage, BulkAddModal } from "@/components/items";
+import {
+  ItemImage,
+  BulkAddModal,
+  ClickableTableCell,
+  PhotoUploadModal,
+  CategoryAssignmentModal,
+  StockAdjustmentModal,
+  ThresholdAdjustmentModal,
+  CostEditModal,
+} from "@/components/items";
 import { useToastHelpers } from "@/components/ui/Toast";
 import {
   Card,
@@ -81,6 +90,13 @@ export default function ItemsPage() {
   const [itemToDelete, setItemToDelete] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isBulkAddOpen, setIsBulkAddOpen] = React.useState(false);
+
+  // Quick action modal state
+  const [photoModalItem, setPhotoModalItem] = React.useState<Item | null>(null);
+  const [categoryModalItem, setCategoryModalItem] = React.useState<Item | null>(null);
+  const [stockModalItem, setStockModalItem] = React.useState<Item | null>(null);
+  const [thresholdModalItem, setThresholdModalItem] = React.useState<Item | null>(null);
+  const [costModalItem, setCostModalItem] = React.useState<Item | null>(null);
 
   // Toast notifications
   const toast = useToastHelpers();
@@ -288,6 +304,16 @@ export default function ItemsPage() {
     a.download = `inventory-export-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Quick action success handler
+  const handleQuickActionSuccess = (updatedItem?: Item) => {
+    if (updatedItem) {
+      setItems(items.map((i) => (i.id === updatedItem.id ? updatedItem : i)));
+    } else {
+      fetchData(); // For stock adjustments that need a full refresh
+    }
+    toast.success("Item updated");
   };
 
   const categoryOptions = categories.map((cat) => ({
@@ -547,11 +573,16 @@ export default function ItemsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <ItemImage
-                          imageUrl={item.image_url}
-                          itemName={item.name}
-                          size="sm"
-                        />
+                        <ClickableTableCell
+                          onClick={() => setPhotoModalItem(item)}
+                          ariaLabel={`Update photo for ${item.name}`}
+                        >
+                          <ItemImage
+                            imageUrl={item.image_url}
+                            itemName={item.name}
+                            size="sm"
+                          />
+                        </ClickableTableCell>
                         <div>
                           <Link
                             href={`/admin/items/${item.id}`}
@@ -566,24 +597,45 @@ export default function ItemsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge colorScheme="neutral" variant="subtle" size="sm">
-                        {categoryName}
-                      </Badge>
+                      <ClickableTableCell
+                        onClick={() => setCategoryModalItem(item)}
+                        ariaLabel={`Change category for ${item.name}`}
+                      >
+                        <Badge colorScheme="neutral" variant="subtle" size="sm">
+                          {categoryName}
+                        </Badge>
+                      </ClickableTableCell>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        <span className="font-medium">{item.current_stock}</span>
-                        <span className="text-foreground-muted">
-                          {" "}
-                          / {item.max_stock || "∞"} {item.unit}
-                        </span>
-                      </div>
+                      <ClickableTableCell
+                        onClick={() => setStockModalItem(item)}
+                        ariaLabel={`Adjust stock for ${item.name}`}
+                      >
+                        <div className="text-sm">
+                          <span className="font-medium">{item.current_stock}</span>
+                          <span className="text-foreground-muted">
+                            {" "}
+                            / {item.max_stock || "∞"} {item.unit}
+                          </span>
+                        </div>
+                      </ClickableTableCell>
                     </TableCell>
                     <TableCell>
-                      <StockLevelBadge level={level} size="sm" showIcon={false} />
+                      <ClickableTableCell
+                        onClick={() => setThresholdModalItem(item)}
+                        ariaLabel={`Adjust thresholds for ${item.name}`}
+                      >
+                        <StockLevelBadge level={level} size="sm" showIcon={false} />
+                      </ClickableTableCell>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(item.unit_price || 0)}
+                    <TableCell>
+                      <ClickableTableCell
+                        onClick={() => setCostModalItem(item)}
+                        ariaLabel={`Edit cost for ${item.name}`}
+                        className="font-medium"
+                      >
+                        {formatCurrency(item.unit_price || 0)}
+                      </ClickableTableCell>
                     </TableCell>
                     <TableCell className="text-sm text-foreground-muted">
                       {formatDateTime(item.updated_at)}
@@ -728,6 +780,53 @@ export default function ItemsPage() {
           fetchData(); // Refresh the list
         }}
       />
+
+      {/* Quick Action Modals */}
+      {photoModalItem && (
+        <PhotoUploadModal
+          isOpen={!!photoModalItem}
+          onClose={() => setPhotoModalItem(null)}
+          item={photoModalItem}
+          onSuccess={handleQuickActionSuccess}
+        />
+      )}
+
+      {categoryModalItem && (
+        <CategoryAssignmentModal
+          isOpen={!!categoryModalItem}
+          onClose={() => setCategoryModalItem(null)}
+          item={categoryModalItem}
+          categories={categories}
+          onSuccess={handleQuickActionSuccess}
+        />
+      )}
+
+      {stockModalItem && (
+        <StockAdjustmentModal
+          isOpen={!!stockModalItem}
+          onClose={() => setStockModalItem(null)}
+          item={stockModalItem}
+          onSuccess={() => handleQuickActionSuccess()}
+        />
+      )}
+
+      {thresholdModalItem && (
+        <ThresholdAdjustmentModal
+          isOpen={!!thresholdModalItem}
+          onClose={() => setThresholdModalItem(null)}
+          item={thresholdModalItem}
+          onSuccess={handleQuickActionSuccess}
+        />
+      )}
+
+      {costModalItem && (
+        <CostEditModal
+          isOpen={!!costModalItem}
+          onClose={() => setCostModalItem(null)}
+          item={costModalItem}
+          onSuccess={handleQuickActionSuccess}
+        />
+      )}
     </div>
   );
 }
