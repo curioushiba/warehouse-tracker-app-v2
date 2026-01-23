@@ -3,7 +3,6 @@ import {
   Package,
   AlertCircle,
   TrendingUp,
-  TrendingDown,
   ChevronRight,
   Clock,
   Eye,
@@ -21,13 +20,13 @@ import {
   Badge,
   Progress,
   Avatar,
-  StatCardWarm,
   StockLevelBadge,
   TransactionTypeBadge,
 } from "@/components/ui";
 import { getDashboardData, getRecentActivity } from "@/lib/actions";
 import type { Item, Alert as AlertType } from "@/lib/supabase/types";
 import { formatRelativeTime, getStockLevel } from "@/lib/utils";
+import { DashboardClient } from "./DashboardClient";
 
 // Transaction type for recent activity
 interface RecentTransaction {
@@ -105,13 +104,13 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
     getRecentActivity(5),
   ]);
 
-  if (!dashboardResult.success || !dashboardResult.data) {
+  if (!dashboardResult.success) {
     return (
       <Card variant="elevated" size="md" className="text-center py-12">
         <AlertCircle className="w-12 h-12 mx-auto text-error mb-4" />
         <p className="text-foreground font-medium mb-2">Failed to load dashboard</p>
         <p className="text-foreground-muted text-sm">
-          {dashboardResult.error || "Failed to fetch dashboard stats"}
+          {dashboardResult.error}
         </p>
         <Link href="/admin">
           <Button variant="outline" size="sm" className="mt-4">
@@ -163,41 +162,15 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCardWarm
-          label="Total Items"
-          value={stats?.totalItems ?? 0}
-          subtitle="in inventory"
-          icon="package"
-          accentColor="emerald"
-          href="/admin/items"
-        />
-        <StatCardWarm
-          label="Low Stock Items"
-          value={stats?.lowStockItems ?? 0}
-          subtitle="need attention"
-          icon="alert-triangle"
-          accentColor="amber"
-          href="/admin/items?filter=low_stock"
-        />
-        <StatCardWarm
-          label="Critical Stock"
-          value={stats?.criticalStockItems ?? 0}
-          subtitle="urgent"
-          icon="alert-circle"
-          accentColor="rose"
-          href="/admin/items?filter=critical"
-        />
-        <StatCardWarm
-          label="Today's Transactions"
-          value={stats?.todayTransactions ?? 0}
-          subtitle="today"
-          icon="arrow-left-right"
-          accentColor="blue"
-          href="/admin/transactions"
-        />
-      </div>
+      {/* Expandable Stats Grid */}
+      <DashboardClient
+        stats={{
+          totalItems: stats?.totalItems ?? 0,
+          lowStockItems: stats?.lowStockItems ?? 0,
+          criticalStockItems: stats?.criticalStockItems ?? 0,
+          todayTransactions: stats?.todayTransactions ?? 0,
+        }}
+      />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
