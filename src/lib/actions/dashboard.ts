@@ -545,9 +545,20 @@ export async function getTodayTransactionsBreakdown(): Promise<ActionResult<Toda
       })
     }
 
+    // Cast transactions - Supabase type inference fails with complex joins
+    type TransactionWithJoins = {
+      id: string
+      transaction_type: string
+      item_id: string
+      user_id: string
+      item: { id: string; name: string; sku: string } | null
+      user: { id: string; first_name: string; last_name: string } | null
+    }
+    const txns = transactions as TransactionWithJoins[]
+
     // Count by transaction type
     const typeCountMap = new Map<string, number>()
-    for (const t of transactions) {
+    for (const t of txns) {
       typeCountMap.set(t.transaction_type, (typeCountMap.get(t.transaction_type) ?? 0) + 1)
     }
 
@@ -557,7 +568,7 @@ export async function getTodayTransactionsBreakdown(): Promise<ActionResult<Toda
 
     // Count by item
     const itemCountMap = new Map<string, { item: { id: string; name: string; sku: string }; count: number }>()
-    for (const t of transactions) {
+    for (const t of txns) {
       if (t.item && typeof t.item === 'object' && 'id' in t.item) {
         const item = t.item as { id: string; name: string; sku: string }
         const existing = itemCountMap.get(item.id)
@@ -581,7 +592,7 @@ export async function getTodayTransactionsBreakdown(): Promise<ActionResult<Toda
 
     // Count by employee
     const employeeCountMap = new Map<string, { user: { id: string; first_name: string; last_name: string }; count: number }>()
-    for (const t of transactions) {
+    for (const t of txns) {
       if (t.user && typeof t.user === 'object' && 'id' in t.user) {
         const user = t.user as { id: string; first_name: string; last_name: string }
         const existing = employeeCountMap.get(user.id)
@@ -605,7 +616,7 @@ export async function getTodayTransactionsBreakdown(): Promise<ActionResult<Toda
       typeBreakdown,
       topActiveItems,
       employeeActivity,
-      totalCount: transactions.length,
+      totalCount: txns.length,
     })
   } catch (error) {
     return failure(error instanceof Error ? error.message : 'Failed to fetch transactions breakdown')
