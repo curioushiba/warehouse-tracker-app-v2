@@ -18,6 +18,7 @@ import { ImageUpload } from "@/components/items";
 import type { ImageUploadRef } from "@/components/items";
 import { CameraCapture } from "@/components/camera";
 import { updateItem } from "@/lib/actions/items";
+import { createClient } from "@/lib/supabase/client";
 import type { Item } from "@/lib/supabase/types";
 import { Image as ImageIcon, Camera } from "lucide-react";
 
@@ -62,21 +63,51 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
     setHasChanges(url !== item.image_url);
   };
 
+  // Upload file directly to Supabase Storage (independent of ImageUpload component)
+  const uploadFile = React.useCallback(
+    async (file: File): Promise<string> => {
+      const supabase = createClient();
+
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      const filePath = `${item.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("item-images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("item-images")
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    },
+    [item.id]
+  );
+
   const handleCameraCapture = async (file: File) => {
     setError(null);
     setIsUploading(true);
 
     try {
-      // Process the file through ImageUpload to handle upload
-      if (imageUploadRef.current) {
-        const success = await imageUploadRef.current.processFile(file);
-        if (success) {
-          // Switch to gallery tab to show the preview
-          setActiveTabIndex(0);
-        } else {
-          setError("Failed to upload photo. Please try again.");
-        }
-      }
+      // Upload directly to Supabase Storage (don't rely on ImageUpload ref which may not be mounted)
+      const publicUrl = await uploadFile(file);
+
+      // Update state with the new image URL
+      setImageUrl(publicUrl);
+      setHasChanges(true);
+
+      // Switch to gallery tab to show the preview
+      setActiveTabIndex(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
     } finally {
