@@ -100,6 +100,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
         title: `${item.name} adjusted`,
         description: `${item.current_stock} → ${parsedNewStock} ${item.unit} (${adjustmentDelta > 0 ? "+" : ""}${adjustmentDelta})`,
         status: "success",
+        position: "bottom-right",
       });
       onSuccess();
       onClose();

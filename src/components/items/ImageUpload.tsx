@@ -98,7 +98,7 @@ export const ImageUpload = React.forwardRef<ImageUploadRef, ImageUploadProps>(
       return null;
     };
 
-    const uploadFile = async (file: File): Promise<string | null> => {
+    const uploadFile = React.useCallback(async (file: File): Promise<string | null> => {
       const supabase = createClient();
 
       // Generate unique filename
@@ -123,7 +123,7 @@ export const ImageUpload = React.forwardRef<ImageUploadRef, ImageUploadProps>(
         .getPublicUrl(filePath);
 
       return urlData.publicUrl;
-    };
+    }, [itemId]);
 
     const handleFile = React.useCallback(async (file: File) => {
       setError(null);
@@ -158,7 +158,7 @@ export const ImageUpload = React.forwardRef<ImageUploadRef, ImageUploadProps>(
         setIsUploading(false);
         URL.revokeObjectURL(localPreview);
       }
-    }, [itemId, onChange, value]);
+    }, [itemId, onChange, value, uploadFile]);
 
     const handleDrop = (e: React.DragEvent) => {
       e.preventDefault();

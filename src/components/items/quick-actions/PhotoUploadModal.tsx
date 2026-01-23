@@ -19,7 +19,7 @@ import type { ImageUploadRef } from "@/components/items";
 import { CameraCapture } from "@/components/camera";
 import { updateItem } from "@/lib/actions/items";
 import type { Item } from "@/lib/supabase/types";
-import { Image, Camera } from "lucide-react";
+import { Image as ImageIcon, Camera } from "lucide-react";
 
 export interface PhotoUploadModalProps {
   isOpen: boolean;
@@ -123,7 +123,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
             <TabList>
               <Tab index={0}>
                 <span className="flex items-center gap-2">
-                  <Image className="w-4 h-4" />
+                  <ImageIcon className="w-4 h-4" />
                   <span>Gallery</span>
                 </span>
               </Tab>
