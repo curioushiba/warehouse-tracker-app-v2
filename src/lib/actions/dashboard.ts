@@ -371,11 +371,10 @@ export async function getCriticalStockDetails(): Promise<ActionResult<CriticalSt
 
     // Build map of last transaction dates (take first result per item)
     const lastTransMap = new Map<string, string>()
-    if (lastTransactions) {
-      for (const trans of lastTransactions) {
-        if (!lastTransMap.has(trans.item_id)) {
-          lastTransMap.set(trans.item_id, trans.event_timestamp)
-        }
+    const transactions = (lastTransactions ?? []) as { item_id: string; event_timestamp: string }[]
+    for (const trans of transactions) {
+      if (!lastTransMap.has(trans.item_id)) {
+        lastTransMap.set(trans.item_id, trans.event_timestamp)
       }
     }
 
