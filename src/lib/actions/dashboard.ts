@@ -443,8 +443,9 @@ export async function getTotalItemsBreakdown(): Promise<ActionResult<TotalItemsB
       return failure(itemsResult.error.message)
     }
 
-    const items = itemsResult.data ?? []
-    const categories = categoriesResult.data ?? []
+    // Cast to expected types - Supabase type inference fails with partial selects
+    const items = (itemsResult.data ?? []) as { id: string; category_id: string | null }[]
+    const categories = (categoriesResult.data ?? []) as { id: string; name: string }[]
 
     // Count items per category
     const categoryCountMap = new Map<string | null, number>()
@@ -471,9 +472,12 @@ export async function getTotalItemsBreakdown(): Promise<ActionResult<TotalItemsB
     // Sort by count descending
     categoryBreakdown.sort((a, b) => b.count - a.count)
 
+    // Cast recentItems - Supabase type inference fails with partial selects
+    const recentItems = (recentResult.data ?? []) as { id: string; name: string; sku: string; created_at: string }[]
+
     return success({
       categories: categoryBreakdown,
-      recentItems: recentResult.data ?? [],
+      recentItems,
       archivedCount: archivedResult.count ?? 0,
       totalActiveCount: items.length,
     })
