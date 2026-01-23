@@ -1,0 +1,325 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight, PackagePlus, CheckCircle2 } from "lucide-react";
+import {
+  Button,
+  Progress,
+  Skeleton,
+  SkeletonText,
+} from "@/components/ui";
+import {
+  getLowStockDetails,
+  type LowStockDetailItem,
+  type PriorityLevel,
+} from "@/lib/actions/dashboard";
+
+const priorityConfig: Record<
+  PriorityLevel,
+  { emoji: string; label: string; color: string; bgColor: string }
+> = {
+  critical: { emoji: "\uD83D\uDD34", label: "Critical", color: "text-red-600", bgColor: "bg-red-100" },
+  urgent: { emoji: "\uD83D\uDFE0", label: "Urgent", color: "text-orange-600", bgColor: "bg-orange-100" },
+  watch: { emoji: "\uD83D\uDFE1", label: "Watch", color: "text-yellow-600", bgColor: "bg-yellow-100" },
+};
+
+function PriorityBadge({ priority }: { priority: PriorityLevel }) {
+  const config = priorityConfig[priority];
+  return (
+    <span className={`inline-flex items-center gap-1 text-sm px-2 py-0.5 rounded-full ${config.bgColor} ${config.color}`}>
+      <span>{config.emoji}</span>
+      <span className="font-medium">{config.label}</span>
+    </span>
+  );
+}
+
+function formatDaysToStockout(days: number | null): string {
+  if (days === null) return "No usage data";
+  if (days === 0) return "Today";
+  if (days === 1) return "1 day";
+  return `${days} days`;
+}
+
+function formatDailyUsage(rate: number): string {
+  if (rate === 0) return "No usage data";
+  if (rate < 1) return rate.toFixed(2);
+  return rate.toFixed(1);
+}
+
+export function LowStockPanel() {
+  const [data, setData] = useState<{ items: LowStockDetailItem[]; totalCount: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      const result = await getLowStockDetails();
+      if (result.success) {
+        setData(result.data);
+      } else {
+        setError(result.error);
+      }
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-4 p-3 bg-white rounded-lg">
+            <Skeleton className="w-16 h-6" />
+            <div className="flex-1">
+              <SkeletonText lines={1} className="w-32" />
+            </div>
+            <Skeleton className="w-24 h-4" />
+            <Skeleton className="w-20 h-8" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-6 text-red-600">
+        <p>Failed to load data: {error}</p>
+      </div>
+    );
+  }
+
+  if (!data || data.items.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500 mb-3" />
+        <p className="text-lg font-medium text-stone-700">All items well stocked!</p>
+        <p className="text-sm text-stone-500 mt-1">No items are below their minimum stock level.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Desktop: Table layout */}
+      <div className="hidden md:block">
+        {/* Header row */}
+        <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-stone-500 uppercase tracking-wide">
+          <div className="col-span-2">Priority</div>
+          <div className="col-span-3">Item</div>
+          <div className="col-span-2">Stock Level</div>
+          <div className="col-span-1 text-right">Daily</div>
+          <div className="col-span-2 text-right">Days Left</div>
+          <div className="col-span-2 text-right">Reorder</div>
+        </div>
+
+        {/* Data rows */}
+        {data.items.slice(0, 10).map((item) => {
+          const minStock = item.min_stock ?? 0;
+          const percentage = minStock > 0 ? (item.current_stock / minStock) * 100 : 0;
+          const reorderQty = item.reorder_quantity;
+
+          return (
+            <div
+              key={item.id}
+              className="grid grid-cols-12 gap-4 p-4 bg-white rounded-lg hover:bg-stone-50 transition-colors items-center"
+            >
+              {/* Priority */}
+              <div className="col-span-2">
+                <PriorityBadge priority={item.priority} />
+              </div>
+
+              {/* Item name & SKU */}
+              <div className="col-span-3">
+                <Link
+                  href={`/admin/items/${item.id}`}
+                  className="font-medium text-stone-800 hover:text-amber-700 transition-colors"
+                >
+                  {item.name}
+                </Link>
+                <p className="text-xs text-stone-500">{item.sku}</p>
+              </div>
+
+              {/* Stock level progress */}
+              <div className="col-span-2 flex items-center gap-2">
+                <Progress
+                  value={Math.min(percentage, 100)}
+                  colorScheme={
+                    item.priority === "critical"
+                      ? "error"
+                      : item.priority === "urgent"
+                      ? "warning"
+                      : "success"
+                  }
+                  size="sm"
+                  className="w-16"
+                  aria-label={`${percentage.toFixed(0)}% of minimum stock`}
+                />
+                <span className="text-sm text-stone-600 whitespace-nowrap">
+                  {item.current_stock} / {minStock}
+                </span>
+              </div>
+
+              {/* Daily usage */}
+              <div className="col-span-1 text-right">
+                <span className="text-sm text-stone-600">
+                  {formatDailyUsage(item.daily_consumption_rate)}
+                </span>
+              </div>
+
+              {/* Days to stockout */}
+              <div className="col-span-2 text-right">
+                <span
+                  className={`text-sm font-medium ${
+                    item.days_to_stockout !== null && item.days_to_stockout <= 3
+                      ? "text-red-600"
+                      : item.days_to_stockout !== null && item.days_to_stockout <= 7
+                      ? "text-orange-600"
+                      : "text-stone-600"
+                  }`}
+                >
+                  {formatDaysToStockout(item.days_to_stockout)}
+                </span>
+              </div>
+
+              {/* Reorder / Quick action */}
+              <div className="col-span-2 flex items-center justify-end gap-2">
+                {reorderQty !== null ? (
+                  <>
+                    <span className="text-sm text-stone-600">{reorderQty}</span>
+                    <Link
+                      href={`/admin/transactions/new?item=${item.id}&type=check_in&quantity=${reorderQty}`}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                      >
+                        <PackagePlus className="w-4 h-4 mr-1" />
+                        Record In
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <Link
+                    href={`/admin/items/${item.id}`}
+                    className="text-sm text-amber-600 hover:text-amber-700 underline"
+                  >
+                    Set max stock
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Mobile: Card layout */}
+      <div className="md:hidden space-y-3">
+        {data.items.slice(0, 10).map((item) => {
+          const minStock = item.min_stock ?? 0;
+          const percentage = minStock > 0 ? (item.current_stock / minStock) * 100 : 0;
+          const reorderQty = item.reorder_quantity;
+
+          return (
+            <div key={item.id} className="bg-white rounded-lg p-4 space-y-3">
+              {/* Header: Name + Priority */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/admin/items/${item.id}`}
+                    className="font-medium text-stone-800 hover:text-amber-700 transition-colors block truncate"
+                  >
+                    {item.name}
+                  </Link>
+                  <p className="text-xs text-stone-500">{item.sku}</p>
+                </div>
+                <PriorityBadge priority={item.priority} />
+              </div>
+
+              {/* Stock level */}
+              <div className="flex items-center gap-3">
+                <Progress
+                  value={Math.min(percentage, 100)}
+                  colorScheme={
+                    item.priority === "critical"
+                      ? "error"
+                      : item.priority === "urgent"
+                      ? "warning"
+                      : "success"
+                  }
+                  size="sm"
+                  className="flex-1"
+                  aria-label={`${percentage.toFixed(0)}% of minimum stock`}
+                />
+                <span className="text-sm text-stone-600 whitespace-nowrap">
+                  {item.current_stock} / {minStock}
+                </span>
+              </div>
+
+              {/* Stats row */}
+              <div className="flex items-center justify-between text-sm text-stone-600">
+                <span>Daily: {formatDailyUsage(item.daily_consumption_rate)}</span>
+                <span
+                  className={`font-medium ${
+                    item.days_to_stockout !== null && item.days_to_stockout <= 3
+                      ? "text-red-600"
+                      : item.days_to_stockout !== null && item.days_to_stockout <= 7
+                      ? "text-orange-600"
+                      : "text-stone-600"
+                  }`}
+                >
+                  {formatDaysToStockout(item.days_to_stockout)} left
+                </span>
+              </div>
+
+              {/* Action */}
+              <div className="pt-2 border-t border-stone-100">
+                {reorderQty !== null ? (
+                  <Link
+                    href={`/admin/transactions/new?item=${item.id}&type=check_in&quantity=${reorderQty}`}
+                    className="block"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-amber-700 border-amber-300 hover:bg-amber-50"
+                    >
+                      <PackagePlus className="w-4 h-4 mr-2" />
+                      Record In ({reorderQty})
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href={`/admin/items/${item.id}`} className="block">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-amber-600"
+                    >
+                      Set max stock
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* View all link */}
+      {data.totalCount > 10 && (
+        <div className="pt-2 text-center">
+          <Link href="/admin/items?filter=low_stock">
+            <Button variant="ghost" size="sm" className="text-amber-700">
+              View all {data.totalCount} low stock items
+              <ArrowUpRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}

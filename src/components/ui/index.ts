@@ -150,6 +150,11 @@ export type {
 export { StatCardWarm } from "./StatCardWarm";
 export type { StatCardWarmProps, AccentColor, IconName } from "./StatCardWarm";
 
+// Expandable Stat Card
+export { ExpandableStatCard, StatCardClickable, ExpandablePanel, colors as statCardColors } from "./ExpandableStatCard";
+export type { ExpandableStatCardProps, StatCardClickableProps, ExpandablePanelProps } from "./ExpandableStatCard";
+// Note: AccentColor and IconName types are exported from StatCardWarm above
+
 // Status Indicators
 export {
   OnlineIndicator,
