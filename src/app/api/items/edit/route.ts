@@ -41,14 +41,15 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileData = profile as { role: string; is_active: boolean } | null
+    if (!profileData || profileData.role !== 'admin') {
       return NextResponse.json(
         { success: false, message: 'Admin access required' },
         { status: 403 }
       )
     }
 
-    if (!profile.is_active) {
+    if (!profileData.is_active) {
       return NextResponse.json(
         { success: false, message: 'User account is inactive' },
         { status: 403 }
@@ -62,27 +63,39 @@ export async function POST(request: Request) {
       .eq('id', itemId)
       .single()
 
-    if (fetchError) {
+    if (fetchError || !currentItem) {
       return NextResponse.json(
         { success: false, message: 'Item not found' },
         { status: 404 }
       )
     }
 
+    const item = currentItem as {
+      version: number
+      category_id: string | null
+      min_stock: number
+      max_stock: number | null
+      unit_price: number | null
+      name: string
+      description: string | null
+      image_url: string | null
+      is_archived: boolean
+    }
+
     // Check for version conflict
-    if (currentItem.version !== expectedVersion) {
+    if (item.version !== expectedVersion) {
       return NextResponse.json({
         conflict: true,
-        serverVersion: currentItem.version,
+        serverVersion: item.version,
         serverValues: {
-          category_id: currentItem.category_id,
-          min_stock: currentItem.min_stock,
-          max_stock: currentItem.max_stock,
-          unit_price: currentItem.unit_price,
-          name: currentItem.name,
-          description: currentItem.description,
-          image_url: currentItem.image_url,
-          is_archived: currentItem.is_archived,
+          category_id: item.category_id,
+          min_stock: item.min_stock,
+          max_stock: item.max_stock,
+          unit_price: item.unit_price,
+          name: item.name,
+          description: item.description,
+          image_url: item.image_url,
+          is_archived: item.is_archived,
         },
       })
     }
@@ -106,12 +119,13 @@ export async function POST(request: Request) {
     if (updateError) {
       if (updateError.code === 'PGRST116') {
         // Version changed between check and update
-        const { data: refreshedItem } = await supabase
+        const { data: refreshedData } = await supabase
           .from('inv_items')
           .select('*')
           .eq('id', itemId)
           .single()
 
+        const refreshedItem = refreshedData as typeof item | null
         return NextResponse.json({
           conflict: true,
           serverVersion: refreshedItem?.version ?? expectedVersion + 1,

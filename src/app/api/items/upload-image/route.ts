@@ -33,14 +33,15 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileData = profile as { role: string; is_active: boolean } | null
+    if (!profileData || profileData.role !== 'admin') {
       return NextResponse.json(
         { success: false, message: 'Admin access required' },
         { status: 403 }
       )
     }
 
-    if (!profile.is_active) {
+    if (!profileData.is_active) {
       return NextResponse.json(
         { success: false, message: 'User account is inactive' },
         { status: 403 }
@@ -48,12 +49,13 @@ export async function POST(request: Request) {
     }
 
     // Verify item exists
-    const { data: item, error: itemError } = await supabase
+    const { data: itemData, error: itemError } = await supabase
       .from('inv_items')
       .select('id, is_archived')
       .eq('id', itemId)
       .single()
 
+    const item = itemData as { id: string; is_archived: boolean } | null
     if (itemError || !item) {
       return NextResponse.json(
         { success: false, message: 'Item not found' },
