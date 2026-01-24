@@ -10,9 +10,10 @@ import {
   Input,
   Alert,
 } from "@/components/ui";
-import { updateItem } from "@/lib/actions/items";
+import { useOfflineItemEdit } from "@/hooks/useOfflineItemEdit";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { Item } from "@/lib/supabase/types";
+import { CloudOff } from "lucide-react";
 
 export interface CostEditModalProps {
   isOpen: boolean;
@@ -29,47 +30,47 @@ export const CostEditModal: React.FC<CostEditModalProps> = ({
 }) => {
   const { settings } = useSettings();
   const [unitPrice, setUnitPrice] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [localError, setLocalError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const { submitEdit, isSubmitting, error, isOnline } = useOfflineItemEdit();
 
   // Reset form when modal opens
   React.useEffect(() => {
     if (isOpen) {
       setUnitPrice(item.unit_price?.toString() ?? "");
-      setError(null);
+      setLocalError(null);
     }
   }, [isOpen, item.unit_price]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setLocalError(null);
 
     const parsedPrice = unitPrice === "" ? null : parseFloat(unitPrice);
 
     // Validate
     if (parsedPrice !== null && (isNaN(parsedPrice) || parsedPrice < 0)) {
-      setError("Cost must be a valid positive number");
+      setLocalError("Cost must be a valid positive number");
       return;
     }
 
-    setIsSubmitting(true);
-
-    const result = await updateItem(
+    const result = await submitEdit(
       item.id,
       { unit_price: parsedPrice },
       item.version
     );
 
-    setIsSubmitting(false);
-
     if (result.success) {
-      onSuccess(result.data);
+      if (result.data) {
+        onSuccess(result.data);
+      }
       onClose();
     } else {
-      setError(result.error);
+      setLocalError(result.error || "Failed to update cost");
     }
   };
+
+  const displayError = localError || error;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm" initialFocusRef={inputRef}>
@@ -83,9 +84,18 @@ export const CostEditModal: React.FC<CostEditModalProps> = ({
               Update the unit cost for <strong>{item.name}</strong>
             </p>
 
-            {error && (
+            {!isOnline && (
+              <Alert status="warning" variant="subtle">
+                <span className="flex items-center gap-2">
+                  <CloudOff className="w-4 h-4" />
+                  You are offline. Changes will sync when you reconnect.
+                </span>
+              </Alert>
+            )}
+
+            {displayError && (
               <Alert status="error" variant="subtle">
-                {error}
+                {displayError}
               </Alert>
             )}
 
@@ -120,7 +130,7 @@ export const CostEditModal: React.FC<CostEditModalProps> = ({
             Cancel
           </Button>
           <Button type="submit" variant="primary" isLoading={isSubmitting}>
-            Save
+            {!isOnline ? "Queue" : "Save"}
           </Button>
         </ModalFooter>
       </form>

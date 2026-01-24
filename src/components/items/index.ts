@@ -31,3 +31,6 @@ export type {
   PhotoUploadModalProps,
   StockAdjustmentModalProps,
 } from "./quick-actions";
+
+// Offline Support Components
+export { PendingEditsIndicator } from "./PendingEditsIndicator";

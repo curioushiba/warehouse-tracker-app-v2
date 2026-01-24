@@ -10,8 +10,9 @@ import {
   Select,
   Alert,
 } from "@/components/ui";
-import { updateItem } from "@/lib/actions/items";
+import { useOfflineItemEdit } from "@/hooks/useOfflineItemEdit";
 import type { Item, Category } from "@/lib/supabase/types";
+import { CloudOff } from "lucide-react";
 
 export interface CategoryAssignmentModalProps {
   isOpen: boolean;
@@ -29,37 +30,38 @@ export const CategoryAssignmentModal: React.FC<CategoryAssignmentModalProps> = (
   onSuccess,
 }) => {
   const [categoryId, setCategoryId] = React.useState<string>("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [localError, setLocalError] = React.useState<string | null>(null);
+  const { submitEdit, isSubmitting, error, isOnline } = useOfflineItemEdit();
 
   // Reset form when modal opens
   React.useEffect(() => {
     if (isOpen) {
       setCategoryId(item.category_id ?? "");
-      setError(null);
+      setLocalError(null);
     }
   }, [isOpen, item.category_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
+    setLocalError(null);
 
-    const result = await updateItem(
+    const result = await submitEdit(
       item.id,
       { category_id: categoryId === "" ? null : categoryId },
       item.version
     );
 
-    setIsSubmitting(false);
-
     if (result.success) {
-      onSuccess(result.data);
+      if (result.data) {
+        onSuccess(result.data);
+      }
       onClose();
     } else {
-      setError(result.error);
+      setLocalError(result.error || "Failed to update category");
     }
   };
+
+  const displayError = localError || error;
 
   const categoryOptions = [
     { value: "", label: "No category" },
@@ -78,9 +80,18 @@ export const CategoryAssignmentModal: React.FC<CategoryAssignmentModalProps> = (
               Select a category for <strong>{item.name}</strong>
             </p>
 
-            {error && (
+            {!isOnline && (
+              <Alert status="warning" variant="subtle">
+                <span className="flex items-center gap-2">
+                  <CloudOff className="w-4 h-4" />
+                  You are offline. Changes will sync when you reconnect.
+                </span>
+              </Alert>
+            )}
+
+            {displayError && (
               <Alert status="error" variant="subtle">
-                {error}
+                {displayError}
               </Alert>
             )}
 
@@ -112,7 +123,7 @@ export const CategoryAssignmentModal: React.FC<CategoryAssignmentModalProps> = (
             Cancel
           </Button>
           <Button type="submit" variant="primary" isLoading={isSubmitting}>
-            Save
+            {!isOnline ? "Queue" : "Save"}
           </Button>
         </ModalFooter>
       </form>

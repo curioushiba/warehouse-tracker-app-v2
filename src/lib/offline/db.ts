@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { TransactionType } from '@/lib/supabase/types'
+import type { TransactionType, ItemUpdate } from '@/lib/supabase/types'
 
 // Offline transaction queue item
 export interface QueuedTransaction {
@@ -31,7 +31,40 @@ export interface CachedItem {
   minStock: number
   maxStock?: number
   barcode?: string
+  unitPrice?: number
+  imageUrl?: string
+  version: number
+  isArchived?: boolean
   updatedAt: string
+}
+
+// Item edit queue types
+export type ItemEditStatus = 'pending' | 'syncing' | 'failed'
+
+export interface QueuedItemEdit {
+  id: string
+  itemId: string
+  changes: Partial<ItemUpdate>
+  expectedVersion: number
+  idempotencyKey: string
+  userId: string
+  status: ItemEditStatus
+  retryCount: number
+  lastError?: string
+  createdAt: string
+  deviceTimestamp: string
+}
+
+// Pending image upload
+export interface PendingImage {
+  itemId: string
+  blob: Blob
+  filename: string
+  mimeType: string
+  createdAt: string
+  status: 'pending' | 'uploading' | 'failed'
+  retryCount: number
+  lastError?: string
 }
 
 // Database schema
@@ -60,34 +93,70 @@ interface InventoryDB extends DBSchema {
       updatedAt: string
     }
   }
+  itemEditQueue: {
+    key: string
+    value: QueuedItemEdit
+    indexes: {
+      'by-created': string
+      'by-item': string
+      'by-status': ItemEditStatus
+    }
+  }
+  pendingImages: {
+    key: string
+    value: PendingImage
+    indexes: {
+      'by-status': string
+    }
+  }
 }
 
 const DB_NAME = 'inventory-tracker-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 let dbPromise: Promise<IDBPDatabase<InventoryDB>> | null = null
 
 export async function getDB(): Promise<IDBPDatabase<InventoryDB>> {
   if (!dbPromise) {
     dbPromise = openDB<InventoryDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        // Transaction queue store
-        if (!db.objectStoreNames.contains('transactionQueue')) {
-          const txStore = db.createObjectStore('transactionQueue', { keyPath: 'id' })
-          txStore.createIndex('by-created', 'createdAt')
-          txStore.createIndex('by-item', 'itemId')
+      upgrade(db, oldVersion) {
+        // Version 1: Initial stores
+        if (oldVersion < 1) {
+          // Transaction queue store
+          if (!db.objectStoreNames.contains('transactionQueue')) {
+            const txStore = db.createObjectStore('transactionQueue', { keyPath: 'id' })
+            txStore.createIndex('by-created', 'createdAt')
+            txStore.createIndex('by-item', 'itemId')
+          }
+
+          // Items cache store
+          if (!db.objectStoreNames.contains('itemsCache')) {
+            const itemsStore = db.createObjectStore('itemsCache', { keyPath: 'id' })
+            itemsStore.createIndex('by-sku', 'sku', { unique: true })
+            itemsStore.createIndex('by-barcode', 'barcode')
+          }
+
+          // Metadata store
+          if (!db.objectStoreNames.contains('metadata')) {
+            db.createObjectStore('metadata', { keyPath: 'key' })
+          }
         }
 
-        // Items cache store
-        if (!db.objectStoreNames.contains('itemsCache')) {
-          const itemsStore = db.createObjectStore('itemsCache', { keyPath: 'id' })
-          itemsStore.createIndex('by-sku', 'sku', { unique: true })
-          itemsStore.createIndex('by-barcode', 'barcode')
-        }
+        // Version 2: Add item edit queue and pending images
+        if (oldVersion < 2) {
+          // Item edit queue store
+          if (!db.objectStoreNames.contains('itemEditQueue')) {
+            const editStore = db.createObjectStore('itemEditQueue', { keyPath: 'id' })
+            editStore.createIndex('by-created', 'createdAt')
+            editStore.createIndex('by-item', 'itemId')
+            editStore.createIndex('by-status', 'status')
+          }
 
-        // Metadata store
-        if (!db.objectStoreNames.contains('metadata')) {
-          db.createObjectStore('metadata', { keyPath: 'key' })
+          // Pending images store
+          if (!db.objectStoreNames.contains('pendingImages')) {
+            const imageStore = db.createObjectStore('pendingImages', { keyPath: 'itemId' })
+            imageStore.createIndex('by-status', 'status')
+          }
         }
       },
     })
@@ -212,4 +281,142 @@ export async function getDeviceId(): Promise<string> {
     await setMetadata('deviceId', deviceId)
   }
   return deviceId as string
+}
+
+// Item Edit Queue Operations
+export async function addItemEditToQueue(
+  edit: Omit<QueuedItemEdit, 'id' | 'idempotencyKey' | 'status' | 'retryCount' | 'createdAt'>
+): Promise<QueuedItemEdit> {
+  const db = await getDB()
+  const id = crypto.randomUUID()
+  const idempotencyKey = crypto.randomUUID()
+  const queuedEdit: QueuedItemEdit = {
+    ...edit,
+    id,
+    idempotencyKey,
+    status: 'pending',
+    retryCount: 0,
+    createdAt: new Date().toISOString(),
+  }
+  await db.put('itemEditQueue', queuedEdit)
+  return queuedEdit
+}
+
+export async function getQueuedItemEdits(): Promise<QueuedItemEdit[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemEditQueue', 'by-created')
+}
+
+export async function getQueuedItemEditsByItem(itemId: string): Promise<QueuedItemEdit[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemEditQueue', 'by-item', itemId)
+}
+
+export async function getQueuedItemEditsByStatus(status: ItemEditStatus): Promise<QueuedItemEdit[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemEditQueue', 'by-status', status)
+}
+
+export async function getItemEditQueueCount(): Promise<number> {
+  const db = await getDB()
+  return db.count('itemEditQueue')
+}
+
+export async function updateItemEditStatus(
+  id: string,
+  status: ItemEditStatus,
+  error?: string
+): Promise<void> {
+  const db = await getDB()
+  const existing = await db.get('itemEditQueue', id)
+  if (existing) {
+    await db.put('itemEditQueue', {
+      ...existing,
+      status,
+      lastError: error,
+      retryCount: status === 'failed' ? existing.retryCount + 1 : existing.retryCount,
+    })
+  }
+}
+
+export async function removeItemEditFromQueue(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('itemEditQueue', id)
+}
+
+export async function clearItemEditQueue(): Promise<void> {
+  const db = await getDB()
+  await db.clear('itemEditQueue')
+}
+
+// Pending Images Operations
+export async function addPendingImage(
+  itemId: string,
+  blob: Blob,
+  filename: string
+): Promise<PendingImage> {
+  const db = await getDB()
+  const pendingImage: PendingImage = {
+    itemId,
+    blob,
+    filename,
+    mimeType: blob.type,
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+    retryCount: 0,
+  }
+  await db.put('pendingImages', pendingImage)
+  return pendingImage
+}
+
+export async function getPendingImages(): Promise<PendingImage[]> {
+  const db = await getDB()
+  return db.getAll('pendingImages')
+}
+
+export async function getPendingImageForItem(itemId: string): Promise<PendingImage | undefined> {
+  const db = await getDB()
+  return db.get('pendingImages', itemId)
+}
+
+export async function updatePendingImageStatus(
+  itemId: string,
+  status: 'pending' | 'uploading' | 'failed',
+  error?: string
+): Promise<void> {
+  const db = await getDB()
+  const existing = await db.get('pendingImages', itemId)
+  if (existing) {
+    await db.put('pendingImages', {
+      ...existing,
+      status,
+      lastError: error,
+      retryCount: status === 'failed' ? existing.retryCount + 1 : existing.retryCount,
+    })
+  }
+}
+
+export async function removePendingImage(itemId: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('pendingImages', itemId)
+}
+
+export async function getPendingImageCount(): Promise<number> {
+  const db = await getDB()
+  return db.count('pendingImages')
+}
+
+// Update cached item with offline edits
+export async function updateCachedItem(
+  id: string,
+  updates: Partial<CachedItem>
+): Promise<CachedItem | undefined> {
+  const db = await getDB()
+  const existing = await db.get('itemsCache', id)
+  if (existing) {
+    const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() }
+    await db.put('itemsCache', updated)
+    return updated
+  }
+  return undefined
 }

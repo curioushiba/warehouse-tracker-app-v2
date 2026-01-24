@@ -286,6 +286,8 @@ export interface ConnectionStatusBarProps {
   isOnline: boolean;
   syncStatus: SyncStatus;
   pendingCount?: number;
+  pendingEditsCount?: number;
+  pendingImagesCount?: number;
   className?: string;
 }
 
@@ -293,9 +295,26 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
   isOnline,
   syncStatus,
   pendingCount = 0,
+  pendingEditsCount = 0,
+  pendingImagesCount = 0,
   className,
 }) => {
-  if (isOnline && syncStatus === "synced") return null;
+  const totalPending = pendingCount + pendingEditsCount + pendingImagesCount;
+
+  if (isOnline && syncStatus === "synced" && totalPending === 0) return null;
+
+  // Build pending description
+  const pendingParts: string[] = [];
+  if (pendingCount > 0) {
+    pendingParts.push(`${pendingCount} ${pendingCount === 1 ? "transaction" : "transactions"}`);
+  }
+  if (pendingEditsCount > 0) {
+    pendingParts.push(`${pendingEditsCount} ${pendingEditsCount === 1 ? "edit" : "edits"}`);
+  }
+  if (pendingImagesCount > 0) {
+    pendingParts.push(`${pendingImagesCount} ${pendingImagesCount === 1 ? "image" : "images"}`);
+  }
+  const pendingDescription = pendingParts.join(", ");
 
   return (
     <div
@@ -315,9 +334,9 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
         <>
           <WifiOff className="w-4 h-4" />
           <span>You are offline</span>
-          {pendingCount > 0 && (
+          {totalPending > 0 && (
             <span className="font-medium">
-              ({pendingCount} pending {pendingCount === 1 ? "change" : "changes"})
+              ({pendingDescription} pending)
             </span>
           )}
         </>

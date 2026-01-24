@@ -17,10 +17,12 @@ import {
 import { ImageUpload } from "@/components/items";
 import type { ImageUploadRef } from "@/components/items";
 import { CameraCapture } from "@/components/camera";
-import { updateItem } from "@/lib/actions/items";
+import { useOfflineItemEdit } from "@/hooks/useOfflineItemEdit";
+import { useItemEditQueue } from "@/hooks/useItemEditQueue";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { createClient } from "@/lib/supabase/client";
 import type { Item } from "@/lib/supabase/types";
-import { Image as ImageIcon, Camera } from "lucide-react";
+import { Image as ImageIcon, Camera, CloudOff } from "lucide-react";
 
 export interface PhotoUploadModalProps {
   isOpen: boolean;
@@ -36,6 +38,8 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   onSuccess,
 }) => {
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
+  const [pendingBlob, setPendingBlob] = React.useState<Blob | null>(null);
+  const [pendingFilename, setPendingFilename] = React.useState<string>("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -43,6 +47,9 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   const [activeTabIndex, setActiveTabIndex] = React.useState(0);
 
   const imageUploadRef = React.useRef<ImageUploadRef>(null);
+  const { isOnline } = useOnlineStatus();
+  const { queueImage } = useItemEditQueue();
+  const { submitEdit } = useOfflineItemEdit();
 
   const isCameraTab = activeTabIndex === 1;
   const isBusy = isSubmitting || isUploading;
@@ -51,6 +58,8 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       setImageUrl(item.image_url);
+      setPendingBlob(null);
+      setPendingFilename("");
       setError(null);
       setHasChanges(false);
       setIsUploading(false);
@@ -96,22 +105,37 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
   const handleCameraCapture = async (file: File) => {
     setError(null);
-    setIsUploading(true);
 
-    try {
-      // Upload directly to Supabase Storage (don't rely on ImageUpload ref which may not be mounted)
-      const publicUrl = await uploadFile(file);
+    if (isOnline) {
+      // Online: upload directly to Supabase Storage
+      setIsUploading(true);
 
-      // Update state with the new image URL
-      setImageUrl(publicUrl);
+      try {
+        const publicUrl = await uploadFile(file);
+
+        // Update state with the new image URL
+        setImageUrl(publicUrl);
+        setPendingBlob(null);
+        setPendingFilename("");
+        setHasChanges(true);
+
+        // Switch to gallery tab to show the preview
+        setActiveTabIndex(0);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      // Offline: store blob for later upload and create local preview
+      const localUrl = URL.createObjectURL(file);
+      setImageUrl(localUrl);
+      setPendingBlob(file);
+      setPendingFilename(file.name);
       setHasChanges(true);
 
       // Switch to gallery tab to show the preview
       setActiveTabIndex(0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -128,19 +152,42 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
     setError(null);
     setIsSubmitting(true);
 
-    const result = await updateItem(
-      item.id,
-      { image_url: imageUrl },
-      item.version
-    );
+    try {
+      // If we have a pending blob (from offline camera capture), queue it
+      if (pendingBlob && !isOnline) {
+        await queueImage(item.id, pendingBlob, pendingFilename);
 
-    setIsSubmitting(false);
+        // Create an optimistic item for UI update
+        const optimisticItem = {
+          ...item,
+          image_url: imageUrl,
+          version: item.version + 1,
+        };
 
-    if (result.success) {
-      onSuccess(result.data);
-      onClose();
-    } else {
-      setError(result.error);
+        onSuccess(optimisticItem);
+        onClose();
+        return;
+      }
+
+      // Otherwise, submit the image URL update
+      const result = await submitEdit(
+        item.id,
+        { image_url: imageUrl },
+        item.version
+      );
+
+      if (result.success) {
+        if (result.data) {
+          onSuccess(result.data);
+        }
+        onClose();
+      } else {
+        setError(result.error || "Failed to update image");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save image");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -160,6 +207,15 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
           <p className="text-sm text-foreground-muted">
             Upload or update the photo for <strong>{item.name}</strong>
           </p>
+
+          {!isOnline && (
+            <Alert status="warning" variant="subtle">
+              <span className="flex items-center gap-2">
+                <CloudOff className="w-4 h-4" />
+                You are offline. Photos will upload when you reconnect.
+              </span>
+            </Alert>
+          )}
 
           {error && (
             <Alert status="error" variant="subtle">
@@ -230,7 +286,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
           isLoading={isSubmitting}
           disabled={!hasChanges || isUploading}
         >
-          Save
+          {!isOnline && pendingBlob ? "Queue" : "Save"}
         </Button>
       </ModalFooter>
     </Modal>
