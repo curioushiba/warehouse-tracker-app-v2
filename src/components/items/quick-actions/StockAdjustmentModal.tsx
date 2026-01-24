@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Minus, Plus } from "lucide-react";
+import { CloudOff, Minus, Plus } from "lucide-react";
 import {
   Modal,
   ModalHeader,
@@ -15,7 +15,7 @@ import {
   Alert,
   useToastHelpers,
 } from "@/components/ui";
-import { submitTransaction } from "@/lib/actions/transactions";
+import { useSyncQueue } from "@/hooks/useSyncQueue";
 import type { Item } from "@/lib/supabase/types";
 
 export interface StockAdjustmentModalProps {
@@ -32,6 +32,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   onSuccess,
 }) => {
   const { toast } = useToastHelpers();
+  const { queueTransaction, isOnline } = useSyncQueue();
   const [newStock, setNewStock] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -86,26 +87,27 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
     setIsSubmitting(true);
 
-    const result = await submitTransaction({
-      transactionType: "adjustment",
-      itemId: item.id,
-      quantity: adjustmentDelta,
-      notes: notes.trim() || undefined,
-    });
+    try {
+      await queueTransaction({
+        transactionType: "adjustment",
+        itemId: item.id,
+        quantity: adjustmentDelta,
+        notes: notes.trim() || undefined,
+        deviceTimestamp: new Date().toISOString(),
+      });
 
-    setIsSubmitting(false);
-
-    if (result.success) {
       toast({
-        title: `${item.name} adjusted`,
+        title: isOnline ? `${item.name} adjusted` : `${item.name} adjustment queued`,
         description: `${item.current_stock} → ${parsedNewStock} ${item.unit} (${adjustmentDelta > 0 ? "+" : ""}${adjustmentDelta})`,
         status: "success",
         position: "bottom-right",
       });
       onSuccess();
       onClose();
-    } else {
-      setError(result.error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to queue adjustment");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -136,6 +138,15 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
             >
               View transaction history →
             </Link>
+
+            {!isOnline && (
+              <Alert status="warning" variant="subtle">
+                <span className="flex items-center gap-2">
+                  <CloudOff className="w-4 h-4" />
+                  You&apos;re offline. Adjustment will be queued and synced when back online.
+                </span>
+              </Alert>
+            )}
 
             {error && (
               <Alert status="error" variant="subtle">
@@ -227,7 +238,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
             Cancel
           </Button>
           <Button type="submit" variant="primary" isLoading={isSubmitting}>
-            Submit Adjustment
+            {isOnline ? "Submit Adjustment" : "Queue Adjustment"}
           </Button>
         </ModalFooter>
       </form>
