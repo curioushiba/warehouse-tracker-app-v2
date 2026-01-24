@@ -173,7 +173,8 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
       const result = await submitEdit(
         item.id,
         { image_url: imageUrl },
-        item.version
+        item.version,
+        item
       );
 
       if (result.success) {

@@ -15,7 +15,8 @@ interface UseOfflineItemEditReturn {
   submitEdit: (
     itemId: string,
     changes: Partial<ItemUpdate>,
-    expectedVersion: number
+    expectedVersion: number,
+    currentItem: Item
   ) => Promise<{ success: boolean; data?: Item; queued?: boolean; error?: string }>
   isSubmitting: boolean
   error: string | null
@@ -32,7 +33,8 @@ export function useOfflineItemEdit(options: UseOfflineItemEditOptions = {}): Use
   const submitEdit = useCallback(async (
     itemId: string,
     changes: Partial<ItemUpdate>,
-    expectedVersion: number
+    expectedVersion: number,
+    currentItem: Item
   ): Promise<{ success: boolean; data?: Item; queued?: boolean; error?: string }> => {
     setIsSubmitting(true)
     setError(null)
@@ -54,12 +56,14 @@ export function useOfflineItemEdit(options: UseOfflineItemEditOptions = {}): Use
         // Queue for offline sync
         await queueItemEdit(itemId, changes, expectedVersion)
 
-        // Create an optimistic item for UI update
-        const optimisticItem = {
-          id: itemId,
-          version: expectedVersion + 1,
+        // Create a complete optimistic item by merging changes with the current item
+        // This ensures all required properties are present for UI rendering
+        const optimisticItem: Item = {
+          ...currentItem,
           ...changes,
-        } as Item
+          version: expectedVersion + 1,
+          updated_at: new Date().toISOString(),
+        }
 
         onSuccess?.(optimisticItem)
         return { success: true, queued: true, data: optimisticItem }

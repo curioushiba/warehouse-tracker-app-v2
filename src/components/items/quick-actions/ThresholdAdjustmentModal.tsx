@@ -70,7 +70,8 @@ export const ThresholdAdjustmentModal: React.FC<ThresholdAdjustmentModalProps> =
     const result = await submitEdit(
       item.id,
       { min_stock: parsedMin, max_stock: parsedMax },
-      item.version
+      item.version,
+      item
     );
 
     if (result.success) {

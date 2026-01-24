@@ -48,7 +48,8 @@ export const CategoryAssignmentModal: React.FC<CategoryAssignmentModalProps> = (
     const result = await submitEdit(
       item.id,
       { category_id: categoryId === "" ? null : categoryId },
-      item.version
+      item.version,
+      item
     );
 
     if (result.success) {

@@ -57,7 +57,8 @@ export const CostEditModal: React.FC<CostEditModalProps> = ({
     const result = await submitEdit(
       item.id,
       { unit_price: parsedPrice },
-      item.version
+      item.version,
+      item
     );
 
     if (result.success) {
