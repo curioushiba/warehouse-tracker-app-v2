@@ -89,23 +89,6 @@ export function useItemEditQueue() {
     loadQueueCounts()
   }, [])
 
-  // Trigger sync on mount when auth is ready and there are pending items
-  // This handles the case where user made edits offline, closed browser,
-  // came back online, and reopened the app - wasOffline would be false
-  useEffect(() => {
-    if (
-      isAuthenticated &&
-      isOnline &&
-      !initialSyncAttemptedRef.current &&
-      (state.editQueueCount > 0 || state.imageQueueCount > 0)
-    ) {
-      initialSyncAttemptedRef.current = true
-      if (!syncInProgressRef.current) {
-        syncQueue()
-      }
-    }
-  }, [isAuthenticated, isOnline, state.editQueueCount, state.imageQueueCount, syncQueue])
-
   // Process a single item edit
   const processItemEdit = useCallback(async (edit: QueuedItemEdit): Promise<boolean> => {
     try {
@@ -262,6 +245,23 @@ export function useItemEditQueue() {
       clearWasOffline()
     }
   }, [wasOffline, isOnline, isAuthenticated, syncQueue, clearWasOffline])
+
+  // Trigger sync on mount when auth is ready and there are pending items
+  // This handles the case where user made edits offline, closed browser,
+  // came back online, and reopened the app - wasOffline would be false
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      isOnline &&
+      !initialSyncAttemptedRef.current &&
+      (state.editQueueCount > 0 || state.imageQueueCount > 0)
+    ) {
+      initialSyncAttemptedRef.current = true
+      if (!syncInProgressRef.current) {
+        syncQueue()
+      }
+    }
+  }, [isAuthenticated, isOnline, state.editQueueCount, state.imageQueueCount, syncQueue])
 
   // Periodic sync
   useEffect(() => {
