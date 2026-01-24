@@ -420,3 +420,38 @@ export async function updateCachedItem(
   }
   return undefined
 }
+
+// Apply pending edits from IndexedDB to server-fetched items
+// This ensures UI shows optimistic values even after page refresh
+export async function applyPendingEditsToItems<T extends { id: string }>(
+  items: T[]
+): Promise<{ items: T[]; pendingItemIds: Set<string> }> {
+  const pendingEdits = await getQueuedItemEdits()
+  if (pendingEdits.length === 0) {
+    return { items, pendingItemIds: new Set() }
+  }
+
+  // Group edits by itemId, maintaining creation order
+  const editsByItem = new Map<string, QueuedItemEdit[]>()
+  for (const edit of pendingEdits) {
+    const existing = editsByItem.get(edit.itemId) || []
+    existing.push(edit)
+    editsByItem.set(edit.itemId, existing)
+  }
+
+  const pendingItemIds = new Set(editsByItem.keys())
+
+  // Apply edits to items (changes are already in snake_case to match server field names)
+  const modifiedItems = items.map(item => {
+    const edits = editsByItem.get(item.id)
+    if (!edits) return item
+
+    let modified = { ...item }
+    for (const edit of edits) {
+      modified = { ...modified, ...edit.changes }
+    }
+    return modified
+  })
+
+  return { items: modifiedItems, pendingItemIds }
+}

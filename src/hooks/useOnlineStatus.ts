@@ -13,11 +13,14 @@ export function useOnlineStatus() {
     }
 
     const handleOnline = () => {
-      setIsOnline(true)
-      // Track that we came back online (useful for triggering sync)
-      if (!isOnline) {
-        setWasOffline(true)
-      }
+      // Use functional update to access current state and avoid stale closure
+      setIsOnline(prev => {
+        if (!prev) {
+          // We were offline, mark wasOffline for sync trigger
+          setWasOffline(true)
+        }
+        return true
+      })
     }
 
     const handleOffline = () => {
@@ -31,7 +34,7 @@ export function useOnlineStatus() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [isOnline])
+  }, []) // No longer depends on isOnline
 
   const clearWasOffline = useCallback(() => {
     setWasOffline(false)

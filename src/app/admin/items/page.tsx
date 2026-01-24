@@ -15,6 +15,7 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
+  Clock,
 } from "lucide-react";
 import {
   ItemImage,
@@ -54,6 +55,7 @@ import {
 import { StockLevelBadge } from "@/components/ui";
 import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
+import { applyPendingEditsToItems } from "@/lib/offline/db";
 import type { Item, Category } from "@/lib/supabase/types";
 import { formatCurrency, getStockLevel, formatDateTime } from "@/lib/utils";
 import type { PaginatedResult } from "@/lib/types/action-result";
@@ -65,6 +67,7 @@ export default function ItemsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [pendingItemIds, setPendingItemIds] = React.useState<Set<string>>(new Set());
 
   // Pagination state (server-side)
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -142,7 +145,12 @@ export default function ItemsPage() {
       ]);
 
       if (itemsResult.success) {
-        setItems(itemsResult.data.data);
+        // Apply any pending offline edits to the server data
+        const { items: mergedItems, pendingItemIds: pending } = await applyPendingEditsToItems(
+          itemsResult.data.data
+        );
+        setItems(mergedItems);
+        setPendingItemIds(pending);
         setTotalCount(itemsResult.data.totalCount);
         setTotalPages(itemsResult.data.totalPages);
       } else {
@@ -556,6 +564,7 @@ export default function ItemsPage() {
                   item.max_stock || 0
                 );
                 const isSelected = selectedItems.includes(item.id);
+                const hasPendingEdits = pendingItemIds.has(item.id);
                 const categoryName = item.category_id
                   ? categoryMap.get(item.category_id)?.name || "Uncategorized"
                   : "Uncategorized";
@@ -584,12 +593,23 @@ export default function ItemsPage() {
                           />
                         </ClickableTableCell>
                         <div>
-                          <Link
-                            href={`/admin/items/${item.id}`}
-                            className="font-medium text-foreground hover:text-primary transition-colors"
-                          >
-                            {item.name}
-                          </Link>
+                          <div className="flex items-center gap-1.5">
+                            <Link
+                              href={`/admin/items/${item.id}`}
+                              className="font-medium text-foreground hover:text-primary transition-colors"
+                            >
+                              {item.name}
+                            </Link>
+                            {hasPendingEdits && (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-warning-light text-warning-dark"
+                                title="Pending offline changes"
+                              >
+                                <Clock className="w-3 h-3" />
+                                Pending
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-foreground-muted">
                             {item.sku}
                           </p>

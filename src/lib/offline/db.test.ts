@@ -778,4 +778,208 @@ describe('Offline Database Operations', () => {
       expect(mockPut).not.toHaveBeenCalled()
     })
   })
+
+  describe('applyPendingEditsToItems', () => {
+    const mockItemEdit: Omit<QueuedItemEdit, 'id' | 'idempotencyKey' | 'status' | 'retryCount' | 'createdAt'> = {
+      itemId: 'item-1',
+      changes: { category_id: 'cat-2' },
+      expectedVersion: 1,
+      userId: 'user-1',
+      deviceTimestamp: '2024-01-15T10:00:00Z',
+    }
+
+    it('should return original items when no pending edits exist', async () => {
+      mockGetAllFromIndex.mockResolvedValue([])
+
+      const items = [
+        { id: 'item-1', name: 'Item 1', category_id: 'cat-1' },
+        { id: 'item-2', name: 'Item 2', category_id: 'cat-1' },
+      ]
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems(items)
+
+      expect(result.items).toEqual(items)
+      expect(result.pendingItemIds.size).toBe(0)
+    })
+
+    it('should return empty array when items array is empty', async () => {
+      mockGetAllFromIndex.mockResolvedValue([])
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems([])
+
+      expect(result.items).toEqual([])
+      expect(result.pendingItemIds.size).toBe(0)
+    })
+
+    it('should apply single edit to matching item', async () => {
+      const pendingEdit: QueuedItemEdit = {
+        ...mockItemEdit,
+        id: 'edit-1',
+        idempotencyKey: 'key-1',
+        status: 'pending',
+        retryCount: 0,
+        createdAt: '2024-01-15T10:00:00Z',
+      }
+      mockGetAllFromIndex.mockResolvedValue([pendingEdit])
+
+      const items = [
+        { id: 'item-1', name: 'Item 1', category_id: 'cat-1' },
+        { id: 'item-2', name: 'Item 2', category_id: 'cat-1' },
+      ]
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems(items)
+
+      expect(result.items[0].category_id).toBe('cat-2') // Changed
+      expect(result.items[1].category_id).toBe('cat-1') // Unchanged
+      expect(result.pendingItemIds.has('item-1')).toBe(true)
+      expect(result.pendingItemIds.has('item-2')).toBe(false)
+    })
+
+    it('should apply multiple edits to same item in order', async () => {
+      const pendingEdits: QueuedItemEdit[] = [
+        {
+          ...mockItemEdit,
+          id: 'edit-1',
+          idempotencyKey: 'key-1',
+          changes: { min_stock: 5 },
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T09:00:00Z',
+        },
+        {
+          ...mockItemEdit,
+          id: 'edit-2',
+          idempotencyKey: 'key-2',
+          changes: { min_stock: 10, max_stock: 100 },
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        },
+      ]
+      mockGetAllFromIndex.mockResolvedValue(pendingEdits)
+
+      const items = [
+        { id: 'item-1', name: 'Item 1', min_stock: 0, max_stock: 50 },
+      ]
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems(items)
+
+      // Second edit should win (applied last)
+      expect(result.items[0].min_stock).toBe(10)
+      expect(result.items[0].max_stock).toBe(100)
+      expect(result.pendingItemIds.size).toBe(1)
+    })
+
+    it('should apply edits to multiple different items', async () => {
+      const pendingEdits: QueuedItemEdit[] = [
+        {
+          ...mockItemEdit,
+          itemId: 'item-1',
+          id: 'edit-1',
+          idempotencyKey: 'key-1',
+          changes: { unit_price: 10.99 },
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T09:00:00Z',
+        },
+        {
+          ...mockItemEdit,
+          itemId: 'item-3',
+          id: 'edit-2',
+          idempotencyKey: 'key-2',
+          changes: { unit_price: 25.00 },
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        },
+      ]
+      mockGetAllFromIndex.mockResolvedValue(pendingEdits)
+
+      const items = [
+        { id: 'item-1', name: 'Item 1', unit_price: 5.00 },
+        { id: 'item-2', name: 'Item 2', unit_price: 15.00 },
+        { id: 'item-3', name: 'Item 3', unit_price: 20.00 },
+      ]
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems(items)
+
+      expect(result.items[0].unit_price).toBe(10.99) // Changed
+      expect(result.items[1].unit_price).toBe(15.00) // Unchanged
+      expect(result.items[2].unit_price).toBe(25.00) // Changed
+      expect(result.pendingItemIds.has('item-1')).toBe(true)
+      expect(result.pendingItemIds.has('item-2')).toBe(false)
+      expect(result.pendingItemIds.has('item-3')).toBe(true)
+    })
+
+    it('should not modify items that have no pending edits', async () => {
+      const pendingEdit: QueuedItemEdit = {
+        ...mockItemEdit,
+        itemId: 'item-99', // Non-existent in items array
+        id: 'edit-1',
+        idempotencyKey: 'key-1',
+        status: 'pending',
+        retryCount: 0,
+        createdAt: '2024-01-15T10:00:00Z',
+      }
+      mockGetAllFromIndex.mockResolvedValue([pendingEdit])
+
+      const items = [
+        { id: 'item-1', name: 'Item 1', category_id: 'cat-1' },
+      ]
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems(items)
+
+      expect(result.items[0]).toEqual(items[0])
+      expect(result.pendingItemIds.has('item-99')).toBe(true)
+      expect(result.pendingItemIds.has('item-1')).toBe(false)
+    })
+
+    it('should correctly populate pendingItemIds set', async () => {
+      const pendingEdits: QueuedItemEdit[] = [
+        {
+          ...mockItemEdit,
+          itemId: 'item-1',
+          id: 'edit-1',
+          idempotencyKey: 'key-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T09:00:00Z',
+        },
+        {
+          ...mockItemEdit,
+          itemId: 'item-1',
+          id: 'edit-2',
+          idempotencyKey: 'key-2',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        },
+        {
+          ...mockItemEdit,
+          itemId: 'item-3',
+          id: 'edit-3',
+          idempotencyKey: 'key-3',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T11:00:00Z',
+        },
+      ]
+      mockGetAllFromIndex.mockResolvedValue(pendingEdits)
+
+      const items = [{ id: 'item-1', name: 'Item 1' }]
+
+      const { applyPendingEditsToItems } = await import('./db')
+      const result = await applyPendingEditsToItems(items)
+
+      expect(result.pendingItemIds.size).toBe(2) // item-1 and item-3
+      expect(result.pendingItemIds.has('item-1')).toBe(true)
+      expect(result.pendingItemIds.has('item-3')).toBe(true)
+    })
+  })
 })
