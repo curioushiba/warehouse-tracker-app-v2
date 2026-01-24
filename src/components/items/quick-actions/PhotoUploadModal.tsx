@@ -47,6 +47,8 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   const [activeTabIndex, setActiveTabIndex] = React.useState(0);
 
   const imageUploadRef = React.useRef<ImageUploadRef>(null);
+  // Track locally created blob URLs for cleanup
+  const localBlobUrlRef = React.useRef<string | null>(null);
   const { isOnline } = useOnlineStatus();
   const { queueImage } = useItemEditQueue();
   const { submitEdit } = useOfflineItemEdit();
@@ -54,9 +56,24 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   const isCameraTab = activeTabIndex === 1;
   const isBusy = isSubmitting || isUploading;
 
+  // Cleanup blob URL on unmount
+  React.useEffect(() => {
+    return () => {
+      if (localBlobUrlRef.current) {
+        URL.revokeObjectURL(localBlobUrlRef.current);
+        localBlobUrlRef.current = null;
+      }
+    };
+  }, []);
+
   // Reset form when modal opens
   React.useEffect(() => {
     if (isOpen) {
+      // Revoke old blob URL before resetting state
+      if (localBlobUrlRef.current) {
+        URL.revokeObjectURL(localBlobUrlRef.current);
+        localBlobUrlRef.current = null;
+      }
       setImageUrl(item.image_url);
       setPendingBlob(null);
       setPendingFilename("");
@@ -128,7 +145,12 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
       }
     } else {
       // Offline: store blob for later upload and create local preview
+      // Revoke old blob URL before creating new one
+      if (localBlobUrlRef.current) {
+        URL.revokeObjectURL(localBlobUrlRef.current);
+      }
       const localUrl = URL.createObjectURL(file);
+      localBlobUrlRef.current = localUrl;
       setImageUrl(localUrl);
       setPendingBlob(file);
       setPendingFilename(file.name);

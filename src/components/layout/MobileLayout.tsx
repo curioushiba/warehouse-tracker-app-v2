@@ -11,6 +11,7 @@ import {
   User,
   ArrowLeft,
   Bell,
+  AlertCircle,
 } from "lucide-react";
 import { IconButton, Avatar, ToastProvider } from "@/components/ui";
 import { OnlineIndicator, ConnectionStatusBar } from "@/components/ui";
@@ -146,6 +147,8 @@ export interface MobileLayoutProps {
   isOnline?: boolean;
   syncStatus?: SyncStatus;
   pendingCount?: number;
+  /** Count of failed sync errors to display warning banner */
+  failedSyncCount?: number;
 }
 
 export const MobileLayout: React.FC<MobileLayoutProps> = ({
@@ -160,6 +163,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   isOnline = true,
   syncStatus = "synced",
   pendingCount = 0,
+  failedSyncCount = 0,
 }) => {
   return (
     <ToastProvider>
@@ -170,6 +174,21 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
           syncStatus={syncStatus}
           pendingCount={pendingCount}
         />
+
+        {/* Failed Sync Warning Banner */}
+        {failedSyncCount > 0 && (
+          <Link
+            href="/employee/failed-syncs"
+            className="block bg-error-light border-b border-error/20 px-4 py-2 hover:bg-error-light/80 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-error-dark">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm font-medium">
+                {failedSyncCount} failed sync{failedSyncCount !== 1 ? "s" : ""} need attention
+              </span>
+            </div>
+          </Link>
+        )}
 
         {/* Header */}
         <MobileHeader

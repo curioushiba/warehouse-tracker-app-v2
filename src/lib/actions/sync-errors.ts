@@ -247,3 +247,58 @@ export async function getPendingSyncErrorCount(): Promise<ActionResult<number>> 
     return { success: false, error: "Failed to count sync errors" };
   }
 }
+
+/**
+ * Get count of pending sync errors for a specific user
+ */
+export async function getUserPendingSyncErrorCount(
+  userId: string
+): Promise<ActionResult<number>> {
+  try {
+    const supabase = await createClient();
+
+    const { count, error } = await supabase
+      .from("sync_errors")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error counting user sync errors:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: count || 0 };
+  } catch (error) {
+    console.error("Unexpected error counting user sync errors:", error);
+    return { success: false, error: "Failed to count sync errors" };
+  }
+}
+
+/**
+ * Get all pending sync errors for a specific user
+ */
+export async function getUserSyncErrors(
+  userId: string
+): Promise<ActionResult<SyncError[]>> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("sync_errors")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user sync errors:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data || [] };
+  } catch (error) {
+    console.error("Unexpected error fetching user sync errors:", error);
+    return { success: false, error: "Failed to fetch sync errors" };
+  }
+}

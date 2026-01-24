@@ -4,8 +4,7 @@ import { MobileLayout } from "@/components/layout";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { BatchScanProvider } from "@/contexts/BatchScanContext";
-import { useOnlineStatus } from "@/hooks";
-import { useSyncQueue } from "@/hooks";
+import { useOnlineStatus, useSyncQueue, useSyncErrorCount } from "@/hooks";
 import { useEffect } from "react";
 
 const pageTitles: Record<string, string> = {
@@ -16,6 +15,7 @@ const pageTitles: Record<string, string> = {
   "/employee/profile": "Profile",
   "/employee/transaction": "Transaction",
   "/employee/login": "Employee Login",
+  "/employee/failed-syncs": "Failed Syncs",
 };
 
 export default function EmployeeLayoutWrapper({
@@ -29,7 +29,15 @@ export default function EmployeeLayoutWrapper({
 
   const { isLoading, isAuthenticated, isEmployee, isAdmin } = useAuthContext();
   const { isOnline } = useOnlineStatus();
-  const { queueCount, isSyncing } = useSyncQueue();
+  const { queueCount, isSyncing, lastSyncTime } = useSyncQueue();
+  const { failedSyncCount, refetch: refetchSyncErrorCount } = useSyncErrorCount();
+
+  // Refetch failed sync count when sync completes
+  useEffect(() => {
+    if (lastSyncTime) {
+      refetchSyncErrorCount();
+    }
+  }, [lastSyncTime, refetchSyncErrorCount]);
 
   // Skip auth check for login page
   const isLoginPage = pathname === "/employee/login";
@@ -71,6 +79,7 @@ export default function EmployeeLayoutWrapper({
         syncStatus={displaySyncStatus}
         pendingCount={queueCount}
         showNotifications={false}
+        failedSyncCount={failedSyncCount}
       >
         {children}
       </MobileLayout>

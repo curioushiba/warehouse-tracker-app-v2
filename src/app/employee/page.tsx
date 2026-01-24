@@ -14,6 +14,7 @@ import {
   PenLine,
   RefreshCw,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -31,6 +32,7 @@ import {
 import { formatRelativeTime } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
+import { useSyncErrorCount } from "@/hooks/useSyncErrorCount";
 import {
   getEmployeeTransactionsWithItems,
   type EmployeeTransactionWithItem,
@@ -76,6 +78,7 @@ export default function EmployeeHomePage() {
   const searchParams = useSearchParams();
   const { profile, user, isLoading: authLoading } = useAuthContext();
   const { queueCount, isSyncing, syncQueue, isOnline, lastSyncTime } = useSyncQueue();
+  const { failedSyncCount } = useSyncErrorCount();
 
   // Batch success toast state
   const [showBatchSuccess, setShowBatchSuccess] = React.useState(false);
@@ -229,7 +232,7 @@ export default function EmployeeHomePage() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className={`grid ${failedSyncCount > 0 ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
           <div className="bg-white/10 rounded-card p-3">
             <p className="text-white/70 text-xs mb-1">Today&apos;s Transactions</p>
             {isLoading ? (
@@ -247,6 +250,15 @@ export default function EmployeeHomePage() {
               )}
             </div>
           </div>
+          {failedSyncCount > 0 && (
+            <Link href="/employee/failed-syncs" className="bg-error/20 rounded-card p-3 hover:bg-error/30 transition-colors">
+              <p className="text-white/70 text-xs mb-1">Failed Syncs</p>
+              <div className="flex items-center gap-2">
+                <p className="text-h3 font-bold">{failedSyncCount}</p>
+                <AlertCircle className="w-4 h-4 text-white" />
+              </div>
+            </Link>
+          )}
         </div>
       </div>
 

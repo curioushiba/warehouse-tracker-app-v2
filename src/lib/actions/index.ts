@@ -93,8 +93,23 @@ export {
   getDashboardStats,
   getDashboardData,
   getRecentActivity,
+  getLowStockDetails,
+  getCriticalStockDetails,
+  getTotalItemsBreakdown,
+  getTodayTransactionsBreakdown,
   type DashboardStats,
   type DashboardData,
+  type PriorityLevel,
+  type LowStockDetailItem,
+  type LowStockDetails,
+  type CriticalStockItem,
+  type CriticalStockDetails,
+  type CategoryBreakdown,
+  type TotalItemsBreakdown,
+  type TransactionTypeBreakdown,
+  type TopActiveItem,
+  type EmployeeActivity,
+  type TodayTransactionsBreakdown,
 } from './dashboard'
 
 // Sync Errors Actions
@@ -105,5 +120,7 @@ export {
   dismissSyncError,
   updateSyncError,
   getPendingSyncErrorCount,
+  getUserPendingSyncErrorCount,
+  getUserSyncErrors,
   type SyncErrorFilters,
 } from './sync-errors'

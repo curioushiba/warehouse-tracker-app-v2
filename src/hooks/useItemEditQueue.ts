@@ -73,6 +73,9 @@ export function useItemEditQueue() {
   // Track if initial sync has been attempted (to prevent duplicate syncs on mount)
   const initialSyncAttemptedRef = useRef(false)
 
+  // Track blob URLs for pending images to prevent memory leaks
+  const pendingImageBlobUrlsRef = useRef<Map<string, string>>(new Map())
+
   // Load queue counts on mount
   useEffect(() => {
     const loadQueueCounts = async () => {
@@ -174,8 +177,16 @@ export function useItemEditQueue() {
         throw new Error(error.message || 'Failed to upload image')
       }
 
-      // Success - remove from queue
+      // Success - remove from queue and cleanup blob URL
       await removePendingImage(image.itemId)
+
+      // Revoke the blob URL to prevent memory leak
+      const blobUrl = pendingImageBlobUrlsRef.current.get(image.itemId)
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl)
+        pendingImageBlobUrlsRef.current.delete(image.itemId)
+      }
+
       return true
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -183,6 +194,13 @@ export function useItemEditQueue() {
       if (image.retryCount >= MAX_RETRIES - 1) {
         await logSyncError({ type: 'image_upload', itemId: image.itemId, filename: image.filename }, errorMessage)
         await removePendingImage(image.itemId)
+
+        // Revoke the blob URL on max retries failure
+        const blobUrl = pendingImageBlobUrlsRef.current.get(image.itemId)
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl)
+          pendingImageBlobUrlsRef.current.delete(image.itemId)
+        }
       } else {
         await updatePendingImageStatus(image.itemId, 'failed', errorMessage)
       }
@@ -336,9 +354,18 @@ export function useItemEditQueue() {
   ) => {
     const pendingImage = await addPendingImage(itemId, blob, filename)
 
+    // Revoke existing blob URL for this item if any (prevents memory leak)
+    const existingUrl = pendingImageBlobUrlsRef.current.get(itemId)
+    if (existingUrl) {
+      URL.revokeObjectURL(existingUrl)
+    }
+
     // Create a local object URL for optimistic display
-    // Note: URL will be revoked when the image is synced and replaced with real URL
     const localUrl = URL.createObjectURL(blob)
+
+    // Track the new URL for later cleanup
+    pendingImageBlobUrlsRef.current.set(itemId, localUrl)
+
     await updateCachedItem(itemId, { imageUrl: localUrl })
 
     const count = await getPendingImageCount()
