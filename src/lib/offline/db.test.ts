@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { QueuedTransaction, CachedItem, QueuedItemEdit, PendingImage } from './db'
+import type { QueuedTransaction, CachedItem, QueuedItemEdit, PendingImage, QueuedItemCreate, QueuedItemArchive } from './db'
 
 // Mock IndexedDB operations
 const mockPut = vi.fn()
@@ -58,7 +58,23 @@ const mockCachedItem: CachedItem = {
   minStock: 10,
   maxStock: 200,
   barcode: '1234567890123',
+  version: 1,
   updatedAt: '2024-01-15T10:00:00Z',
+}
+
+const mockItemCreateData = {
+  name: 'New Item',
+  description: 'Test description',
+  category_id: 'cat-1',
+  unit: 'pieces',
+  min_stock: 10,
+}
+
+const mockArchiveData = {
+  itemId: 'item-1',
+  action: 'archive' as const,
+  expectedVersion: 1,
+  userId: 'user-1',
 }
 
 describe('Offline Database Operations', () => {
@@ -987,6 +1003,980 @@ describe('Offline Database Operations', () => {
       expect(result.pendingItemIds.size).toBe(2) // item-1 and item-3
       expect(result.pendingItemIds.has('item-1')).toBe(true)
       expect(result.pendingItemIds.has('item-3')).toBe(true)
+    })
+  })
+
+  describe('Item Create Queue Operations', () => {
+    describe('addItemCreateToQueue', () => {
+      it('should add a create with generated id, tempSku, and idempotencyKey', async () => {
+        const { addItemCreateToQueue } = await import('./db')
+
+        const result = await addItemCreateToQueue(mockItemCreateData, 'user-1')
+
+        expect(mockPut).toHaveBeenCalledWith('itemCreateQueue', expect.objectContaining({
+          id: 'mock-uuid-12345',
+          idempotencyKey: 'mock-uuid-12345',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+        }))
+        // tempSku is derived from id.slice(0, 8).toUpperCase()
+        expect(result.tempSku).toBe('TEMP-MOCK-UUI')
+        expect(result.id).toBe('mock-uuid-12345')
+        expect(result.status).toBe('pending')
+        expect(result.retryCount).toBe(0)
+        // itemData should include the id
+        expect(result.itemData.id).toBe('mock-uuid-12345')
+        expect(result.itemData.name).toBe(mockItemCreateData.name)
+      })
+
+      it('should generate tempSku from first 8 chars of id uppercased', async () => {
+        const { addItemCreateToQueue } = await import('./db')
+
+        const result = await addItemCreateToQueue(mockItemCreateData, 'user-1')
+
+        // With mock UUID 'mock-uuid-12345', slice(0,8) = 'mock-uui', uppercased = 'MOCK-UUI'
+        expect(result.tempSku).toMatch(/^TEMP-/)
+        expect(result.tempSku.length).toBe(13) // 'TEMP-' (5) + 8 chars
+      })
+    })
+
+    describe('getQueuedItemCreates', () => {
+      it('should return all creates ordered by creation', async () => {
+        const mockCreates: QueuedItemCreate[] = [
+          { id: 'create-1', tempSku: 'TEMP-AAAAAAAA', itemData: mockItemCreateData, idempotencyKey: 'key-1', userId: 'user-1', status: 'pending', retryCount: 0, createdAt: '2024-01-15T09:00:00Z', deviceTimestamp: '2024-01-15T09:00:00Z' },
+          { id: 'create-2', tempSku: 'TEMP-BBBBBBBB', itemData: mockItemCreateData, idempotencyKey: 'key-2', userId: 'user-1', status: 'pending', retryCount: 0, createdAt: '2024-01-15T10:00:00Z', deviceTimestamp: '2024-01-15T10:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(mockCreates)
+
+        const { getQueuedItemCreates } = await import('./db')
+        const result = await getQueuedItemCreates()
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('itemCreateQueue', 'by-created')
+        expect(result).toEqual(mockCreates)
+      })
+
+      it('should return empty array when queue is empty', async () => {
+        mockGetAllFromIndex.mockResolvedValue([])
+
+        const { getQueuedItemCreates } = await import('./db')
+        const result = await getQueuedItemCreates()
+
+        expect(result).toEqual([])
+      })
+    })
+
+    describe('getQueuedItemCreateById', () => {
+      it('should return create by id', async () => {
+        const mockCreate: QueuedItemCreate = {
+          id: 'create-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: mockItemCreateData,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(mockCreate)
+
+        const { getQueuedItemCreateById } = await import('./db')
+        const result = await getQueuedItemCreateById('create-1')
+
+        expect(mockGet).toHaveBeenCalledWith('itemCreateQueue', 'create-1')
+        expect(result).toEqual(mockCreate)
+      })
+
+      it('should return undefined for non-existent id', async () => {
+        mockGet.mockResolvedValue(undefined)
+
+        const { getQueuedItemCreateById } = await import('./db')
+        const result = await getQueuedItemCreateById('non-existent')
+
+        expect(result).toBeUndefined()
+      })
+    })
+
+    describe('getQueuedItemCreatesByStatus', () => {
+      it('should return creates filtered by status', async () => {
+        const mockCreates: QueuedItemCreate[] = [
+          { id: 'create-1', tempSku: 'TEMP-AAAAAAAA', itemData: mockItemCreateData, idempotencyKey: 'key-1', userId: 'user-1', status: 'failed', retryCount: 1, createdAt: '2024-01-15T10:00:00Z', deviceTimestamp: '2024-01-15T10:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(mockCreates)
+
+        const { getQueuedItemCreatesByStatus } = await import('./db')
+        const result = await getQueuedItemCreatesByStatus('failed')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('itemCreateQueue', 'by-status', 'failed')
+        expect(result).toEqual(mockCreates)
+      })
+    })
+
+    describe('getItemCreateQueueCount', () => {
+      it('should return count of queued creates', async () => {
+        mockCount.mockResolvedValue(3)
+
+        const { getItemCreateQueueCount } = await import('./db')
+        const result = await getItemCreateQueueCount()
+
+        expect(mockCount).toHaveBeenCalledWith('itemCreateQueue')
+        expect(result).toBe(3)
+      })
+
+      it('should return 0 when empty', async () => {
+        mockCount.mockResolvedValue(0)
+
+        const { getItemCreateQueueCount } = await import('./db')
+        const result = await getItemCreateQueueCount()
+
+        expect(result).toBe(0)
+      })
+    })
+
+    describe('updateItemCreateStatus', () => {
+      it('should update status and set error', async () => {
+        const existingCreate: QueuedItemCreate = {
+          id: 'create-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: mockItemCreateData,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingCreate)
+
+        const { updateItemCreateStatus } = await import('./db')
+        await updateItemCreateStatus('create-1', 'failed', 'Network error')
+
+        expect(mockPut).toHaveBeenCalledWith('itemCreateQueue', {
+          ...existingCreate,
+          status: 'failed',
+          lastError: 'Network error',
+          retryCount: 1, // Incremented on failure
+        })
+      })
+
+      it('should increment retryCount on failed status', async () => {
+        const existingCreate: QueuedItemCreate = {
+          id: 'create-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: mockItemCreateData,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'syncing',
+          retryCount: 2,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingCreate)
+
+        const { updateItemCreateStatus } = await import('./db')
+        await updateItemCreateStatus('create-1', 'failed', 'Server error')
+
+        expect(mockPut).toHaveBeenCalledWith('itemCreateQueue', expect.objectContaining({
+          retryCount: 3, // Incremented from 2 to 3
+        }))
+      })
+
+      it('should not increment retryCount on syncing status', async () => {
+        const existingCreate: QueuedItemCreate = {
+          id: 'create-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: mockItemCreateData,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingCreate)
+
+        const { updateItemCreateStatus } = await import('./db')
+        await updateItemCreateStatus('create-1', 'syncing')
+
+        expect(mockPut).toHaveBeenCalledWith('itemCreateQueue', {
+          ...existingCreate,
+          status: 'syncing',
+          lastError: undefined,
+          retryCount: 0, // Not incremented
+        })
+      })
+    })
+
+    describe('updateItemCreateData', () => {
+      it('should merge new itemData with existing', async () => {
+        const existingCreate: QueuedItemCreate = {
+          id: 'create-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: { name: 'Original', unit: 'pcs' },
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingCreate)
+
+        const { updateItemCreateData } = await import('./db')
+        await updateItemCreateData('create-1', { name: 'Updated', min_stock: 5 })
+
+        expect(mockPut).toHaveBeenCalledWith('itemCreateQueue', {
+          ...existingCreate,
+          itemData: { name: 'Updated', unit: 'pcs', min_stock: 5 },
+        })
+      })
+
+      it('should do nothing for non-existent id', async () => {
+        mockGet.mockResolvedValue(undefined)
+
+        const { updateItemCreateData } = await import('./db')
+        await updateItemCreateData('non-existent', { name: 'Updated' })
+
+        expect(mockPut).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('removeItemCreateFromQueue', () => {
+      it('should delete create by id', async () => {
+        const { removeItemCreateFromQueue } = await import('./db')
+
+        await removeItemCreateFromQueue('create-1')
+
+        expect(mockDelete).toHaveBeenCalledWith('itemCreateQueue', 'create-1')
+      })
+    })
+
+    describe('clearItemCreateQueue', () => {
+      it('should clear all creates from queue', async () => {
+        const { clearItemCreateQueue } = await import('./db')
+
+        await clearItemCreateQueue()
+
+        expect(mockClear).toHaveBeenCalledWith('itemCreateQueue')
+      })
+    })
+  })
+
+  describe('Item Archive Queue Operations', () => {
+    describe('addItemArchiveToQueue', () => {
+      it('should add archive with generated id and idempotencyKey', async () => {
+        const { addItemArchiveToQueue } = await import('./db')
+
+        const result = await addItemArchiveToQueue('item-1', 'archive', 1, 'user-1')
+
+        expect(mockPut).toHaveBeenCalledWith('itemArchiveQueue', expect.objectContaining({
+          id: 'mock-uuid-12345',
+          itemId: 'item-1',
+          action: 'archive',
+          expectedVersion: 1,
+          idempotencyKey: 'mock-uuid-12345',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: expect.any(String),
+          deviceTimestamp: expect.any(String),
+        }))
+        expect(result.id).toBe('mock-uuid-12345')
+        expect(result.status).toBe('pending')
+        expect(result.retryCount).toBe(0)
+      })
+
+      it('should store action correctly for archive', async () => {
+        const { addItemArchiveToQueue } = await import('./db')
+
+        const result = await addItemArchiveToQueue('item-1', 'archive', 1, 'user-1')
+
+        expect(result.action).toBe('archive')
+      })
+
+      it('should store action correctly for restore', async () => {
+        const { addItemArchiveToQueue } = await import('./db')
+
+        const result = await addItemArchiveToQueue('item-1', 'restore', 2, 'user-1')
+
+        expect(result.action).toBe('restore')
+        expect(mockPut).toHaveBeenCalledWith('itemArchiveQueue', expect.objectContaining({
+          action: 'restore',
+          expectedVersion: 2,
+        }))
+      })
+    })
+
+    describe('getQueuedItemArchives', () => {
+      it('should return all archives ordered by creation', async () => {
+        const mockArchives: QueuedItemArchive[] = [
+          { id: 'archive-1', itemId: 'item-1', action: 'archive', expectedVersion: 1, idempotencyKey: 'key-1', userId: 'user-1', status: 'pending', retryCount: 0, createdAt: '2024-01-15T09:00:00Z', deviceTimestamp: '2024-01-15T09:00:00Z' },
+          { id: 'archive-2', itemId: 'item-2', action: 'restore', expectedVersion: 2, idempotencyKey: 'key-2', userId: 'user-1', status: 'pending', retryCount: 0, createdAt: '2024-01-15T10:00:00Z', deviceTimestamp: '2024-01-15T10:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(mockArchives)
+
+        const { getQueuedItemArchives } = await import('./db')
+        const result = await getQueuedItemArchives()
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('itemArchiveQueue', 'by-created')
+        expect(result).toEqual(mockArchives)
+      })
+
+      it('should return empty array when queue is empty', async () => {
+        mockGetAllFromIndex.mockResolvedValue([])
+
+        const { getQueuedItemArchives } = await import('./db')
+        const result = await getQueuedItemArchives()
+
+        expect(result).toEqual([])
+      })
+    })
+
+    describe('getQueuedArchivesByItem', () => {
+      it('should return archives for specific itemId', async () => {
+        const mockArchives: QueuedItemArchive[] = [
+          { id: 'archive-1', itemId: 'item-1', action: 'archive', expectedVersion: 1, idempotencyKey: 'key-1', userId: 'user-1', status: 'pending', retryCount: 0, createdAt: '2024-01-15T10:00:00Z', deviceTimestamp: '2024-01-15T10:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(mockArchives)
+
+        const { getQueuedArchivesByItem } = await import('./db')
+        const result = await getQueuedArchivesByItem('item-1')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('itemArchiveQueue', 'by-item', 'item-1')
+        expect(result).toEqual(mockArchives)
+      })
+
+      it('should return empty array for non-existent item', async () => {
+        mockGetAllFromIndex.mockResolvedValue([])
+
+        const { getQueuedArchivesByItem } = await import('./db')
+        const result = await getQueuedArchivesByItem('non-existent')
+
+        expect(result).toEqual([])
+      })
+    })
+
+    describe('getQueuedArchivesByStatus', () => {
+      it('should return archives filtered by status', async () => {
+        const mockArchives: QueuedItemArchive[] = [
+          { id: 'archive-1', itemId: 'item-1', action: 'archive', expectedVersion: 1, idempotencyKey: 'key-1', userId: 'user-1', status: 'failed', retryCount: 1, createdAt: '2024-01-15T10:00:00Z', deviceTimestamp: '2024-01-15T10:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(mockArchives)
+
+        const { getQueuedArchivesByStatus } = await import('./db')
+        const result = await getQueuedArchivesByStatus('failed')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('itemArchiveQueue', 'by-status', 'failed')
+        expect(result).toEqual(mockArchives)
+      })
+    })
+
+    describe('getItemArchiveQueueCount', () => {
+      it('should return count of queued archives', async () => {
+        mockCount.mockResolvedValue(4)
+
+        const { getItemArchiveQueueCount } = await import('./db')
+        const result = await getItemArchiveQueueCount()
+
+        expect(mockCount).toHaveBeenCalledWith('itemArchiveQueue')
+        expect(result).toBe(4)
+      })
+
+      it('should return 0 when empty', async () => {
+        mockCount.mockResolvedValue(0)
+
+        const { getItemArchiveQueueCount } = await import('./db')
+        const result = await getItemArchiveQueueCount()
+
+        expect(result).toBe(0)
+      })
+    })
+
+    describe('updateItemArchiveStatus', () => {
+      it('should update status and set error', async () => {
+        const existingArchive: QueuedItemArchive = {
+          id: 'archive-1',
+          itemId: 'item-1',
+          action: 'archive',
+          expectedVersion: 1,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingArchive)
+
+        const { updateItemArchiveStatus } = await import('./db')
+        await updateItemArchiveStatus('archive-1', 'failed', 'Version conflict')
+
+        expect(mockPut).toHaveBeenCalledWith('itemArchiveQueue', {
+          ...existingArchive,
+          status: 'failed',
+          lastError: 'Version conflict',
+          retryCount: 1, // Incremented on failure
+        })
+      })
+
+      it('should increment retryCount on failed status', async () => {
+        const existingArchive: QueuedItemArchive = {
+          id: 'archive-1',
+          itemId: 'item-1',
+          action: 'archive',
+          expectedVersion: 1,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'syncing',
+          retryCount: 2,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingArchive)
+
+        const { updateItemArchiveStatus } = await import('./db')
+        await updateItemArchiveStatus('archive-1', 'failed', 'Server error')
+
+        expect(mockPut).toHaveBeenCalledWith('itemArchiveQueue', expect.objectContaining({
+          retryCount: 3, // Incremented from 2 to 3
+        }))
+      })
+
+      it('should not increment retryCount on syncing status', async () => {
+        const existingArchive: QueuedItemArchive = {
+          id: 'archive-1',
+          itemId: 'item-1',
+          action: 'archive',
+          expectedVersion: 1,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(existingArchive)
+
+        const { updateItemArchiveStatus } = await import('./db')
+        await updateItemArchiveStatus('archive-1', 'syncing')
+
+        expect(mockPut).toHaveBeenCalledWith('itemArchiveQueue', {
+          ...existingArchive,
+          status: 'syncing',
+          lastError: undefined,
+          retryCount: 0, // Not incremented
+        })
+      })
+    })
+
+    describe('removeItemArchiveFromQueue', () => {
+      it('should delete archive by id', async () => {
+        const { removeItemArchiveFromQueue } = await import('./db')
+
+        await removeItemArchiveFromQueue('archive-1')
+
+        expect(mockDelete).toHaveBeenCalledWith('itemArchiveQueue', 'archive-1')
+      })
+    })
+
+    describe('clearItemArchiveQueue', () => {
+      it('should clear all archives from queue', async () => {
+        const { clearItemArchiveQueue } = await import('./db')
+
+        await clearItemArchiveQueue()
+
+        expect(mockClear).toHaveBeenCalledWith('itemArchiveQueue')
+      })
+    })
+  })
+
+  describe('Extended Pending Images Operations', () => {
+    const mockBlob = new Blob(['test'], { type: 'image/jpeg' })
+
+    describe('addPendingImage with isOfflineItem', () => {
+      it('should set status to waiting_for_item when isOfflineItem is true', async () => {
+        const { addPendingImage } = await import('./db')
+
+        const result = await addPendingImage('offline-item-1', mockBlob, 'test.jpg', true)
+
+        expect(mockPut).toHaveBeenCalledWith('pendingImages', expect.objectContaining({
+          itemId: 'offline-item-1',
+          isOfflineItem: true,
+          status: 'waiting_for_item',
+        }))
+        expect(result.status).toBe('waiting_for_item')
+        expect(result.isOfflineItem).toBe(true)
+      })
+    })
+
+    describe('getPendingImageById', () => {
+      it('should return image by id', async () => {
+        const mockImage: PendingImage = {
+          id: 'img-1',
+          itemId: 'item-1',
+          isOfflineItem: false,
+          blob: mockBlob,
+          filename: 'test.jpg',
+          mimeType: 'image/jpeg',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        mockGet.mockResolvedValue(mockImage)
+
+        const { getPendingImageById } = await import('./db')
+        const result = await getPendingImageById('img-1')
+
+        expect(mockGet).toHaveBeenCalledWith('pendingImages', 'img-1')
+        expect(result).toEqual(mockImage)
+      })
+
+      it('should return undefined for non-existent id', async () => {
+        mockGet.mockResolvedValue(undefined)
+
+        const { getPendingImageById } = await import('./db')
+        const result = await getPendingImageById('non-existent')
+
+        expect(result).toBeUndefined()
+      })
+    })
+
+    describe('getPendingImagesByStatus', () => {
+      it('should return images filtered by status', async () => {
+        const mockImages: PendingImage[] = [
+          { id: 'img-1', itemId: 'item-1', isOfflineItem: true, blob: mockBlob, filename: 'test.jpg', mimeType: 'image/jpeg', status: 'waiting_for_item', retryCount: 0, createdAt: '2024-01-15T10:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(mockImages)
+
+        const { getPendingImagesByStatus } = await import('./db')
+        const result = await getPendingImagesByStatus('waiting_for_item')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('pendingImages', 'by-status', 'waiting_for_item')
+        expect(result).toEqual(mockImages)
+      })
+    })
+
+    describe('transitionWaitingImagesToReady', () => {
+      it('should change waiting_for_item to pending', async () => {
+        const waitingImage: PendingImage = {
+          id: 'img-1',
+          itemId: 'item-1',
+          isOfflineItem: true,
+          blob: mockBlob,
+          filename: 'test.jpg',
+          mimeType: 'image/jpeg',
+          status: 'waiting_for_item',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex.mockResolvedValue([waitingImage])
+
+        const { transitionWaitingImagesToReady } = await import('./db')
+        await transitionWaitingImagesToReady('item-1')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('pendingImages', 'by-item', 'item-1')
+        expect(mockPut).toHaveBeenCalledWith('pendingImages', {
+          ...waitingImage,
+          status: 'pending',
+          isOfflineItem: false,
+        })
+      })
+
+      it('should set isOfflineItem to false', async () => {
+        const waitingImage: PendingImage = {
+          id: 'img-1',
+          itemId: 'item-1',
+          isOfflineItem: true,
+          blob: mockBlob,
+          filename: 'test.jpg',
+          mimeType: 'image/jpeg',
+          status: 'waiting_for_item',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex.mockResolvedValue([waitingImage])
+
+        const { transitionWaitingImagesToReady } = await import('./db')
+        await transitionWaitingImagesToReady('item-1')
+
+        expect(mockPut).toHaveBeenCalledWith('pendingImages', expect.objectContaining({
+          isOfflineItem: false,
+        }))
+      })
+
+      it('should only affect images for specified itemId', async () => {
+        const image1: PendingImage = {
+          id: 'img-1',
+          itemId: 'item-1',
+          isOfflineItem: true,
+          blob: mockBlob,
+          filename: 'test1.jpg',
+          mimeType: 'image/jpeg',
+          status: 'waiting_for_item',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex.mockResolvedValue([image1])
+
+        const { transitionWaitingImagesToReady } = await import('./db')
+        await transitionWaitingImagesToReady('item-1')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('pendingImages', 'by-item', 'item-1')
+        expect(mockPut).toHaveBeenCalledTimes(1)
+      })
+
+      it('should ignore images already in other statuses', async () => {
+        const pendingImage: PendingImage = {
+          id: 'img-1',
+          itemId: 'item-1',
+          isOfflineItem: false,
+          blob: mockBlob,
+          filename: 'test.jpg',
+          mimeType: 'image/jpeg',
+          status: 'pending', // Already pending, not waiting_for_item
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex.mockResolvedValue([pendingImage])
+
+        const { transitionWaitingImagesToReady } = await import('./db')
+        await transitionWaitingImagesToReady('item-1')
+
+        expect(mockPut).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('removePendingImagesForItem', () => {
+      it('should remove all images for specified itemId', async () => {
+        const images: PendingImage[] = [
+          { id: 'img-1', itemId: 'item-1', isOfflineItem: false, blob: mockBlob, filename: 'test1.jpg', mimeType: 'image/jpeg', status: 'pending', retryCount: 0, createdAt: '2024-01-15T10:00:00Z' },
+          { id: 'img-2', itemId: 'item-1', isOfflineItem: false, blob: mockBlob, filename: 'test2.jpg', mimeType: 'image/jpeg', status: 'pending', retryCount: 0, createdAt: '2024-01-15T11:00:00Z' },
+        ]
+        mockGetAllFromIndex.mockResolvedValue(images)
+
+        // Setup transaction mock with store.delete
+        const mockStoreDelete = vi.fn()
+        mockTransaction.mockReturnValue({
+          store: { delete: mockStoreDelete },
+          done: Promise.resolve(),
+        })
+
+        const { removePendingImagesForItem } = await import('./db')
+        await removePendingImagesForItem('item-1')
+
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('pendingImages', 'by-item', 'item-1')
+        expect(mockTransaction).toHaveBeenCalledWith('pendingImages', 'readwrite')
+        expect(mockStoreDelete).toHaveBeenCalledWith('img-1')
+        expect(mockStoreDelete).toHaveBeenCalledWith('img-2')
+      })
+
+      it('should use transaction for batch delete', async () => {
+        mockGetAllFromIndex.mockResolvedValue([])
+        mockTransaction.mockReturnValue({
+          store: { delete: vi.fn() },
+          done: Promise.resolve(),
+        })
+
+        const { removePendingImagesForItem } = await import('./db')
+        await removePendingImagesForItem('item-1')
+
+        expect(mockTransaction).toHaveBeenCalledWith('pendingImages', 'readwrite')
+      })
+    })
+  })
+
+  describe('Utility Functions', () => {
+    describe('cacheItem', () => {
+      it('should add single item to cache', async () => {
+        const { cacheItem } = await import('./db')
+
+        await cacheItem(mockCachedItem)
+
+        expect(mockPut).toHaveBeenCalledWith('itemsCache', mockCachedItem)
+      })
+
+      it('should overwrite existing item with same id', async () => {
+        const { cacheItem } = await import('./db')
+        const updatedItem = { ...mockCachedItem, name: 'Updated Name' }
+
+        await cacheItem(updatedItem)
+
+        expect(mockPut).toHaveBeenCalledWith('itemsCache', updatedItem)
+      })
+    })
+
+    describe('getAllQueueCounts', () => {
+      it('should return counts for all queues', async () => {
+        mockCount
+          .mockResolvedValueOnce(2) // creates
+          .mockResolvedValueOnce(3) // edits
+          .mockResolvedValueOnce(1) // archives
+          .mockResolvedValueOnce(4) // images
+          .mockResolvedValueOnce(5) // transactions
+
+        const { getAllQueueCounts } = await import('./db')
+        const result = await getAllQueueCounts()
+
+        expect(result).toEqual({
+          creates: 2,
+          edits: 3,
+          archives: 1,
+          images: 4,
+          transactions: 5,
+        })
+      })
+
+      it('should return zeros when all queues empty', async () => {
+        mockCount.mockResolvedValue(0)
+
+        const { getAllQueueCounts } = await import('./db')
+        const result = await getAllQueueCounts()
+
+        expect(result).toEqual({
+          creates: 0,
+          edits: 0,
+          archives: 0,
+          images: 0,
+          transactions: 0,
+        })
+      })
+    })
+
+    describe('applyPendingOperationsToItems', () => {
+      const mockItemEdit: Omit<QueuedItemEdit, 'id' | 'idempotencyKey' | 'status' | 'retryCount' | 'createdAt'> = {
+        itemId: 'item-1',
+        changes: { category_id: 'cat-2' },
+        expectedVersion: 1,
+        userId: 'user-1',
+        deviceTimestamp: '2024-01-15T10:00:00Z',
+      }
+
+      it('should return original items when no pending operations', async () => {
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([]) // creates
+          .mockResolvedValueOnce([]) // edits
+          .mockResolvedValueOnce([]) // archives
+
+        const items = [
+          { id: 'item-1', name: 'Item 1', is_archived: false },
+          { id: 'item-2', name: 'Item 2', is_archived: false },
+        ]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(items)
+
+        expect(result.items).toEqual(items)
+        expect(result.pendingOperations.size).toBe(0)
+        expect(result.offlineItemIds.size).toBe(0)
+      })
+
+      it('should add offline-created items to beginning of list', async () => {
+        const pendingCreate: QueuedItemCreate = {
+          id: 'offline-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: { name: 'Offline Item', unit: 'pcs' },
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([pendingCreate]) // creates
+          .mockResolvedValueOnce([]) // edits
+          .mockResolvedValueOnce([]) // archives
+
+        const serverItems = [
+          { id: 'item-1', name: 'Server Item', is_archived: false },
+        ]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(serverItems)
+
+        expect(result.items.length).toBe(2)
+        expect(result.items[0].id).toBe('offline-1') // Offline item first
+        expect(result.items[0].sku).toBe('TEMP-AAAAAAAA')
+        expect(result.items[1].id).toBe('item-1') // Server item second
+        expect(result.offlineItemIds.has('offline-1')).toBe(true)
+      })
+
+      it('should apply pending edits to matching items', async () => {
+        const pendingEdit: QueuedItemEdit = {
+          ...mockItemEdit,
+          id: 'edit-1',
+          idempotencyKey: 'key-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([]) // creates
+          .mockResolvedValueOnce([pendingEdit]) // edits
+          .mockResolvedValueOnce([]) // archives
+
+        const items = [
+          { id: 'item-1', name: 'Item 1', category_id: 'cat-1', is_archived: false },
+        ]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(items)
+
+        expect(result.items[0].category_id).toBe('cat-2') // Changed by edit
+        expect(result.pendingOperations.get('item-1')?.has('pending_edit')).toBe(true)
+      })
+
+      it('should filter out items with pending archive', async () => {
+        const pendingArchive: QueuedItemArchive = {
+          id: 'archive-1',
+          itemId: 'item-1',
+          action: 'archive',
+          expectedVersion: 1,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([]) // creates
+          .mockResolvedValueOnce([]) // edits
+          .mockResolvedValueOnce([pendingArchive]) // archives
+
+        const items = [
+          { id: 'item-1', name: 'Item 1', is_archived: false },
+          { id: 'item-2', name: 'Item 2', is_archived: false },
+        ]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(items)
+
+        expect(result.items.length).toBe(1)
+        expect(result.items[0].id).toBe('item-2') // Only item-2 remains
+        expect(result.pendingOperations.get('item-1')?.has('pending_archive')).toBe(true)
+      })
+
+      it('should show items with pending restore', async () => {
+        const pendingRestore: QueuedItemArchive = {
+          id: 'archive-1',
+          itemId: 'item-1',
+          action: 'restore',
+          expectedVersion: 1,
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([]) // creates
+          .mockResolvedValueOnce([]) // edits
+          .mockResolvedValueOnce([pendingRestore]) // archives
+
+        const items = [
+          { id: 'item-1', name: 'Item 1', is_archived: true }, // Server says archived
+        ]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(items)
+
+        expect(result.items.length).toBe(1)
+        expect(result.items[0].id).toBe('item-1') // Item shown due to pending restore
+        expect(result.pendingOperations.get('item-1')?.has('pending_restore')).toBe(true)
+      })
+
+      it('should set correct pendingOperations map with operation types', async () => {
+        const pendingCreate: QueuedItemCreate = {
+          id: 'offline-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: { name: 'Offline' },
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T09:00:00Z',
+          deviceTimestamp: '2024-01-15T09:00:00Z',
+        }
+        const pendingEdit: QueuedItemEdit = {
+          ...mockItemEdit,
+          itemId: 'item-1',
+          id: 'edit-1',
+          idempotencyKey: 'key-2',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+        }
+        const pendingArchive: QueuedItemArchive = {
+          id: 'archive-1',
+          itemId: 'item-2',
+          action: 'archive',
+          expectedVersion: 1,
+          idempotencyKey: 'key-3',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T11:00:00Z',
+          deviceTimestamp: '2024-01-15T11:00:00Z',
+        }
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([pendingCreate]) // creates
+          .mockResolvedValueOnce([pendingEdit]) // edits
+          .mockResolvedValueOnce([pendingArchive]) // archives
+
+        const items = [
+          { id: 'item-1', name: 'Item 1', is_archived: false },
+          { id: 'item-2', name: 'Item 2', is_archived: false },
+        ]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(items)
+
+        expect(result.pendingOperations.get('offline-1')?.has('offline')).toBe(true)
+        expect(result.pendingOperations.get('item-1')?.has('pending_edit')).toBe(true)
+        expect(result.pendingOperations.get('item-2')?.has('pending_archive')).toBe(true)
+      })
+
+      it('should set correct offlineItemIds set', async () => {
+        const pendingCreate1: QueuedItemCreate = {
+          id: 'offline-1',
+          tempSku: 'TEMP-AAAAAAAA',
+          itemData: { name: 'Offline 1' },
+          idempotencyKey: 'key-1',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T09:00:00Z',
+          deviceTimestamp: '2024-01-15T09:00:00Z',
+        }
+        const pendingCreate2: QueuedItemCreate = {
+          id: 'offline-2',
+          tempSku: 'TEMP-BBBBBBBB',
+          itemData: { name: 'Offline 2' },
+          idempotencyKey: 'key-2',
+          userId: 'user-1',
+          status: 'pending',
+          retryCount: 0,
+          createdAt: '2024-01-15T10:00:00Z',
+          deviceTimestamp: '2024-01-15T10:00:00Z',
+        }
+        mockGetAllFromIndex
+          .mockResolvedValueOnce([pendingCreate1, pendingCreate2]) // creates
+          .mockResolvedValueOnce([]) // edits
+          .mockResolvedValueOnce([]) // archives
+
+        const items = [{ id: 'item-1', name: 'Server Item', is_archived: false }]
+
+        const { applyPendingOperationsToItems } = await import('./db')
+        const result = await applyPendingOperationsToItems(items)
+
+        expect(result.offlineItemIds.size).toBe(2)
+        expect(result.offlineItemIds.has('offline-1')).toBe(true)
+        expect(result.offlineItemIds.has('offline-2')).toBe(true)
+        expect(result.offlineItemIds.has('item-1')).toBe(false)
+      })
     })
   })
 })
