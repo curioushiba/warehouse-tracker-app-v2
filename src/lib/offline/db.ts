@@ -820,7 +820,7 @@ export async function applyPendingOperationsToItems<T extends { id: string; is_a
       version: 0,
       created_at: create.createdAt,
       updated_at: create.createdAt,
-    } as T
+    } as unknown as T
   })
 
   // Group edits by itemId
