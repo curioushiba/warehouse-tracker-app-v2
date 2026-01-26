@@ -11,6 +11,7 @@ import {
   addToQueue,
   type QueuedTransaction,
 } from '@/lib/offline/db'
+import { notifyTransactionSubmitted } from '@/lib/events/transactions'
 
 const MAX_RETRIES = 3
 const SYNC_INTERVAL = 30000 // 30 seconds
@@ -71,8 +72,9 @@ export function useSyncQueue() {
         throw new Error(error.message || 'Failed to submit transaction')
       }
 
-      // Success - remove from queue
+      // Success - remove from queue and notify listeners
       await removeFromQueue(transaction.id)
+      notifyTransactionSubmitted()
       return true
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'

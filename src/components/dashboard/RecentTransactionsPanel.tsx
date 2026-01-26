@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import {
@@ -15,6 +15,10 @@ import {
 } from "@/components/ui";
 import { getRecentActivity } from "@/lib/actions/dashboard";
 import { formatRelativeTime } from "@/lib/utils";
+import { onTransactionSubmitted } from "@/lib/events/transactions";
+
+const POLLING_INTERVAL = 60000; // 60 seconds
+const DEBOUNCE_INTERVAL = 2000; // 2 seconds minimum between refreshes
 
 // Transaction type for recent activity
 interface RecentTransaction {
@@ -33,8 +37,16 @@ interface RecentTransactionsPanelProps {
 export function RecentTransactionsPanel({ initialData }: RecentTransactionsPanelProps) {
   const [transactions, setTransactions] = useState<RecentTransaction[]>(initialData);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const lastRefreshRef = useRef<number>(Date.now());
 
   const refresh = useCallback(async () => {
+    // Debounce: prevent rapid-fire refreshes
+    const now = Date.now();
+    if (now - lastRefreshRef.current < DEBOUNCE_INTERVAL) {
+      return;
+    }
+    lastRefreshRef.current = now;
+
     setIsRefreshing(true);
     try {
       const result = await getRecentActivity(5);
@@ -58,6 +70,25 @@ export function RecentTransactionsPanel({ initialData }: RecentTransactionsPanel
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
+  }, [refresh]);
+
+  // Subscribe to transaction submitted events (same-tab and cross-tab)
+  useEffect(() => {
+    const unsubscribe = onTransactionSubmitted(() => {
+      refresh();
+    });
+    return unsubscribe;
+  }, [refresh]);
+
+  // Light polling as fallback (only when tab is visible)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    }, POLLING_INTERVAL);
+
+    return () => clearInterval(interval);
   }, [refresh]);
 
   return (
