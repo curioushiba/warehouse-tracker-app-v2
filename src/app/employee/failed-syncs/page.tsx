@@ -43,7 +43,7 @@ export default function FailedSyncsPage() {
       if (result.success) {
         setSyncErrors(result.data ?? []);
       } else {
-        setError(result.error);
+        setError(result.error ?? "Failed to fetch sync errors");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch sync errors");
