@@ -4,10 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   Plus,
-  Search,
-  Filter,
   Download,
-  MoreVertical,
   Eye,
   Edit,
   Trash2,
@@ -16,6 +13,8 @@ import {
   RefreshCw,
   Loader2,
   Clock,
+  CloudOff,
+  Archive,
 } from "lucide-react";
 import {
   ItemImage,
@@ -30,7 +29,6 @@ import {
 import { useToastHelpers } from "@/components/ui/Toast";
 import {
   Card,
-  CardHeader,
   CardBody,
   Button,
   IconButton,
@@ -55,19 +53,22 @@ import {
 import { StockLevelBadge } from "@/components/ui";
 import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
-import { applyPendingEditsToItems } from "@/lib/offline/db";
+import { applyPendingOperationsToItems, type PendingOperationType } from "@/lib/offline/db";
+import { useOfflineItemSync } from "@/hooks";
 import type { Item, Category } from "@/lib/supabase/types";
 import { formatCurrency, getStockLevel, formatDateTime } from "@/lib/utils";
-import type { PaginatedResult } from "@/lib/types/action-result";
-
 export default function ItemsPage() {
+  // Offline sync hook
+  const { queueItemArchive, isOnline } = useOfflineItemSync();
+
   // Data state
   const [items, setItems] = React.useState<Item[]>([]);
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [pendingItemIds, setPendingItemIds] = React.useState<Set<string>>(new Set());
+  const [pendingOperations, setPendingOperations] = React.useState<Map<string, Set<PendingOperationType>>>(new Map());
+  const [offlineItemIds, setOfflineItemIds] = React.useState<Set<string>>(new Set());
 
   // Pagination state (server-side)
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -145,14 +146,16 @@ export default function ItemsPage() {
       ]);
 
       if (itemsResult.success) {
-        // Apply any pending offline edits to the server data
-        const { items: mergedItems, pendingItemIds: pending } = await applyPendingEditsToItems(
+        // Apply all pending offline operations to the server data
+        const { items: mergedItems, pendingOperations: ops, offlineItemIds: offlineIds } = await applyPendingOperationsToItems(
           itemsResult.data.data
         );
         setItems(mergedItems);
-        setPendingItemIds(pending);
-        setTotalCount(itemsResult.data.totalCount);
-        setTotalPages(itemsResult.data.totalPages);
+        setPendingOperations(ops);
+        setOfflineItemIds(offlineIds);
+        // Adjust total count to include offline-created items
+        setTotalCount(itemsResult.data.totalCount + offlineIds.size);
+        setTotalPages(Math.ceil((itemsResult.data.totalCount + offlineIds.size) / itemsPerPage));
       } else {
         setError(itemsResult.error || "Failed to load items");
         return;
@@ -257,10 +260,48 @@ export default function ItemsPage() {
     if (!itemToDelete) return;
 
     setIsDeleting(true);
+    const item = items.find((i) => i.id === itemToDelete);
+    const isOfflineItem = offlineItemIds.has(itemToDelete);
+
+    // For offline-created items, remove from both UI and create queue
+    if (isOfflineItem) {
+      try {
+        const { removeItemCreateFromQueue, removePendingImagesForItem } = await import("@/lib/offline/db");
+        await removeItemCreateFromQueue(itemToDelete);
+        await removePendingImagesForItem(itemToDelete);
+      } catch (err) {
+        console.error("Error cleaning up offline item:", err);
+      }
+      setItems(items.filter((i) => i.id !== itemToDelete));
+      setSelectedItems(selectedItems.filter((id) => id !== itemToDelete));
+      toast.success("Offline item removed");
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setItemToDelete(null);
+      return;
+    }
+
+    // If offline, queue the archive operation
+    if (!isOnline && item) {
+      try {
+        await queueItemArchive(itemToDelete, "archive", item.version);
+        setItems(items.filter((i) => i.id !== itemToDelete));
+        setSelectedItems(selectedItems.filter((id) => id !== itemToDelete));
+        toast.success("Archive queued for sync");
+      } catch (err) {
+        setError("Failed to queue archive operation");
+      }
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setItemToDelete(null);
+      return;
+    }
+
+    // Online - use server action directly
     const result = await archiveItem(itemToDelete);
 
     if (result.success) {
-      setItems(items.filter((item) => item.id !== itemToDelete));
+      setItems(items.filter((i) => i.id !== itemToDelete));
       setSelectedItems(selectedItems.filter((id) => id !== itemToDelete));
     } else {
       setError(result.error || "Failed to delete item");
@@ -279,16 +320,47 @@ export default function ItemsPage() {
     }
 
     setIsDeleting(true);
-    const results = await Promise.all(selectedItems.map((id) => archiveItem(id)));
-    const successIds = selectedItems.filter((_, index) => results[index].success);
+    const successIds: string[] = [];
+    const failures: string[] = [];
+
+    for (const id of selectedItems) {
+      const item = items.find((i) => i.id === id);
+      const isOfflineItem = offlineItemIds.has(id);
+
+      // Skip offline items - just remove from list
+      if (isOfflineItem) {
+        successIds.push(id);
+        continue;
+      }
+
+      // If offline, queue archive
+      if (!isOnline && item) {
+        try {
+          await queueItemArchive(id, "archive", item.version);
+          successIds.push(id);
+        } catch {
+          failures.push(id);
+        }
+        continue;
+      }
+
+      // Online - use server action
+      const result = await archiveItem(id);
+      if (result.success) {
+        successIds.push(id);
+      } else {
+        failures.push(id);
+      }
+    }
 
     setItems(items.filter((item) => !successIds.includes(item.id)));
     setSelectedItems([]);
     setIsDeleting(false);
 
-    const failures = results.filter((r) => !r.success);
     if (failures.length > 0) {
       setError(`Failed to delete ${failures.length} item(s)`);
+    } else if (!isOnline && successIds.length > 0) {
+      toast.success(`${successIds.length} item(s) queued for deletion`);
     }
   };
 
@@ -564,7 +636,10 @@ export default function ItemsPage() {
                   item.max_stock || 0
                 );
                 const isSelected = selectedItems.includes(item.id);
-                const hasPendingEdits = pendingItemIds.has(item.id);
+                const itemOps = pendingOperations.get(item.id);
+                const isOfflineItem = offlineItemIds.has(item.id);
+                const hasPendingEdit = itemOps?.has('pending_edit');
+                const hasPendingArchive = itemOps?.has('pending_archive');
                 const categoryName = item.category_id
                   ? categoryMap.get(item.category_id)?.name || "Uncategorized"
                   : "Uncategorized";
@@ -593,20 +668,44 @@ export default function ItemsPage() {
                           />
                         </ClickableTableCell>
                         <div>
-                          <div className="flex items-center gap-1.5">
-                            <Link
-                              href={`/admin/items/${item.id}`}
-                              className="font-medium text-foreground hover:text-primary transition-colors"
-                            >
-                              {item.name}
-                            </Link>
-                            {hasPendingEdits && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {isOfflineItem ? (
+                              <span className="font-medium text-foreground">
+                                {item.name}
+                              </span>
+                            ) : (
+                              <Link
+                                href={`/admin/items/${item.id}`}
+                                className="font-medium text-foreground hover:text-primary transition-colors"
+                              >
+                                {item.name}
+                              </Link>
+                            )}
+                            {isOfflineItem && (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                                title="Created offline - will sync when online"
+                              >
+                                <CloudOff className="w-3 h-3" />
+                                Offline
+                              </span>
+                            )}
+                            {hasPendingEdit && !isOfflineItem && (
                               <span
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-warning-light text-warning-dark"
                                 title="Pending offline changes"
                               >
                                 <Clock className="w-3 h-3" />
-                                Pending
+                                Pending Edit
+                              </span>
+                            )}
+                            {hasPendingArchive && (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                title="Pending archive - will sync when online"
+                              >
+                                <Archive className="w-3 h-3" />
+                                Pending Delete
                               </span>
                             )}
                           </div>
@@ -662,25 +761,29 @@ export default function ItemsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Link href={`/admin/items/${item.id}`}>
-                          <IconButton
-                            icon={<Eye className="w-4 h-4" />}
-                            aria-label="View item"
-                            variant="ghost"
-                            size="sm"
-                          />
-                        </Link>
-                        <Link href={`/admin/items/${item.id}/edit`}>
-                          <IconButton
-                            icon={<Edit className="w-4 h-4" />}
-                            aria-label="Edit item"
-                            variant="ghost"
-                            size="sm"
-                          />
-                        </Link>
+                        {!isOfflineItem && (
+                          <>
+                            <Link href={`/admin/items/${item.id}`}>
+                              <IconButton
+                                icon={<Eye className="w-4 h-4" />}
+                                aria-label="View item"
+                                variant="ghost"
+                                size="sm"
+                              />
+                            </Link>
+                            <Link href={`/admin/items/${item.id}/edit`}>
+                              <IconButton
+                                icon={<Edit className="w-4 h-4" />}
+                                aria-label="Edit item"
+                                variant="ghost"
+                                size="sm"
+                              />
+                            </Link>
+                          </>
+                        )}
                         <IconButton
                           icon={<Trash2 className="w-4 h-4" />}
-                          aria-label="Delete item"
+                          aria-label={isOfflineItem ? "Remove offline item" : "Delete item"}
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteClick(item.id)}
@@ -766,12 +869,12 @@ export default function ItemsPage() {
         size="sm"
       >
         <ModalHeader showCloseButton onClose={() => setDeleteModalOpen(false)}>
-          Delete Item
+          Archive Item
         </ModalHeader>
         <ModalBody>
           <p className="text-foreground-secondary">
-            Are you sure you want to delete this item? This action cannot be
-            undone.
+            Are you sure you want to archive this item? It will be hidden from
+            the active inventory list but can be restored later.
           </p>
         </ModalBody>
         <ModalFooter>
@@ -783,7 +886,7 @@ export default function ItemsPage() {
             onClick={handleDeleteConfirm}
             isLoading={isDeleting}
           >
-            Delete
+            Archive
           </Button>
         </ModalFooter>
       </Modal>

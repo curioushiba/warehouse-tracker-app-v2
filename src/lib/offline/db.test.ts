@@ -654,7 +654,9 @@ describe('Offline Database Operations', () => {
         const result = await addPendingImage('item-1', mockBlob, 'test.jpg')
 
         expect(mockPut).toHaveBeenCalledWith('pendingImages', expect.objectContaining({
+          id: expect.any(String),
           itemId: 'item-1',
+          isOfflineItem: false,
           blob: mockBlob,
           filename: 'test.jpg',
           mimeType: 'image/jpeg',
@@ -664,14 +666,15 @@ describe('Offline Database Operations', () => {
         }))
         expect(result.itemId).toBe('item-1')
         expect(result.status).toBe('pending')
+        expect(result.isOfflineItem).toBe(false)
       })
     })
 
     describe('getPendingImages', () => {
       it('should return all pending images', async () => {
         const mockImages: PendingImage[] = [
-          { itemId: 'item-1', blob: mockBlob, filename: 'test1.jpg', mimeType: 'image/jpeg', status: 'pending', retryCount: 0, createdAt: '2024-01-15T10:00:00Z' },
-          { itemId: 'item-2', blob: mockBlob, filename: 'test2.jpg', mimeType: 'image/jpeg', status: 'pending', retryCount: 0, createdAt: '2024-01-15T11:00:00Z' },
+          { id: 'img-1', itemId: 'item-1', isOfflineItem: false, blob: mockBlob, filename: 'test1.jpg', mimeType: 'image/jpeg', status: 'pending', retryCount: 0, createdAt: '2024-01-15T10:00:00Z' },
+          { id: 'img-2', itemId: 'item-2', isOfflineItem: false, blob: mockBlob, filename: 'test2.jpg', mimeType: 'image/jpeg', status: 'pending', retryCount: 0, createdAt: '2024-01-15T11:00:00Z' },
         ]
         mockGetAll.mockResolvedValue(mockImages)
 
@@ -683,10 +686,12 @@ describe('Offline Database Operations', () => {
       })
     })
 
-    describe('getPendingImageForItem', () => {
-      it('should return pending image for specific item', async () => {
+    describe('getPendingImagesForItem', () => {
+      it('should return pending images for specific item', async () => {
         const mockImage: PendingImage = {
+          id: 'img-1',
           itemId: 'item-1',
+          isOfflineItem: false,
           blob: mockBlob,
           filename: 'test.jpg',
           mimeType: 'image/jpeg',
@@ -694,20 +699,22 @@ describe('Offline Database Operations', () => {
           retryCount: 0,
           createdAt: '2024-01-15T10:00:00Z',
         }
-        mockGet.mockResolvedValue(mockImage)
+        mockGetAllFromIndex.mockResolvedValue([mockImage])
 
-        const { getPendingImageForItem } = await import('./db')
-        const result = await getPendingImageForItem('item-1')
+        const { getPendingImagesForItem } = await import('./db')
+        const result = await getPendingImagesForItem('item-1')
 
-        expect(mockGet).toHaveBeenCalledWith('pendingImages', 'item-1')
-        expect(result).toEqual(mockImage)
+        expect(mockGetAllFromIndex).toHaveBeenCalledWith('pendingImages', 'by-item', 'item-1')
+        expect(result).toEqual([mockImage])
       })
     })
 
     describe('updatePendingImageStatus', () => {
       it('should update status and error for existing image', async () => {
         const existingImage: PendingImage = {
+          id: 'img-1',
           itemId: 'item-1',
+          isOfflineItem: false,
           blob: mockBlob,
           filename: 'test.jpg',
           mimeType: 'image/jpeg',
@@ -718,7 +725,7 @@ describe('Offline Database Operations', () => {
         mockGet.mockResolvedValue(existingImage)
 
         const { updatePendingImageStatus } = await import('./db')
-        await updatePendingImageStatus('item-1', 'failed', 'Upload failed')
+        await updatePendingImageStatus('img-1', 'failed', 'Upload failed')
 
         expect(mockPut).toHaveBeenCalledWith('pendingImages', {
           ...existingImage,
@@ -730,12 +737,12 @@ describe('Offline Database Operations', () => {
     })
 
     describe('removePendingImage', () => {
-      it('should delete a pending image by itemId', async () => {
+      it('should delete a pending image by id', async () => {
         const { removePendingImage } = await import('./db')
 
-        await removePendingImage('item-1')
+        await removePendingImage('img-1')
 
-        expect(mockDelete).toHaveBeenCalledWith('pendingImages', 'item-1')
+        expect(mockDelete).toHaveBeenCalledWith('pendingImages', 'img-1')
       })
     })
 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Package, RefreshCw } from "lucide-react";
+import { ArrowLeft, Package, RefreshCw, WifiOff, Clock } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -24,6 +24,7 @@ import { ImageUpload } from "@/components/items";
 import { createItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import { getLocations } from "@/lib/actions/locations";
+import { useOfflineItemSync } from "@/hooks";
 import type { Category, Location, ItemInsert } from "@/lib/supabase/types";
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -66,12 +67,14 @@ const generateSku = (): string => {
 export default function NewItemPage() {
   const router = useRouter();
   const { settings } = useSettings();
+  const { queueItemCreate, isOnline } = useOfflineItemSync();
 
   // Data state
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [locations, setLocations] = React.useState<Location[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = React.useState<ItemFormData>({
@@ -90,6 +93,8 @@ export default function NewItemPage() {
   });
   const [formErrors, setFormErrors] = React.useState<Partial<Record<keyof ItemFormData, string>>>({});
   const [isSaving, setIsSaving] = React.useState(false);
+  const [pendingImageBlob, setPendingImageBlob] = React.useState<Blob | null>(null);
+  const [pendingImageFilename, setPendingImageFilename] = React.useState<string | null>(null);
 
   // Fetch categories and locations
   React.useEffect(() => {
@@ -160,7 +165,7 @@ export default function NewItemPage() {
     return Object.keys(errors).length === 0;
   };
 
-  // Handle submit
+  // Handle submit - supports both online and offline creation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -168,23 +173,46 @@ export default function NewItemPage() {
 
     setIsSaving(true);
     setError(null);
+    setSuccessMessage(null);
 
+    const insertData: ItemInsert = {
+      name: formData.name.trim(),
+      sku: formData.sku.trim(),
+      barcode: formData.barcode.trim() || null,
+      description: formData.description.trim() || null,
+      category_id: formData.category_id || null,
+      location_id: formData.location_id || null,
+      unit: formData.unit,
+      current_stock: parseFloat(formData.current_stock),
+      min_stock: formData.min_stock ? parseFloat(formData.min_stock) : 0,
+      max_stock: formData.max_stock ? parseFloat(formData.max_stock) : null,
+      unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
+      image_url: formData.image_url,
+    };
+
+    // If offline, use the offline queue immediately
+    if (!isOnline) {
+      try {
+        await queueItemCreate(
+          insertData,
+          pendingImageBlob || undefined,
+          pendingImageFilename || undefined
+        );
+        setSuccessMessage(`Item "${formData.name}" created offline. It will sync when you're back online.`);
+        // Brief delay to show success message, then redirect
+        setTimeout(() => {
+          router.push(`/admin/items`);
+        }, 1500);
+      } catch (err) {
+        setError("Failed to queue item for offline creation");
+        console.error("Error queuing item:", err);
+        setIsSaving(false);
+      }
+      return;
+    }
+
+    // Online - try direct server action first
     try {
-      const insertData: ItemInsert = {
-        name: formData.name.trim(),
-        sku: formData.sku.trim(),
-        barcode: formData.barcode.trim() || null,
-        description: formData.description.trim() || null,
-        category_id: formData.category_id || null,
-        location_id: formData.location_id || null,
-        unit: formData.unit,
-        current_stock: parseFloat(formData.current_stock),
-        min_stock: formData.min_stock ? parseFloat(formData.min_stock) : 0,
-        max_stock: formData.max_stock ? parseFloat(formData.max_stock) : null,
-        unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
-        image_url: formData.image_url,
-      };
-
       const result = await createItem(insertData);
 
       if (result.success) {
@@ -193,8 +221,22 @@ export default function NewItemPage() {
         setError(result.error);
       }
     } catch (err) {
-      setError("Failed to create item");
-      console.error("Error creating item:", err);
+      // Network error - fall back to offline queue
+      console.error("Error creating item online, falling back to offline:", err);
+      try {
+        await queueItemCreate(
+          insertData,
+          pendingImageBlob || undefined,
+          pendingImageFilename || undefined
+        );
+        setSuccessMessage(`Item "${formData.name}" created offline due to network error. It will sync automatically.`);
+        setTimeout(() => {
+          router.push(`/admin/items`);
+        }, 1500);
+      } catch (queueErr) {
+        setError("Failed to create item");
+        console.error("Error queuing item:", queueErr);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -249,6 +291,25 @@ export default function NewItemPage() {
           </p>
         </div>
       </div>
+
+      {/* Offline indicator */}
+      {!isOnline && (
+        <Alert status="warning" variant="subtle">
+          <div className="flex items-center gap-2">
+            <WifiOff className="w-4 h-4" />
+            <span>You are offline. Items created now will sync when you reconnect.</span>
+          </div>
+        </Alert>
+      )}
+
+      {successMessage && (
+        <Alert status="success" variant="subtle">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <span>{successMessage}</span>
+          </div>
+        </Alert>
+      )}
 
       {error && (
         <Alert status="error" variant="subtle">
@@ -457,12 +518,17 @@ export default function NewItemPage() {
                   variant="primary"
                   isFullWidth
                   size="lg"
-                  leftIcon={<Package className="w-5 h-5" />}
+                  leftIcon={isOnline ? <Package className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
                   isLoading={isSaving}
                   disabled={isSaving}
                 >
-                  Create Item
+                  {isOnline ? "Create Item" : "Create Item Offline"}
                 </Button>
+                {!isOnline && (
+                  <p className="text-xs text-foreground-muted mt-2 text-center">
+                    Will sync when back online
+                  </p>
+                )}
               </CardBody>
             </Card>
           </div>

@@ -3,8 +3,7 @@
 import { AdminLayout } from "@/components/layout";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useOnlineStatus } from "@/hooks";
-import { useSyncQueue } from "@/hooks";
+import { useOnlineStatus, useSyncQueue, useOfflineItemSync } from "@/hooks";
 import { useEffect, useState } from "react";
 import { getUnreadAlertCount } from "@/lib/actions";
 
@@ -36,8 +35,13 @@ export default function AdminLayoutWrapper({
   // Avoid blocking initial render on client-side profile fetching.
   const { profile, signOut, isAuthenticated } = useAuthContext();
   const { isOnline } = useOnlineStatus();
-  const { queueCount, isSyncing, lastSyncTime } = useSyncQueue();
+  const { queueCount: transactionQueueCount, isSyncing: isTransactionSyncing } = useSyncQueue();
+  const { totalQueueCount: itemQueueCount, isSyncing: isItemSyncing } = useOfflineItemSync();
   const [notificationCount, setNotificationCount] = useState(0);
+
+  // Combined queue count and sync status
+  const totalQueueCount = transactionQueueCount + itemQueueCount;
+  const isSyncing = isTransactionSyncing || isItemSyncing;
 
   // Fetch notification count
   useEffect(() => {
@@ -64,8 +68,8 @@ export default function AdminLayoutWrapper({
     role: profile.role === 'admin' ? 'Admin' : 'Employee',
   } : undefined;
 
-  // Determine sync status for display
-  const displaySyncStatus = isSyncing ? "syncing" : queueCount > 0 ? "pending" : isOnline ? "synced" : "offline";
+  // Determine sync status for display (using combined counts)
+  const displaySyncStatus = isSyncing ? "syncing" : totalQueueCount > 0 ? "pending" : isOnline ? "synced" : "offline";
 
   return (
     <AdminLayout

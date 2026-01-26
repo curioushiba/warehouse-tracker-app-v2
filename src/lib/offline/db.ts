@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { TransactionType, ItemUpdate } from '@/lib/supabase/types'
+import type { TransactionType, ItemUpdate, ItemInsert } from '@/lib/supabase/types'
 
 // Offline transaction queue item
 export interface QueuedTransaction {
@@ -35,11 +35,15 @@ export interface CachedItem {
   imageUrl?: string
   version: number
   isArchived?: boolean
+  isOfflineCreated?: boolean // Flag for items created offline
   updatedAt: string
 }
 
-// Item edit queue types
-export type ItemEditStatus = 'pending' | 'syncing' | 'failed'
+// Shared status type for all item operations
+export type ItemOperationStatus = 'pending' | 'syncing' | 'failed'
+
+// Item edit queue types (alias for backwards compatibility)
+export type ItemEditStatus = ItemOperationStatus
 
 export interface QueuedItemEdit {
   id: string
@@ -48,21 +52,54 @@ export interface QueuedItemEdit {
   expectedVersion: number
   idempotencyKey: string
   userId: string
-  status: ItemEditStatus
+  status: ItemOperationStatus
   retryCount: number
   lastError?: string
   createdAt: string
   deviceTimestamp: string
 }
 
-// Pending image upload
+// Item create queue for offline item creation
+export interface QueuedItemCreate {
+  id: string                    // Client-generated UUID (becomes actual item ID)
+  tempSku: string               // Temporary SKU: "TEMP-XXXXXXXX"
+  itemData: Partial<ItemInsert> // Full item data
+  idempotencyKey: string
+  userId: string
+  status: ItemOperationStatus
+  retryCount: number
+  lastError?: string
+  createdAt: string
+  deviceTimestamp: string
+}
+
+// Item archive queue for offline archive/restore operations
+export interface QueuedItemArchive {
+  id: string                    // Queue entry ID
+  itemId: string                // Target item
+  action: 'archive' | 'restore'
+  expectedVersion: number
+  idempotencyKey: string
+  userId: string
+  status: ItemOperationStatus
+  retryCount: number
+  lastError?: string
+  createdAt: string
+  deviceTimestamp: string
+}
+
+// Pending image upload (updated for offline-created items)
+export type PendingImageStatus = 'pending' | 'uploading' | 'failed' | 'waiting_for_item'
+
 export interface PendingImage {
+  id: string                    // Unique ID for the pending image
   itemId: string
+  isOfflineItem: boolean        // True if item not yet synced to server
   blob: Blob
   filename: string
   mimeType: string
   createdAt: string
-  status: 'pending' | 'uploading' | 'failed'
+  status: PendingImageStatus
   retryCount: number
   lastError?: string
 }
@@ -99,20 +136,38 @@ interface InventoryDB extends DBSchema {
     indexes: {
       'by-created': string
       'by-item': string
-      'by-status': ItemEditStatus
+      'by-status': ItemOperationStatus
     }
   }
   pendingImages: {
     key: string
     value: PendingImage
     indexes: {
-      'by-status': string
+      'by-status': PendingImageStatus
+      'by-item': string
+    }
+  }
+  itemCreateQueue: {
+    key: string
+    value: QueuedItemCreate
+    indexes: {
+      'by-created': string
+      'by-status': ItemOperationStatus
+    }
+  }
+  itemArchiveQueue: {
+    key: string
+    value: QueuedItemArchive
+    indexes: {
+      'by-created': string
+      'by-item': string
+      'by-status': ItemOperationStatus
     }
   }
 }
 
 const DB_NAME = 'inventory-tracker-offline'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 let dbPromise: Promise<IDBPDatabase<InventoryDB>> | null = null
 
@@ -152,11 +207,39 @@ export async function getDB(): Promise<IDBPDatabase<InventoryDB>> {
             editStore.createIndex('by-status', 'status')
           }
 
-          // Pending images store
+          // Pending images store (v2 schema - will be updated in v3)
           if (!db.objectStoreNames.contains('pendingImages')) {
             const imageStore = db.createObjectStore('pendingImages', { keyPath: 'itemId' })
             imageStore.createIndex('by-status', 'status')
           }
+        }
+
+        // Version 3: Add item create/archive queues, update pending images
+        if (oldVersion < 3) {
+          // Item create queue store
+          if (!db.objectStoreNames.contains('itemCreateQueue')) {
+            const createStore = db.createObjectStore('itemCreateQueue', { keyPath: 'id' })
+            createStore.createIndex('by-created', 'createdAt')
+            createStore.createIndex('by-status', 'status')
+          }
+
+          // Item archive queue store
+          if (!db.objectStoreNames.contains('itemArchiveQueue')) {
+            const archiveStore = db.createObjectStore('itemArchiveQueue', { keyPath: 'id' })
+            archiveStore.createIndex('by-created', 'createdAt')
+            archiveStore.createIndex('by-item', 'itemId')
+            archiveStore.createIndex('by-status', 'status')
+          }
+
+          // Recreate pending images store with new schema (id as keyPath, by-item index)
+          if (db.objectStoreNames.contains('pendingImages')) {
+            // Note: We can't easily migrate data during upgrade, so we delete and recreate
+            // Any pending images from v2 will be lost - acceptable trade-off for schema change
+            db.deleteObjectStore('pendingImages')
+          }
+          const imageStore = db.createObjectStore('pendingImages', { keyPath: 'id' })
+          imageStore.createIndex('by-status', 'status')
+          imageStore.createIndex('by-item', 'itemId')
         }
       },
     })
@@ -349,20 +432,24 @@ export async function clearItemEditQueue(): Promise<void> {
   await db.clear('itemEditQueue')
 }
 
-// Pending Images Operations
+// Pending Images Operations (v3 schema - uses id as keyPath)
 export async function addPendingImage(
   itemId: string,
   blob: Blob,
-  filename: string
+  filename: string,
+  isOfflineItem: boolean = false
 ): Promise<PendingImage> {
   const db = await getDB()
+  const id = crypto.randomUUID()
   const pendingImage: PendingImage = {
+    id,
     itemId,
+    isOfflineItem,
     blob,
     filename,
     mimeType: blob.type,
     createdAt: new Date().toISOString(),
-    status: 'pending',
+    status: isOfflineItem ? 'waiting_for_item' : 'pending',
     retryCount: 0,
   }
   await db.put('pendingImages', pendingImage)
@@ -374,18 +461,28 @@ export async function getPendingImages(): Promise<PendingImage[]> {
   return db.getAll('pendingImages')
 }
 
-export async function getPendingImageForItem(itemId: string): Promise<PendingImage | undefined> {
+export async function getPendingImageById(id: string): Promise<PendingImage | undefined> {
   const db = await getDB()
-  return db.get('pendingImages', itemId)
+  return db.get('pendingImages', id)
+}
+
+export async function getPendingImagesForItem(itemId: string): Promise<PendingImage[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('pendingImages', 'by-item', itemId)
+}
+
+export async function getPendingImagesByStatus(status: PendingImageStatus): Promise<PendingImage[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('pendingImages', 'by-status', status)
 }
 
 export async function updatePendingImageStatus(
-  itemId: string,
-  status: 'pending' | 'uploading' | 'failed',
+  id: string,
+  status: PendingImageStatus,
   error?: string
 ): Promise<void> {
   const db = await getDB()
-  const existing = await db.get('pendingImages', itemId)
+  const existing = await db.get('pendingImages', id)
   if (existing) {
     await db.put('pendingImages', {
       ...existing,
@@ -396,9 +493,33 @@ export async function updatePendingImageStatus(
   }
 }
 
-export async function removePendingImage(itemId: string): Promise<void> {
+export async function transitionWaitingImagesToReady(itemId: string): Promise<void> {
   const db = await getDB()
-  await db.delete('pendingImages', itemId)
+  const images = await db.getAllFromIndex('pendingImages', 'by-item', itemId)
+  for (const image of images) {
+    if (image.status === 'waiting_for_item') {
+      await db.put('pendingImages', {
+        ...image,
+        status: 'pending',
+        isOfflineItem: false,
+      })
+    }
+  }
+}
+
+export async function removePendingImage(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('pendingImages', id)
+}
+
+export async function removePendingImagesForItem(itemId: string): Promise<void> {
+  const db = await getDB()
+  const images = await db.getAllFromIndex('pendingImages', 'by-item', itemId)
+  const tx = db.transaction('pendingImages', 'readwrite')
+  await Promise.all([
+    ...images.map(img => tx.store.delete(img.id)),
+    tx.done,
+  ])
 }
 
 export async function getPendingImageCount(): Promise<number> {
@@ -454,4 +575,293 @@ export async function applyPendingEditsToItems<T extends { id: string }>(
   })
 
   return { items: modifiedItems, pendingItemIds }
+}
+
+// Item Create Queue Operations
+export async function addItemCreateToQueue(
+  itemData: Partial<ItemInsert>,
+  userId: string
+): Promise<QueuedItemCreate> {
+  const db = await getDB()
+  const id = crypto.randomUUID()
+  const tempSku = `TEMP-${id.slice(0, 8).toUpperCase()}`
+  const idempotencyKey = crypto.randomUUID()
+  const now = new Date().toISOString()
+
+  const queuedCreate: QueuedItemCreate = {
+    id,
+    tempSku,
+    itemData: { ...itemData, id },
+    idempotencyKey,
+    userId,
+    status: 'pending',
+    retryCount: 0,
+    createdAt: now,
+    deviceTimestamp: now,
+  }
+  await db.put('itemCreateQueue', queuedCreate)
+  return queuedCreate
+}
+
+export async function getQueuedItemCreates(): Promise<QueuedItemCreate[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemCreateQueue', 'by-created')
+}
+
+export async function getQueuedItemCreateById(id: string): Promise<QueuedItemCreate | undefined> {
+  const db = await getDB()
+  return db.get('itemCreateQueue', id)
+}
+
+export async function getQueuedItemCreatesByStatus(status: ItemOperationStatus): Promise<QueuedItemCreate[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemCreateQueue', 'by-status', status)
+}
+
+export async function getItemCreateQueueCount(): Promise<number> {
+  const db = await getDB()
+  return db.count('itemCreateQueue')
+}
+
+export async function updateItemCreateStatus(
+  id: string,
+  status: ItemOperationStatus,
+  error?: string
+): Promise<void> {
+  const db = await getDB()
+  const existing = await db.get('itemCreateQueue', id)
+  if (existing) {
+    await db.put('itemCreateQueue', {
+      ...existing,
+      status,
+      lastError: error,
+      retryCount: status === 'failed' ? existing.retryCount + 1 : existing.retryCount,
+    })
+  }
+}
+
+export async function updateItemCreateData(
+  id: string,
+  itemData: Partial<ItemInsert>
+): Promise<void> {
+  const db = await getDB()
+  const existing = await db.get('itemCreateQueue', id)
+  if (existing) {
+    await db.put('itemCreateQueue', {
+      ...existing,
+      itemData: { ...existing.itemData, ...itemData },
+    })
+  }
+}
+
+export async function removeItemCreateFromQueue(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('itemCreateQueue', id)
+}
+
+export async function clearItemCreateQueue(): Promise<void> {
+  const db = await getDB()
+  await db.clear('itemCreateQueue')
+}
+
+// Item Archive Queue Operations
+export async function addItemArchiveToQueue(
+  itemId: string,
+  action: 'archive' | 'restore',
+  expectedVersion: number,
+  userId: string
+): Promise<QueuedItemArchive> {
+  const db = await getDB()
+  const id = crypto.randomUUID()
+  const idempotencyKey = crypto.randomUUID()
+  const now = new Date().toISOString()
+
+  const queuedArchive: QueuedItemArchive = {
+    id,
+    itemId,
+    action,
+    expectedVersion,
+    idempotencyKey,
+    userId,
+    status: 'pending',
+    retryCount: 0,
+    createdAt: now,
+    deviceTimestamp: now,
+  }
+  await db.put('itemArchiveQueue', queuedArchive)
+  return queuedArchive
+}
+
+export async function getQueuedItemArchives(): Promise<QueuedItemArchive[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemArchiveQueue', 'by-created')
+}
+
+export async function getQueuedArchivesByItem(itemId: string): Promise<QueuedItemArchive[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemArchiveQueue', 'by-item', itemId)
+}
+
+export async function getQueuedArchivesByStatus(status: ItemOperationStatus): Promise<QueuedItemArchive[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('itemArchiveQueue', 'by-status', status)
+}
+
+export async function getItemArchiveQueueCount(): Promise<number> {
+  const db = await getDB()
+  return db.count('itemArchiveQueue')
+}
+
+export async function updateItemArchiveStatus(
+  id: string,
+  status: ItemOperationStatus,
+  error?: string
+): Promise<void> {
+  const db = await getDB()
+  const existing = await db.get('itemArchiveQueue', id)
+  if (existing) {
+    await db.put('itemArchiveQueue', {
+      ...existing,
+      status,
+      lastError: error,
+      retryCount: status === 'failed' ? existing.retryCount + 1 : existing.retryCount,
+    })
+  }
+}
+
+export async function removeItemArchiveFromQueue(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('itemArchiveQueue', id)
+}
+
+export async function clearItemArchiveQueue(): Promise<void> {
+  const db = await getDB()
+  await db.clear('itemArchiveQueue')
+}
+
+// Cache a single item (for offline-created items)
+export async function cacheItem(item: CachedItem): Promise<void> {
+  const db = await getDB()
+  await db.put('itemsCache', item)
+}
+
+// Get all queue counts for sync status display
+export async function getAllQueueCounts(): Promise<{
+  creates: number
+  edits: number
+  archives: number
+  images: number
+  transactions: number
+}> {
+  const db = await getDB()
+  const [creates, edits, archives, images, transactions] = await Promise.all([
+    db.count('itemCreateQueue'),
+    db.count('itemEditQueue'),
+    db.count('itemArchiveQueue'),
+    db.count('pendingImages'),
+    db.count('transactionQueue'),
+  ])
+  return { creates, edits, archives, images, transactions }
+}
+
+// Pending operation types for UI display
+export type PendingOperationType = 'offline' | 'pending_edit' | 'pending_archive' | 'pending_restore'
+
+export interface PendingOperationInfo {
+  itemId: string
+  types: Set<PendingOperationType>
+}
+
+// Apply all pending operations to server-fetched items
+// Returns items with offline-created items merged in and edits/archives applied
+export async function applyPendingOperationsToItems<T extends { id: string; is_archived?: boolean }>(
+  serverItems: T[]
+): Promise<{
+  items: T[]
+  pendingOperations: Map<string, Set<PendingOperationType>>
+  offlineItemIds: Set<string>
+}> {
+  const [pendingCreates, pendingEdits, pendingArchives] = await Promise.all([
+    getQueuedItemCreates(),
+    getQueuedItemEdits(),
+    getQueuedItemArchives(),
+  ])
+
+  const pendingOperations = new Map<string, Set<PendingOperationType>>()
+  const offlineItemIds = new Set<string>()
+
+  // Helper to add operation type
+  const addOp = (itemId: string, type: PendingOperationType) => {
+    const ops = pendingOperations.get(itemId) || new Set()
+    ops.add(type)
+    pendingOperations.set(itemId, ops)
+  }
+
+  // Convert offline-created items to server format for display
+  const offlineCreatedItems: T[] = pendingCreates.map(create => {
+    offlineItemIds.add(create.id)
+    addOp(create.id, 'offline')
+    // Build a minimal item object from the create data
+    return {
+      id: create.id,
+      sku: create.tempSku,
+      name: (create.itemData.name as string) || 'New Item',
+      description: create.itemData.description ?? null,
+      category_id: create.itemData.category_id ?? null,
+      location_id: create.itemData.location_id ?? null,
+      unit: create.itemData.unit || 'pcs',
+      current_stock: create.itemData.current_stock ?? 0,
+      min_stock: create.itemData.min_stock ?? 0,
+      max_stock: create.itemData.max_stock ?? null,
+      unit_price: create.itemData.unit_price ?? 0,
+      barcode: create.itemData.barcode ?? null,
+      image_url: create.itemData.image_url ?? null,
+      is_archived: false,
+      version: 0,
+      created_at: create.createdAt,
+      updated_at: create.createdAt,
+    } as T
+  })
+
+  // Group edits by itemId
+  const editsByItem = new Map<string, QueuedItemEdit[]>()
+  for (const edit of pendingEdits) {
+    const existing = editsByItem.get(edit.itemId) || []
+    existing.push(edit)
+    editsByItem.set(edit.itemId, existing)
+    addOp(edit.itemId, 'pending_edit')
+  }
+
+  // Track archive operations
+  const archivesByItem = new Map<string, QueuedItemArchive>()
+  for (const archive of pendingArchives) {
+    // Keep only the latest archive operation for each item
+    archivesByItem.set(archive.itemId, archive)
+    addOp(archive.itemId, archive.action === 'archive' ? 'pending_archive' : 'pending_restore')
+  }
+
+  // Combine server items with offline items
+  let allItems = [...offlineCreatedItems, ...serverItems]
+
+  // Apply edits
+  allItems = allItems.map(item => {
+    const edits = editsByItem.get(item.id)
+    if (!edits) return item
+
+    let modified = { ...item }
+    for (const edit of edits) {
+      modified = { ...modified, ...edit.changes }
+    }
+    return modified
+  })
+
+  // Apply archive status changes (filter out archived items or show restored items)
+  allItems = allItems.filter(item => {
+    const archive = archivesByItem.get(item.id)
+    if (!archive) return !item.is_archived // Show non-archived by default
+    // If pending archive, hide the item; if pending restore, show the item
+    return archive.action === 'restore'
+  })
+
+  return { items: allItems, pendingOperations, offlineItemIds }
 }
