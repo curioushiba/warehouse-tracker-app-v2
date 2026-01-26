@@ -41,7 +41,7 @@ export default function FailedSyncsPage() {
     try {
       const result = await getUserSyncErrors(user.id);
       if (result.success) {
-        setSyncErrors(result.data);
+        setSyncErrors(result.data ?? []);
       } else {
         setError(result.error);
       }
