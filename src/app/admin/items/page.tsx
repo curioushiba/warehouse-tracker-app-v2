@@ -53,7 +53,18 @@ import {
 import { StockLevelBadge } from "@/components/ui";
 import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
-import { applyPendingOperationsToItems, type PendingOperationType } from "@/lib/offline/db";
+import {
+  applyPendingOperationsToItems,
+  type PendingOperationType,
+  getAllCachedItems,
+  getAllCachedCategories,
+  cacheItems,
+  cacheCategories,
+  cachedItemToItem,
+  itemToCachedItem,
+  cachedCategoryToCategory,
+  categoryToCachedCategory,
+} from "@/lib/offline/db";
 import { useOfflineItemSync } from "@/hooks";
 import type { Item, Category } from "@/lib/supabase/types";
 import { formatCurrency, getStockLevel, formatDateTime } from "@/lib/utils";
@@ -69,6 +80,7 @@ export default function ItemsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [pendingOperations, setPendingOperations] = React.useState<Map<string, Set<PendingOperationType>>>(new Map());
   const [offlineItemIds, setOfflineItemIds] = React.useState<Set<string>>(new Set());
+  const [isUsingCache, setIsUsingCache] = React.useState(false);
 
   // Pagination state (server-side)
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -126,11 +138,68 @@ export default function ItemsPage() {
     setCurrentPage(1);
   }, [categoryFilter, stockFilter]);
 
-  // Fetch data with server-side pagination
+  // Fetch data with server-side pagination, with offline fallback
   const fetchData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
+
+      // OFFLINE FALLBACK: Use cached data when offline
+      if (!isOnline) {
+        const [cachedItems, cachedCategories] = await Promise.all([
+          getAllCachedItems(),
+          getAllCachedCategories(),
+        ]);
+
+        // Convert cached items to Item format and filter out archived
+        let items = cachedItems
+          .filter(item => !item.isArchived)
+          .map(cachedItemToItem);
+
+        // Apply pending operations from IndexedDB
+        const { items: mergedItems, pendingOperations: ops, offlineItemIds: offlineIds } =
+          await applyPendingOperationsToItems(items);
+
+        // Client-side filtering
+        let filteredItems = mergedItems;
+
+        // Search filter
+        if (debouncedSearch) {
+          const searchLower = debouncedSearch.toLowerCase();
+          filteredItems = filteredItems.filter(
+            item =>
+              item.name.toLowerCase().includes(searchLower) ||
+              item.sku.toLowerCase().includes(searchLower) ||
+              (item.description && item.description.toLowerCase().includes(searchLower))
+          );
+        }
+
+        // Category filter
+        if (categoryFilter) {
+          filteredItems = filteredItems.filter(item => item.category_id === categoryFilter);
+        }
+
+        // Stock level filter
+        if (stockFilter) {
+          filteredItems = filteredItems.filter(item => {
+            const level = getStockLevel(item.current_stock, item.min_stock, item.max_stock || 0);
+            return level === stockFilter;
+          });
+        }
+
+        setItems(filteredItems);
+        setPendingOperations(ops);
+        setOfflineItemIds(offlineIds);
+        setCategories(cachedCategories.map(cachedCategoryToCategory));
+        setTotalCount(filteredItems.length);
+        setTotalPages(1); // All items shown on single page when offline
+        setIsUsingCache(true);
+        setIsInitialLoad(false);
+        return;
+      }
+
+      // ONLINE FLOW
+      setIsUsingCache(false);
 
       const filters: PaginatedItemFilters = {
         page: currentPage,
@@ -156,6 +225,9 @@ export default function ItemsPage() {
         // Adjust total count to include offline-created items
         setTotalCount(itemsResult.data.totalCount + offlineIds.size);
         setTotalPages(Math.ceil((itemsResult.data.totalCount + offlineIds.size) / itemsPerPage));
+
+        // Cache items for offline use (cache the original server data, not merged)
+        cacheItems(itemsResult.data.data.map(itemToCachedItem)).catch(console.error);
       } else {
         setError(itemsResult.error || "Failed to load items");
         return;
@@ -163,15 +235,22 @@ export default function ItemsPage() {
 
       if (categoriesResult.success && categoriesResult.data) {
         setCategories(categoriesResult.data);
+        // Cache categories for offline use
+        cacheCategories(categoriesResult.data.map(categoryToCachedCategory)).catch(console.error);
       }
 
       setIsInitialLoad(false);
     } catch (err) {
+      // If network error while appearing online, try offline fallback
+      if (!navigator.onLine) {
+        setIsLoading(false);
+        return fetchData();
+      }
       setError("Failed to load data. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, debouncedSearch, categoryFilter, stockFilter]);
+  }, [isOnline, currentPage, itemsPerPage, debouncedSearch, categoryFilter, stockFilter]);
 
   React.useEffect(() => {
     fetchData();
@@ -463,6 +542,18 @@ export default function ItemsPage() {
       {error && items.length > 0 && (
         <Alert status="error" variant="subtle" onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+
+      {/* Offline Mode Banner */}
+      {isUsingCache && (
+        <Alert status="info" variant="subtle">
+          <div className="flex items-center gap-2">
+            <CloudOff className="w-4 h-4 flex-shrink-0" />
+            <span>
+              <strong>Offline Mode:</strong> Showing cached data. Some features may be limited.
+            </span>
+          </div>
         </Alert>
       )}
 
@@ -799,68 +890,76 @@ export default function ItemsPage() {
         </Table>
       </Card>
 
-      {/* Pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Pagination - hidden when using cached data (offline) */}
+      {isUsingCache ? (
+        <div className="flex items-center justify-center">
           <p className="text-sm text-foreground-muted">
-            Showing {totalCount === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
+            Showing {totalCount} cached item{totalCount !== 1 ? 's' : ''}
           </p>
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-foreground-muted">
+              Showing {totalCount === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground-muted">Items per page:</span>
+              <Select
+                options={[
+                  { value: "10", label: "10" },
+                  { value: "25", label: "25" },
+                  { value: "50", label: "50" },
+                  { value: "100", label: "100" },
+                ]}
+                value={itemsPerPage.toString()}
+                onChange={(value) => {
+                  setItemsPerPage(parseInt(value));
+                  setCurrentPage(1);
+                }}
+                className="w-20"
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-foreground-muted">Items per page:</span>
-            <Select
-              options={[
-                { value: "10", label: "10" },
-                { value: "25", label: "25" },
-                { value: "50", label: "50" },
-                { value: "100", label: "100" },
-              ]}
-              value={itemsPerPage.toString()}
-              onChange={(value) => {
-                setItemsPerPage(parseInt(value));
-                setCurrentPage(1);
-              }}
-              className="w-20"
-            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              First
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-foreground-muted px-2">
+              Page {currentPage} of {totalPages || 1}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              Next
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage >= totalPages}
+            >
+              Last
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
-          >
-            First
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-foreground-muted px-2">
-            Page {currentPage} of {totalPages || 1}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-          >
-            Next
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage >= totalPages}
-          >
-            Last
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <Modal
