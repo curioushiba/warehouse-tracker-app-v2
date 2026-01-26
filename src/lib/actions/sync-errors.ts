@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "./auth";
 import type { SyncError, SyncErrorUpdate, SyncErrorStatus } from "@/lib/supabase/types";
@@ -154,6 +155,9 @@ export async function retrySyncError(
     if (resolveError) {
       return { success: false, error: resolveError.message };
     }
+
+    // Revalidate admin dashboard to show updated transactions
+    revalidatePath("/admin");
 
     return { success: true, data: resolvedError };
   } catch (error) {

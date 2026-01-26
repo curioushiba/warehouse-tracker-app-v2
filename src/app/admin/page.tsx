@@ -3,7 +3,6 @@ import {
   Package,
   AlertCircle,
   TrendingUp,
-  ChevronRight,
   Clock,
   Eye,
   ArrowLeftRight,
@@ -19,14 +18,16 @@ import {
   Button,
   Badge,
   Progress,
-  Avatar,
   StockLevelBadge,
-  TransactionTypeBadge,
 } from "@/components/ui";
+import { RecentTransactionsPanel } from "@/components/dashboard";
 import { getDashboardData, getRecentActivity } from "@/lib/actions";
 import type { Item, Alert as AlertType } from "@/lib/supabase/types";
 import { formatRelativeTime, getStockLevel } from "@/lib/utils";
 import { DashboardClient } from "./DashboardClient";
+
+// Force dynamic rendering to prevent stale data from static generation
+export const dynamic = "force-dynamic";
 
 // Transaction type for recent activity
 interface RecentTransaction {
@@ -176,88 +177,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Transactions */}
         <div className="lg:col-span-2">
-          <Card variant="elevated" size="md">
-            <CardHeader
-              title="Recent Transactions"
-              subtitle="Latest inventory movements"
-              action={
-                <Link href="/admin/transactions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    rightIcon={<ChevronRight className="w-4 h-4" />}
-                  >
-                    View All
-                  </Button>
-                </Link>
-              }
-              hasBorder
-            />
-            <CardBody className="p-0">
-              <div className="divide-y divide-border">
-                {recentTransactions.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-foreground-muted">
-                    No recent transactions
-                  </div>
-                ) : (
-                  recentTransactions.map((transaction) => {
-                    const userName = transaction.user
-                      ? `${transaction.user.first_name} ${transaction.user.last_name}`
-                      : "Unknown User";
-                    const itemName = transaction.item?.name ?? "Unknown Item";
-                    const transType = transaction.transaction_type;
-
-                    return (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between px-6 py-4 hover:bg-neutral-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <Avatar name={userName} size="sm" />
-                          <div>
-                            <p className="font-medium text-foreground">{itemName}</p>
-                            <p className="text-sm text-foreground-muted">
-                              {userName} &middot;{" "}
-                              {formatRelativeTime(transaction.event_timestamp)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span
-                            className={`font-medium ${
-                              transType === "check_in" || transType === "return"
-                                ? "text-success"
-                                : transType === "check_out"
-                                ? "text-error"
-                                : "text-foreground"
-                            }`}
-                          >
-                            {transType === "check_in" || transType === "return"
-                              ? "+"
-                              : transType === "check_out"
-                              ? "-"
-                              : ""}
-                            {Math.abs(transaction.quantity)}{" "}
-                          </span>
-                          <TransactionTypeBadge
-                            type={
-                              transType as
-                                | "check_in"
-                                | "check_out"
-                                | "adjustment"
-                                | "transfer"
-                                | "return"
-                            }
-                            size="sm"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </CardBody>
-          </Card>
+          <RecentTransactionsPanel initialData={recentTransactions} />
         </div>
 
         {/* Alerts */}

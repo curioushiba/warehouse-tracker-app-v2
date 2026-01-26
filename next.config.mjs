@@ -11,10 +11,10 @@ const pwaConfig = withPWA({
       handler: 'NetworkFirst',
       options: {
         cacheName: 'supabase-cache',
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 5, // Reduced from 10 for faster fallback
         expiration: {
           maxEntries: 50,
-          maxAgeSeconds: 60 * 60 * 24, // 24 hours
+          maxAgeSeconds: 60 * 5, // 5 minutes instead of 24 hours to prevent stale data
         },
       },
     },
