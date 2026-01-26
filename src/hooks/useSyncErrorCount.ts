@@ -34,9 +34,9 @@ export function useSyncErrorCount(): UseSyncErrorCountReturn {
       const result = await getUserPendingSyncErrorCount(user.id);
 
       if (result.success) {
-        setFailedSyncCount(result.data);
+        setFailedSyncCount(result.data ?? 0);
       } else {
-        setError(result.error);
+        setError(result.error ?? "Failed to fetch sync error count");
         setFailedSyncCount(0);
       }
     } catch (err) {
