@@ -16,14 +16,13 @@ import {
   CardHeader,
   CardBody,
   Button,
-  Badge,
   Progress,
   StockLevelBadge,
 } from "@/components/ui";
 import { RecentTransactionsPanel } from "@/components/dashboard";
 import { getDashboardData, getRecentActivity } from "@/lib/actions";
-import type { Item, Alert as AlertType } from "@/lib/supabase/types";
-import { formatRelativeTime, getStockLevel } from "@/lib/utils";
+import type { Item } from "@/lib/supabase/types";
+import { getStockLevel } from "@/lib/utils";
 import { DashboardClient } from "./DashboardClient";
 
 // Force dynamic rendering to prevent stale data from static generation
@@ -46,7 +45,6 @@ interface DashboardStats {
   criticalStockItems: number;
   todayTransactions: number;
   pendingSync: number;
-  recentAlerts: AlertType[];
 }
 
 // Sortable column types for low stock table
@@ -159,8 +157,6 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
     return sortDir === "desc" ? -comparison : comparison;
   });
 
-  const unreadAlerts = stats?.recentAlerts ?? [];
-
   return (
     <div className="space-y-6">
       {/* Expandable Stats Grid */}
@@ -173,78 +169,8 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
         }}
       />
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Transactions */}
-        <div className="lg:col-span-2">
-          <RecentTransactionsPanel initialData={recentTransactions} />
-        </div>
-
-        {/* Alerts */}
-        <div>
-          <Card variant="elevated" size="md">
-            <CardHeader
-              title="Alerts"
-              subtitle={`${unreadAlerts.length} unread`}
-              action={
-                <Badge colorScheme="error" size="sm">
-                  {unreadAlerts.length}
-                </Badge>
-              }
-              hasBorder
-            />
-            <CardBody className="p-0">
-              <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-                {unreadAlerts.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-foreground-muted">
-                    No unread alerts
-                  </div>
-                ) : (
-                  unreadAlerts.slice(0, 5).map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="px-4 py-3 hover:bg-neutral-50 transition-colors bg-primary-50/50"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`w-2 h-2 rounded-full mt-2 ${
-                            alert.severity === "critical" ||
-                            alert.severity === "error"
-                              ? "bg-error"
-                              : alert.severity === "warning"
-                              ? "bg-warning"
-                              : alert.severity === "info"
-                              ? "bg-info"
-                              : "bg-neutral-400"
-                          }`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">
-                            {alert.title}
-                          </p>
-                          <p className="text-xs text-foreground-muted mt-0.5 line-clamp-2">
-                            {alert.message}
-                          </p>
-                          <p className="text-xs text-foreground-placeholder mt-1">
-                            {formatRelativeTime(alert.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="p-4 border-t border-border">
-                <Link href="/admin/notifications">
-                  <Button variant="ghost" size="sm" isFullWidth>
-                    View All Alerts
-                  </Button>
-                </Link>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      </div>
+      {/* Recent Transactions - Full Width */}
+      <RecentTransactionsPanel initialData={recentTransactions} />
 
       {/* Low Stock Items - Warm Design */}
       <Card variant="elevated" size="md" className="bg-white">

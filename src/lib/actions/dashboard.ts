@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import type { Alert, Item } from '@/lib/supabase/types'
+import type { Item } from '@/lib/supabase/types'
 import { type ActionResult, success, failure } from '@/lib/types/action-result'
 
 export type { ActionResult } from '@/lib/types/action-result'
@@ -12,7 +12,6 @@ export interface DashboardStats {
   criticalStockItems: number
   todayTransactions: number
   pendingSync: number
-  recentAlerts: Alert[]
 }
 
 export interface DashboardData {
@@ -32,7 +31,6 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
       criticalStockResult,
       todayTransactionsResult,
       pendingSyncResult,
-      alertsResult,
     ] = await Promise.all([
       // Total items (non-archived)
       supabase
@@ -64,14 +62,6 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
         .from('sync_errors')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending'),
-
-      // Recent unread alerts
-      supabase
-        .from('alerts')
-        .select('*')
-        .eq('is_read', false)
-        .order('created_at', { ascending: false })
-        .limit(5),
     ])
 
     return success({
@@ -80,7 +70,6 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
       criticalStockItems: criticalStockResult.count ?? 0,
       todayTransactions: todayTransactionsResult.count ?? 0,
       pendingSync: pendingSyncResult.count ?? 0,
-      recentAlerts: alertsResult.data ?? [],
     })
   } catch (error) {
     return failure(error instanceof Error ? error.message : 'Failed to fetch dashboard stats')
@@ -103,7 +92,6 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
       criticalStockResult,
       todayTransactionsResult,
       pendingSyncResult,
-      alertsResult,
     ] = await Promise.all([
       // Total items (non-archived)
       supabase
@@ -136,14 +124,6 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
         .from('sync_errors')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending'),
-
-      // Recent unread alerts
-      supabase
-        .from('alerts')
-        .select('*')
-        .eq('is_read', false)
-        .order('created_at', { ascending: false })
-        .limit(5),
     ])
 
     return success({
@@ -153,7 +133,6 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
         criticalStockItems: criticalStockResult.count ?? 0,
         todayTransactions: todayTransactionsResult.count ?? 0,
         pendingSync: pendingSyncResult.count ?? 0,
-        recentAlerts: alertsResult.data ?? [],
       },
       lowStockItemsList: (lowStockItemsResult.data ?? []) as Item[],
     })
