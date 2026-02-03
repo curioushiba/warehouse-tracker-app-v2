@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, PackagePlus, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
+import { PackagePlus, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
 import {
   Button,
   Skeleton,
@@ -13,11 +13,13 @@ import {
   type CriticalStockItem,
 } from "@/lib/actions/dashboard";
 import { formatRelativeTime } from "@/lib/utils";
+import { StockItemsModal } from "./StockItemsModal";
 
 export function CriticalStockPanel() {
   const [data, setData] = useState<{ items: CriticalStockItem[]; totalCount: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -233,14 +235,25 @@ export function CriticalStockPanel() {
       {/* View all link */}
       {data.totalCount > 10 && (
         <div className="pt-2 text-center">
-          <Link href="/admin/items?filter=critical">
-            <Button variant="ghost" size="sm" className="text-rose-700">
-              View all {data.totalCount} out of stock items
-              <ArrowUpRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-rose-700"
+            onClick={() => setIsModalOpen(true)}
+          >
+            View all {data.totalCount} out of stock items
+          </Button>
         </div>
       )}
+
+      {/* Modal for all items */}
+      <StockItemsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        variant="critical"
+        items={data.items}
+        totalCount={data.totalCount}
+      />
     </div>
   );
 }
