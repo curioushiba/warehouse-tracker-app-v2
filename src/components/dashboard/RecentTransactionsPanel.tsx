@@ -16,8 +16,9 @@ import {
 import { getRecentActivity } from "@/lib/actions/dashboard";
 import { formatRelativeTime } from "@/lib/utils";
 import { onTransactionSubmitted } from "@/lib/events/transactions";
+import { createClient } from "@/lib/supabase/client";
 
-const POLLING_INTERVAL = 60000; // 60 seconds
+const POLLING_INTERVAL = 60000; // 60 seconds (fallback if realtime unavailable)
 const DEBOUNCE_INTERVAL = 2000; // 2 seconds minimum between refreshes
 
 // Transaction type for recent activity
@@ -78,6 +79,25 @@ export function RecentTransactionsPanel({ initialData }: RecentTransactionsPanel
       refresh();
     });
     return unsubscribe;
+  }, [refresh]);
+
+  // Subscribe to Supabase Realtime for cross-device transaction updates
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("dashboard-recent-transactions")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "inv_transactions" },
+        () => {
+          refresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [refresh]);
 
   // Light polling as fallback (only when tab is visible)
