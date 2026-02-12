@@ -1,0 +1,419 @@
+"use client";
+
+import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+import {
+  Camera,
+  Package,
+  AlertCircle,
+  Search,
+} from "lucide-react";
+import {
+  Card,
+  CardBody,
+  Button,
+  Badge,
+  Alert,
+  Skeleton,
+} from "@/components/ui";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { ItemImage } from "@/components/items";
+import { ItemSearchAutocomplete } from "@/components/search";
+import { ScanSuccessOverlay } from "@/components/scanner";
+import { BatchMiniList } from "@/components/batch";
+
+const BarcodeScanner = dynamic(
+  () => import("@/components/scanner/BarcodeScanner").then((mod) => mod.BarcodeScanner),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-square bg-neutral-900 rounded-xl flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-sm">Loading camera...</p>
+        </div>
+      </div>
+    ),
+  }
+);
+import { useBatchScan } from "@/contexts/BatchScanContext";
+import { useScanFeedback } from "@/hooks";
+import { getCmItemByCode, getRecentCmItems, searchCmItems } from "@/lib/actions/commissary-items";
+import type { Item } from "@/lib/supabase/types";
+
+type ScanMode = "camera" | "manual";
+type TransactionType = "check_in" | "check_out";
+
+export default function CommissaryScanPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const modeParam = searchParams.get("mode");
+  const typeParam = searchParams.get("type") as TransactionType | null;
+
+  const {
+    items: batchItems,
+    transactionType: batchTransactionType,
+    addItem,
+    incrementItem,
+    removeItem,
+    setTransactionType,
+    hasItem,
+    totalItems,
+  } = useBatchScan();
+
+  const transactionType: TransactionType = typeParam === "check_out" ? "check_out" : "check_in";
+
+  React.useEffect(() => {
+    setTransactionType(transactionType === "check_out" ? "out" : "in");
+  }, [transactionType, setTransactionType]);
+
+  const [scanMode, setScanMode] = React.useState<ScanMode>(
+    modeParam === "manual" ? "manual" : "camera"
+  );
+  const [error, setError] = React.useState<string | null>(null);
+  const [isLookingUp, setIsLookingUp] = React.useState(false);
+  const [recentItems, setRecentItems] = React.useState<Item[]>([]);
+  const [isLoadingRecent, setIsLoadingRecent] = React.useState(true);
+
+  const [duplicateItem, setDuplicateItem] = React.useState<Item | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = React.useState(false);
+
+  const { triggerFeedback, triggerDuplicateAlert, clearFeedback, feedbackItem, isVisible, isExiting } = useScanFeedback();
+
+  // Fetch recent commissary items
+  React.useEffect(() => {
+    async function fetchRecent() {
+      try {
+        setIsLoadingRecent(true);
+        const result = await getRecentCmItems(4);
+        if (result.success && result.data) {
+          setRecentItems(result.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch recent items:", err);
+      } finally {
+        setIsLoadingRecent(false);
+      }
+    }
+    fetchRecent();
+  }, []);
+
+  React.useEffect(() => {
+    router.prefetch("/PWA/commissarypwa/batch-review");
+  }, [router]);
+
+  const addItemToBatch = React.useCallback((item: Item) => {
+    const wasAdded = addItem(item);
+    if (wasAdded) {
+      triggerFeedback({ itemName: item.name, itemImageUrl: item.image_url });
+      setError(null);
+    } else {
+      clearFeedback();
+      triggerDuplicateAlert();
+      setDuplicateItem(item);
+      setShowDuplicateModal(true);
+    }
+  }, [addItem, triggerFeedback, triggerDuplicateAlert, clearFeedback]);
+
+  const handleDuplicateConfirm = () => {
+    if (duplicateItem) {
+      incrementItem(duplicateItem.id);
+      triggerFeedback({ itemName: duplicateItem.name, itemImageUrl: duplicateItem.image_url });
+    }
+    setShowDuplicateModal(false);
+    setDuplicateItem(null);
+  };
+
+  const handleDuplicateCancel = () => {
+    setShowDuplicateModal(false);
+    setDuplicateItem(null);
+  };
+
+  const handleCodeScanned = React.useCallback(async (code: string) => {
+    if (isLookingUp) return;
+
+    setIsLookingUp(true);
+    setError(null);
+
+    try {
+      const result = await getCmItemByCode(code);
+      if (result.success && result.data) {
+        addItemToBatch(result.data);
+      } else {
+        setError(`Item not found for code: ${code}`);
+      }
+    } catch (err) {
+      console.error("Error looking up item:", err);
+      setError("Failed to look up item. Please try again.");
+    } finally {
+      setIsLookingUp(false);
+    }
+  }, [isLookingUp, addItemToBatch]);
+
+  const handleScannerError = React.useCallback((errorMessage: string) => {
+    console.error("Scanner error:", errorMessage);
+    setError(errorMessage);
+  }, []);
+
+  const handleItemSelect = (item: Item) => {
+    addItemToBatch(item);
+  };
+
+  const handleDoneScanning = () => {
+    router.push("/PWA/commissarypwa/batch-review");
+  };
+
+  const gradientClass = transactionType === "check_in"
+    ? "before:from-[rgba(40,167,69,0.55)] before:via-[rgba(40,167,69,0.15)]"
+    : "before:from-[rgba(220,53,69,0.55)] before:via-[rgba(220,53,69,0.15)]";
+
+  return (
+    <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-40% before:to-transparent before:to-75% before:pointer-events-none before:-z-10`}>
+      {/* Transaction Type Badge */}
+      <div className="flex items-center justify-center mb-4">
+        <Badge
+          colorScheme={transactionType === "check_in" ? "success" : "error"}
+          variant="solid"
+          size="lg"
+        >
+          {transactionType === "check_in" ? "CHECK IN" : "CHECK OUT"}
+        </Badge>
+      </div>
+
+      {/* Scan Mode Toggle */}
+      <div className="flex bg-neutral-100 rounded-xl p-1 mb-4">
+        <button
+          onClick={() => {
+            setScanMode("camera");
+            setError(null);
+          }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${scanMode === "camera"
+              ? "bg-white text-foreground shadow-sm"
+              : "text-foreground-muted"
+            }`}
+        >
+          <Camera className="w-5 h-5" />
+          Camera
+        </button>
+        <button
+          onClick={() => {
+            setScanMode("manual");
+            setError(null);
+          }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${scanMode === "manual"
+              ? "bg-white text-foreground shadow-sm"
+              : "text-foreground-muted"
+            }`}
+        >
+          <Search className="w-5 h-5" />
+          Manual
+        </button>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto space-y-4">
+        {scanMode === "camera" ? (
+          <>
+            <BarcodeScanner
+              onScan={handleCodeScanned}
+              onError={handleScannerError}
+              enableTorch
+              aspectRatio={1}
+            />
+
+            {isLookingUp && (
+              <div className="text-center py-2">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E07A2F]/10 text-[#E07A2F] rounded-full text-sm">
+                  <div className="w-4 h-4 border-2 border-[#E07A2F] border-t-transparent rounded-full animate-spin" />
+                  Looking up item...
+                </div>
+              </div>
+            )}
+
+            {error && !isLookingUp && (
+              <Alert status="error" variant="subtle">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </Alert>
+            )}
+
+            <div className="bg-neutral-50 rounded-xl p-3">
+              <BatchMiniList
+                items={batchItems}
+                onRemove={removeItem}
+                maxVisibleItems={3}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <Card variant="elevated">
+              <CardBody>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-[#E07A2F]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Package className="w-8 h-8 text-[#E07A2F]" />
+                  </div>
+                  <h3 className="font-heading font-semibold text-foreground">
+                    Find Commissary Item
+                  </h3>
+                  <p className="text-sm text-foreground-muted mt-1">
+                    Type to search commissary and tap to add
+                  </p>
+                </div>
+              </CardBody>
+            </Card>
+
+            <div className="mt-4">
+              <ItemSearchAutocomplete
+                onItemSelect={handleItemSelect}
+                isItemInBatch={hasItem}
+                placeholder="Enter SKU, barcode, or name"
+                minCharacters={2}
+                debounceMs={300}
+                searchFn={searchCmItems}
+              />
+            </div>
+
+            {batchItems.length > 0 && (
+              <div className="bg-neutral-50 rounded-xl p-3">
+                <BatchMiniList
+                  items={batchItems}
+                  onRemove={removeItem}
+                  maxVisibleItems={3}
+                />
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-3">
+                Recent Commissary Items
+              </h3>
+              <div className="space-y-2">
+                {isLoadingRecent ? (
+                  <>
+                    {[1, 2, 3, 4].map((i) => (
+                      <Card key={i} variant="outline">
+                        <CardBody className="p-3">
+                          <Skeleton className="h-10 w-full" />
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </>
+                ) : recentItems.length === 0 ? (
+                  <div className="text-center py-6 text-foreground-muted">
+                    No commissary items yet
+                  </div>
+                ) : (
+                  recentItems.map((item) => (
+                    <Card
+                      key={item.id}
+                      variant="outline"
+                      isHoverable
+                      className="cursor-pointer"
+                      onClick={() => handleItemSelect(item)}
+                    >
+                      <CardBody className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <ItemImage
+                              imageUrl={item.image_url}
+                              itemName={item.name}
+                              size="sm"
+                            />
+                            <div>
+                              <p className="font-medium text-foreground text-sm">
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-foreground-muted">
+                                {item.sku}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge colorScheme="neutral" size="sm">
+                              {item.current_stock} {item.unit}
+                            </Badge>
+                            {hasItem(item.id) && (
+                              <Badge colorScheme="success" size="sm">
+                                In list
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Fixed Bottom Button */}
+      <div className="pt-4 mt-auto">
+        <Button
+          variant="cta"
+          isFullWidth
+          size="lg"
+          onClick={handleDoneScanning}
+          disabled={totalItems === 0}
+          className="!bg-[#E07A2F] hover:!bg-[#c4651f]"
+        >
+          Done Scanning ({totalItems} item{totalItems !== 1 ? "s" : ""})
+        </Button>
+      </div>
+
+      {/* Duplicate Confirmation Modal */}
+      <Modal
+        isOpen={showDuplicateModal}
+        onClose={handleDuplicateCancel}
+        size="sm"
+      >
+        <ModalHeader showCloseButton onClose={handleDuplicateCancel}>
+          Item Already in List
+        </ModalHeader>
+        <ModalBody>
+          <div className="text-center">
+            {duplicateItem && (
+              <>
+                <div className="flex justify-center mb-4">
+                  <ItemImage
+                    imageUrl={duplicateItem.image_url}
+                    itemName={duplicateItem.name}
+                    size="lg"
+                  />
+                </div>
+                <p className="font-medium text-foreground mb-1">
+                  {duplicateItem.name}
+                </p>
+                <p className="text-sm text-foreground-muted mb-4">
+                  This item is already in your scan list.
+                </p>
+              </>
+            )}
+            <p className="text-sm text-foreground">
+              Would you like to add another unit?
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={handleDuplicateCancel}>
+            No
+          </Button>
+          <Button variant="primary" onClick={handleDuplicateConfirm}>
+            Yes, Add Another
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Scan Success Overlay */}
+      <ScanSuccessOverlay
+        item={feedbackItem}
+        isVisible={isVisible}
+        isExiting={isExiting}
+      />
+    </div>
+  );
+}
