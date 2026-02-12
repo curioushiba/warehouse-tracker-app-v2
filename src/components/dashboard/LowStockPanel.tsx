@@ -18,7 +18,22 @@ import {
   PriorityBadge,
   formatDaysToStockout,
   formatDailyUsage,
+  type PriorityLevel,
 } from "./stock-utils";
+
+function getProgressColorScheme(priority: PriorityLevel): "error" | "warning" | "success" {
+  switch (priority) {
+    case "critical": return "error";
+    case "urgent": return "warning";
+    default: return "success";
+  }
+}
+
+function getDaysLeftColorClass(daysToStockout: number | null): string {
+  if (daysToStockout !== null && daysToStockout <= 3) return "text-red-600";
+  if (daysToStockout !== null && daysToStockout <= 7) return "text-orange-600";
+  return "text-foreground-secondary";
+}
 
 export function LowStockPanel() {
   const [data, setData] = useState<{ items: LowStockDetailItem[]; totalCount: number } | null>(null);
@@ -70,8 +85,8 @@ export function LowStockPanel() {
     return (
       <div className="text-center py-8">
         <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500 mb-3" />
-        <p className="text-lg font-medium text-stone-700">All items well stocked!</p>
-        <p className="text-sm text-stone-500 mt-1">No items are below their minimum stock level.</p>
+        <p className="text-lg font-medium text-foreground-secondary">All items well stocked!</p>
+        <p className="text-sm text-foreground-muted mt-1">No items are below their minimum stock level.</p>
       </div>
     );
   }
@@ -81,7 +96,7 @@ export function LowStockPanel() {
       {/* Desktop: Table layout */}
       <div className="hidden md:block">
         {/* Header row */}
-        <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-stone-500 uppercase tracking-wide">
+        <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-foreground-muted uppercase tracking-wide">
           <div className="col-span-2">Priority</div>
           <div className="col-span-3">Item</div>
           <div className="col-span-2">Stock Level</div>
@@ -99,7 +114,7 @@ export function LowStockPanel() {
           return (
             <div
               key={item.id}
-              className="grid grid-cols-12 gap-4 p-4 bg-white rounded-lg hover:bg-stone-50 transition-colors items-center"
+              className="grid grid-cols-12 gap-4 p-4 bg-white rounded-lg hover:bg-neutral-50 transition-colors items-center"
             >
               {/* Priority */}
               <div className="col-span-2">
@@ -110,51 +125,37 @@ export function LowStockPanel() {
               <div className="col-span-3">
                 <Link
                   href={`/admin/items/${item.id}`}
-                  className="font-medium text-stone-800 hover:text-amber-700 transition-colors"
+                  className="font-medium text-foreground hover:text-amber-700 transition-colors"
                 >
                   {item.name}
                 </Link>
-                <p className="text-xs text-stone-500">{item.sku}</p>
+                <p className="text-xs text-foreground-muted">{item.sku}</p>
               </div>
 
               {/* Stock level progress */}
               <div className="col-span-2 flex items-center gap-2">
                 <Progress
                   value={Math.min(percentage, 100)}
-                  colorScheme={
-                    item.priority === "critical"
-                      ? "error"
-                      : item.priority === "urgent"
-                      ? "warning"
-                      : "success"
-                  }
+                  colorScheme={getProgressColorScheme(item.priority)}
                   size="sm"
                   className="w-16"
                   aria-label={`${percentage.toFixed(0)}% of minimum stock`}
                 />
-                <span className="text-sm text-stone-600 whitespace-nowrap">
+                <span className="text-sm text-foreground-secondary whitespace-nowrap">
                   {item.current_stock} / {minStock}
                 </span>
               </div>
 
               {/* Daily usage */}
               <div className="col-span-1 text-right">
-                <span className="text-sm text-stone-600">
+                <span className="text-sm text-foreground-secondary">
                   {formatDailyUsage(item.daily_consumption_rate)}
                 </span>
               </div>
 
               {/* Days to stockout */}
               <div className="col-span-2 text-right">
-                <span
-                  className={`text-sm font-medium ${
-                    item.days_to_stockout !== null && item.days_to_stockout <= 3
-                      ? "text-red-600"
-                      : item.days_to_stockout !== null && item.days_to_stockout <= 7
-                      ? "text-orange-600"
-                      : "text-stone-600"
-                  }`}
-                >
+                <span className={`text-sm font-medium ${getDaysLeftColorClass(item.days_to_stockout)}`}>
                   {formatDaysToStockout(item.days_to_stockout)}
                 </span>
               </div>
@@ -163,7 +164,7 @@ export function LowStockPanel() {
               <div className="col-span-2 flex items-center justify-end gap-2">
                 {reorderQty !== null ? (
                   <>
-                    <span className="text-sm text-stone-600">{reorderQty}</span>
+                    <span className="text-sm text-foreground-secondary">{reorderQty}</span>
                     <Link
                       href={`/admin/transactions/new?item=${item.id}&type=check_in&quantity=${reorderQty}`}
                     >
@@ -205,11 +206,11 @@ export function LowStockPanel() {
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/admin/items/${item.id}`}
-                    className="font-medium text-stone-800 hover:text-amber-700 transition-colors block truncate"
+                    className="font-medium text-foreground hover:text-amber-700 transition-colors block truncate"
                   >
                     {item.name}
                   </Link>
-                  <p className="text-xs text-stone-500">{item.sku}</p>
+                  <p className="text-xs text-foreground-muted">{item.sku}</p>
                 </div>
                 <PriorityBadge priority={item.priority} />
               </div>
@@ -218,40 +219,26 @@ export function LowStockPanel() {
               <div className="flex items-center gap-3">
                 <Progress
                   value={Math.min(percentage, 100)}
-                  colorScheme={
-                    item.priority === "critical"
-                      ? "error"
-                      : item.priority === "urgent"
-                      ? "warning"
-                      : "success"
-                  }
+                  colorScheme={getProgressColorScheme(item.priority)}
                   size="sm"
                   className="flex-1"
                   aria-label={`${percentage.toFixed(0)}% of minimum stock`}
                 />
-                <span className="text-sm text-stone-600 whitespace-nowrap">
+                <span className="text-sm text-foreground-secondary whitespace-nowrap">
                   {item.current_stock} / {minStock}
                 </span>
               </div>
 
               {/* Stats row */}
-              <div className="flex items-center justify-between text-sm text-stone-600">
+              <div className="flex items-center justify-between text-sm text-foreground-secondary">
                 <span>Daily: {formatDailyUsage(item.daily_consumption_rate)}</span>
-                <span
-                  className={`font-medium ${
-                    item.days_to_stockout !== null && item.days_to_stockout <= 3
-                      ? "text-red-600"
-                      : item.days_to_stockout !== null && item.days_to_stockout <= 7
-                      ? "text-orange-600"
-                      : "text-stone-600"
-                  }`}
-                >
+                <span className={`font-medium ${getDaysLeftColorClass(item.days_to_stockout)}`}>
                   {formatDaysToStockout(item.days_to_stockout)} left
                 </span>
               </div>
 
               {/* Action */}
-              <div className="pt-2 border-t border-stone-100">
+              <div className="pt-2 border-t border-border-secondary">
                 {reorderQty !== null ? (
                   <Link
                     href={`/admin/transactions/new?item=${item.id}&type=check_in&quantity=${reorderQty}`}

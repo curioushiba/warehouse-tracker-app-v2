@@ -3,18 +3,6 @@ import { Card, CardBody, Skeleton } from "@/components/ui";
 export default function AdminDashboardLoading() {
   return (
     <div className="space-y-6">
-      {/* Page Header Skeleton */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Skeleton className="h-8 w-32 mb-2" />
-          <Skeleton className="h-4 w-48" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-32" />
-          <Skeleton className="h-10 w-28" />
-        </div>
-      </div>
-
       {/* Stats Cards Skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
@@ -31,23 +19,19 @@ export default function AdminDashboardLoading() {
         ))}
       </div>
 
-      {/* Charts Row Skeleton */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card variant="elevated">
-          <CardBody className="p-4">
-            <Skeleton className="h-6 w-40 mb-4" />
-            <Skeleton className="h-64 w-full rounded-lg" />
-          </CardBody>
-        </Card>
-        <Card variant="elevated">
-          <CardBody className="p-4">
-            <Skeleton className="h-6 w-32 mb-4" />
-            <Skeleton className="h-64 w-full rounded-lg" />
-          </CardBody>
-        </Card>
+      {/* Quick Actions Skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} variant="elevated">
+            <CardBody className="p-4 text-center">
+              <Skeleton className="h-12 w-12 rounded-xl mx-auto mb-3" />
+              <Skeleton className="h-4 w-24 mx-auto" />
+            </CardBody>
+          </Card>
+        ))}
       </div>
 
-      {/* Recent Activity Skeleton */}
+      {/* Recent Transactions Skeleton */}
       <Card variant="elevated">
         <CardBody className="p-4">
           <Skeleton className="h-6 w-36 mb-4" />

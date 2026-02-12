@@ -1,5 +1,7 @@
 import { type PriorityLevel } from "@/lib/actions/dashboard";
 
+export type { PriorityLevel };
+
 export const priorityConfig: Record<
   PriorityLevel,
   { emoji: string; label: string; color: string; bgColor: string }

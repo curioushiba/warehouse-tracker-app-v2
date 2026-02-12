@@ -90,7 +90,6 @@ export {
 
 // Dashboard Actions
 export {
-  getDashboardStats,
   getDashboardData,
   getRecentActivity,
   getLowStockDetails,

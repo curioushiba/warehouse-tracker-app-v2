@@ -57,8 +57,8 @@ const transactionTypeConfig: Record<
   write_off: {
     label: "Write Off",
     icon: Trash2,
-    color: "text-stone-700",
-    bgColor: "bg-stone-100",
+    color: "text-foreground-secondary",
+    bgColor: "bg-neutral-100",
   },
   return: {
     label: "Return",
@@ -116,9 +116,9 @@ export function TodayTransactionsPanel() {
 
   if (!data || data.totalCount === 0) {
     return (
-      <div className="text-center py-8 text-stone-500">
+      <div className="text-center py-8 text-foreground-muted">
         <ArrowLeftRight className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p className="text-lg font-medium text-stone-700">No transactions today</p>
+        <p className="text-lg font-medium text-foreground-secondary">No transactions today</p>
         <p className="text-sm mt-1">Transactions will appear here as they occur.</p>
         <Link href="/admin/transactions/new" className="inline-block mt-4">
           <Button variant="outline" size="sm" className="text-blue-700 border-blue-300">
@@ -135,15 +135,15 @@ export function TodayTransactionsPanel() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <ArrowLeftRight className="w-4 h-4 text-blue-600" />
-          <h4 className="font-medium text-stone-700">By Type</h4>
+          <h4 className="font-medium text-foreground-secondary">By Type</h4>
         </div>
         <div className="space-y-2">
           {data.typeBreakdown.map((item) => {
             const config = transactionTypeConfig[item.type] ?? {
               label: item.type,
               icon: ArrowLeftRight,
-              color: "text-stone-700",
-              bgColor: "bg-stone-100",
+              color: "text-foreground-secondary",
+              bgColor: "bg-neutral-100",
             };
             const Icon = config.icon;
 
@@ -156,7 +156,7 @@ export function TodayTransactionsPanel() {
                   <div className={`w-8 h-8 rounded ${config.bgColor} flex items-center justify-center`}>
                     <Icon className={`w-4 h-4 ${config.color}`} />
                   </div>
-                  <span className="text-sm text-stone-700">{config.label}</span>
+                  <span className="text-sm text-foreground-secondary">{config.label}</span>
                 </div>
                 <Badge colorScheme="neutral" size="sm">
                   {item.count}
@@ -171,26 +171,26 @@ export function TodayTransactionsPanel() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-4 h-4 text-blue-600" />
-          <h4 className="font-medium text-stone-700">Most Active Items</h4>
+          <h4 className="font-medium text-foreground-secondary">Most Active Items</h4>
         </div>
         <div className="space-y-2">
           {data.topActiveItems.length === 0 ? (
-            <p className="text-sm text-stone-500 italic p-2">No item activity today.</p>
+            <p className="text-sm text-foreground-muted italic p-2">No item activity today.</p>
           ) : (
             data.topActiveItems.map((item, index) => (
               <Link
                 key={item.id}
                 href={`/admin/items/${item.id}`}
-                className="flex items-center gap-3 p-2 bg-white rounded-lg hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-3 p-2 bg-white rounded-lg hover:bg-neutral-50 transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700">
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-stone-700 truncate">
+                  <p className="text-sm font-medium text-foreground-secondary truncate">
                     {item.name}
                   </p>
-                  <p className="text-xs text-stone-500">{item.sku}</p>
+                  <p className="text-xs text-foreground-muted">{item.sku}</p>
                 </div>
                 <Badge colorScheme="info" size="sm">
                   {item.transaction_count}
@@ -205,11 +205,11 @@ export function TodayTransactionsPanel() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <User className="w-4 h-4 text-blue-600" />
-          <h4 className="font-medium text-stone-700">Employee Activity</h4>
+          <h4 className="font-medium text-foreground-secondary">Employee Activity</h4>
         </div>
         <div className="space-y-2">
           {data.employeeActivity.length === 0 ? (
-            <p className="text-sm text-stone-500 italic p-2">No employee activity today.</p>
+            <p className="text-sm text-foreground-muted italic p-2">No employee activity today.</p>
           ) : (
             data.employeeActivity.slice(0, 5).map((employee) => (
               <div
@@ -218,7 +218,7 @@ export function TodayTransactionsPanel() {
               >
                 <div className="flex items-center gap-2">
                   <Avatar name={employee.name} size="sm" />
-                  <span className="text-sm text-stone-700 truncate max-w-[120px]">
+                  <span className="text-sm text-foreground-secondary truncate max-w-[120px]">
                     {employee.name}
                   </span>
                 </div>

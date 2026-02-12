@@ -18,11 +18,22 @@ import { formatRelativeTime } from "@/lib/utils";
 import { onTransactionSubmitted } from "@/lib/events/transactions";
 import { createClient } from "@/lib/supabase/client";
 
-const POLLING_INTERVAL = 60000; // 60 seconds (fallback if realtime unavailable)
-const DEBOUNCE_INTERVAL = 2000; // 2 seconds minimum between refreshes
+const POLLING_INTERVAL = 60000;
+const DEBOUNCE_INTERVAL = 2000;
 
-// Transaction type for recent activity
-interface RecentTransaction {
+function getQuantityDisplay(transType: string): { sign: string; colorClass: string } {
+  switch (transType) {
+    case "check_in":
+    case "return":
+      return { sign: "+", colorClass: "text-success" };
+    case "check_out":
+      return { sign: "-", colorClass: "text-error" };
+    default:
+      return { sign: "", colorClass: "text-foreground" };
+  }
+}
+
+export interface RecentTransaction {
   id: string;
   transaction_type: string;
   quantity: number;
@@ -168,12 +179,13 @@ export function RecentTransactionsPanel({ initialData }: RecentTransactionsPanel
                 ? `${transaction.user.first_name} ${transaction.user.last_name}`
                 : "Unknown User";
               const itemName = transaction.item?.name ?? "Unknown Item";
-              const transType = transaction.transaction_type;
+              const { sign, colorClass } = getQuantityDisplay(transaction.transaction_type);
 
               return (
-                <div
+                <Link
                   key={transaction.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-neutral-50 transition-colors"
+                  href="/admin/transactions"
+                  className="flex items-center justify-between px-6 py-4 hover:bg-neutral-50 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
                     <Avatar name={userName} size="sm" />
@@ -186,35 +198,16 @@ export function RecentTransactionsPanel({ initialData }: RecentTransactionsPanel
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span
-                      className={`font-medium ${
-                        transType === "check_in" || transType === "return"
-                          ? "text-success"
-                          : transType === "check_out"
-                          ? "text-error"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {transType === "check_in" || transType === "return"
-                        ? "+"
-                        : transType === "check_out"
-                        ? "-"
-                        : ""}
-                      {Math.abs(transaction.quantity)}{" "}
+                    <span className={`font-medium ${colorClass}`}>
+                      {sign}{Math.abs(transaction.quantity)}
                     </span>
                     <TransactionTypeBadge
-                      type={
-                        transType as
-                          | "check_in"
-                          | "check_out"
-                          | "adjustment"
-                          | "transfer"
-                          | "return"
-                      }
+                      type={transaction.transaction_type as "check_in" | "check_out" | "adjustment" | "transfer" | "return"}
                       size="sm"
                     />
+                    <ChevronRight className="w-4 h-4 text-foreground-placeholder opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </div>
+                </Link>
               );
             })
           )}

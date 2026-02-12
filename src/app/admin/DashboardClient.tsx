@@ -12,25 +12,20 @@ import {
 
 type ExpandedCard = "items" | "lowStock" | "critical" | "transactions" | null;
 
-interface DashboardStats {
-  totalItems: number;
-  lowStockItems: number;
-  criticalStockItems: number;
-  todayTransactions: number;
-}
-
 interface DashboardClientProps {
-  stats: DashboardStats;
+  stats: {
+    totalItems: number;
+    lowStockItems: number;
+    criticalStockItems: number;
+    todayTransactions: number;
+  };
 }
 
-const cardConfig: Record<
-  Exclude<ExpandedCard, null>,
-  { accentColor: AccentColor }
-> = {
-  items: { accentColor: "emerald" },
-  lowStock: { accentColor: "amber" },
-  critical: { accentColor: "rose" },
-  transactions: { accentColor: "blue" },
+const accentColors: Record<Exclude<ExpandedCard, null>, AccentColor> = {
+  items: "emerald",
+  lowStock: "amber",
+  critical: "rose",
+  transactions: "blue",
 };
 
 export function DashboardClient({ stats }: DashboardClientProps) {
@@ -40,10 +35,7 @@ export function DashboardClient({ stats }: DashboardClientProps) {
     setExpandedCard((current) => (current === card ? null : card));
   }, []);
 
-  const getAccentColor = (): AccentColor => {
-    if (expandedCard === null) return "emerald";
-    return cardConfig[expandedCard].accentColor;
-  };
+  const panelAccent = expandedCard !== null ? accentColors[expandedCard] : "emerald";
 
   return (
     <div className="space-y-4">
@@ -93,7 +85,7 @@ export function DashboardClient({ stats }: DashboardClientProps) {
       {/* Panel - renders below grid, full width */}
       <ExpandablePanel
         isExpanded={expandedCard !== null}
-        accentColor={getAccentColor()}
+        accentColor={panelAccent}
       >
         {expandedCard === "items" && <TotalItemsPanel />}
         {expandedCard === "lowStock" && <LowStockPanel />}

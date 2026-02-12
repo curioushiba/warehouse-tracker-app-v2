@@ -16,70 +16,8 @@ export interface DashboardStats {
 
 export interface DashboardData {
   stats: DashboardStats
-  lowStockItemsList: Item[]
 }
 
-export async function getDashboardStats(): Promise<ActionResult<DashboardStats>> {
-  try {
-    const supabase = createAdminClient()
-    const today = new Date().toISOString().split('T')[0]
-
-    // Run all queries in parallel - using the view for low stock count
-    const [
-      totalItemsResult,
-      lowStockResult,
-      criticalStockResult,
-      todayTransactionsResult,
-      pendingSyncResult,
-    ] = await Promise.all([
-      // Total items (non-archived)
-      supabase
-        .from('inv_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_archived', false),
-
-      // Low stock items - use the view for efficient server-side filtering
-      supabase
-        .from('inv_low_stock_items')
-        .select('*', { count: 'exact', head: true })
-        .gt('current_stock', 0),
-
-      // Critical stock (current_stock = 0)
-      supabase
-        .from('inv_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .eq('current_stock', 0),
-
-      // Today's transactions
-      supabase
-        .from('inv_transactions')
-        .select('id', { count: 'exact', head: true })
-        .gte('server_timestamp', today),
-
-      // Pending sync errors
-      supabase
-        .from('sync_errors')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending'),
-    ])
-
-    return success({
-      totalItems: totalItemsResult.count ?? 0,
-      lowStockItems: lowStockResult.count ?? 0,
-      criticalStockItems: criticalStockResult.count ?? 0,
-      todayTransactions: todayTransactionsResult.count ?? 0,
-      pendingSync: pendingSyncResult.count ?? 0,
-    })
-  } catch (error) {
-    return failure(error instanceof Error ? error.message : 'Failed to fetch dashboard stats')
-  }
-}
-
-/**
- * Get dashboard data including stats and low stock items in a single call.
- * This consolidates what was previously 3 separate API calls into 2.
- */
 export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
   try {
     const supabase = createAdminClient()
@@ -99,12 +37,11 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
         .select('id', { count: 'exact', head: true })
         .eq('is_archived', false),
 
-      // Low stock items - get both count and items from the view
+      // Low stock items count
       supabase
         .from('inv_low_stock_items')
-        .select('*', { count: 'exact' })
-        .gt('current_stock', 0)
-        .limit(5),
+        .select('*', { count: 'exact', head: true })
+        .gt('current_stock', 0),
 
       // Critical stock (current_stock = 0)
       supabase
@@ -134,7 +71,6 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
         todayTransactions: todayTransactionsResult.count ?? 0,
         pendingSync: pendingSyncResult.count ?? 0,
       },
-      lowStockItemsList: (lowStockItemsResult.data ?? []) as Item[],
     })
   } catch (error) {
     return failure(error instanceof Error ? error.message : 'Failed to fetch dashboard data')

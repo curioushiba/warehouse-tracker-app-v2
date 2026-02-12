@@ -7,9 +7,6 @@ import {
   AlertTriangle,
   AlertCircle,
   ArrowLeftRight,
-  DollarSign,
-  ShoppingCart,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,19 +16,13 @@ export type IconName =
   | "package"
   | "alert-triangle"
   | "alert-circle"
-  | "arrow-left-right"
-  | "dollar-sign"
-  | "shopping-cart"
-  | "users";
+  | "arrow-left-right";
 
 const iconMap: Record<IconName, LucideIcon> = {
   package: Package,
   "alert-triangle": AlertTriangle,
   "alert-circle": AlertCircle,
   "arrow-left-right": ArrowLeftRight,
-  "dollar-sign": DollarSign,
-  "shopping-cart": ShoppingCart,
-  users: Users,
 };
 
 export const colors: Record<
@@ -165,32 +156,23 @@ export function StatCardClickable({
           </div>
           <ChevronDown
             className={`
-              w-5 h-5 text-stone-400 transition-transform duration-300
+              w-5 h-5 text-foreground-placeholder transition-transform duration-300
               ${isExpanded ? "rotate-180" : ""}
             `}
           />
         </div>
 
         {/* Label */}
-        <div className="text-sm font-medium text-stone-500 mb-1">{label}</div>
+        <div className="text-sm font-medium text-foreground-muted mb-1">{label}</div>
 
         {/* Value + Subtitle */}
         <div className="flex items-baseline gap-3">
-          <span className="text-4xl font-bold text-stone-800 tracking-tight">
+          <span className="text-4xl font-bold text-foreground tracking-tight">
             {typeof value === "number" ? value.toLocaleString() : value}
           </span>
-          {subtitle && <span className="text-sm text-stone-400">{subtitle}</span>}
+          {subtitle && <span className="text-sm text-foreground-placeholder">{subtitle}</span>}
         </div>
 
-        {/* Hover hint */}
-        <div
-          className={`
-            mt-4 flex items-center text-sm font-medium ${c.action}
-            opacity-0 group-hover:opacity-100 transition-opacity duration-200
-          `}
-        >
-          {isExpanded ? "Click to collapse" : "Click to expand"}
-        </div>
       </div>
     </button>
   );
@@ -233,48 +215,3 @@ export function ExpandablePanel({
   );
 }
 
-// =============================================================================
-// ExpandableStatCard - Legacy component for backwards compatibility
-// Combines StatCardClickable + ExpandablePanel in a single wrapper
-// (Original behavior - panel renders inside card's container)
-// =============================================================================
-export interface ExpandableStatCardProps {
-  label: string;
-  value: string | number;
-  subtitle?: string;
-  icon: IconName;
-  accentColor: AccentColor;
-  isExpanded: boolean;
-  onToggle: () => void;
-  children?: ReactNode;
-}
-
-export function ExpandableStatCard({
-  label,
-  value,
-  subtitle,
-  icon,
-  accentColor,
-  isExpanded,
-  onToggle,
-  children,
-}: ExpandableStatCardProps) {
-  return (
-    <div className="flex flex-col">
-      <StatCardClickable
-        label={label}
-        value={value}
-        subtitle={subtitle}
-        icon={icon}
-        accentColor={accentColor}
-        isExpanded={isExpanded}
-        onToggle={onToggle}
-      />
-      {children && (
-        <ExpandablePanel isExpanded={isExpanded} accentColor={accentColor}>
-          {children}
-        </ExpandablePanel>
-      )}
-    </div>
-  );
-}
