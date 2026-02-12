@@ -11,10 +11,13 @@ import {
   Package,
   AlertCircle,
   RefreshCw,
-  Loader2,
   Clock,
   CloudOff,
   Archive,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import {
   ItemImage,
@@ -29,7 +32,6 @@ import {
 import { useToastHelpers } from "@/components/ui/Toast";
 import {
   Card,
-  CardBody,
   Button,
   IconButton,
   SearchInput,
@@ -48,7 +50,11 @@ import {
   ModalBody,
   ModalFooter,
   Skeleton,
+  SkeletonTableRow,
   Alert,
+  LoadingOverlay,
+  Progress,
+  Tooltip,
 } from "@/components/ui";
 import { StockLevelBadge } from "@/components/ui";
 import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
@@ -67,7 +73,38 @@ import {
 } from "@/lib/offline/db";
 import { useOfflineItemSync } from "@/hooks";
 import type { Item, Category } from "@/lib/supabase/types";
-import { formatCurrency, getStockLevel, formatDateTime } from "@/lib/utils";
+import { formatCurrency, getStockLevel } from "@/lib/utils";
+import type { StockLevel } from "@/lib/utils";
+
+const STOCK_LEVEL_PROGRESS_COLOR: Record<StockLevel, "error" | "warning" | "success" | "primary"> = {
+  critical: "error",
+  low: "warning",
+  normal: "success",
+  overstocked: "primary",
+};
+
+const CATEGORY_COLORS = ["primary", "info", "success", "warning", "secondary"] as const;
+
+function getCategoryColor(name: string): typeof CATEGORY_COLORS[number] {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
+}
+
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "ellipsis")[] = [1];
+  if (current > 3) pages.push("ellipsis");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push("ellipsis");
+  pages.push(total);
+  return pages;
+}
+
 export default function ItemsPage() {
   // Offline sync hook
   const { queueItemArchive, isOnline } = useOfflineItemSync();
@@ -123,6 +160,21 @@ export default function ItemsPage() {
     categories.forEach((cat) => map.set(cat.id, cat));
     return map;
   }, [categories]);
+
+  // Summary counts for the summary bar
+  const stockSummary = React.useMemo(() => {
+    let critical = 0;
+    let low = 0;
+    for (const item of items) {
+      const level = getStockLevel(item.current_stock, item.min_stock, item.max_stock || 0);
+      if (level === "critical") critical++;
+      else if (level === "low") low++;
+    }
+    return { critical, low };
+  }, [items]);
+
+  // Check if any filters are active
+  const hasActiveFilters = debouncedSearch || categoryFilter || stockFilter;
 
   // Debounce search input
   React.useEffect(() => {
@@ -491,32 +543,46 @@ export default function ItemsPage() {
   if (isLoading && isInitialLoad) {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex flex-1 gap-3">
-            <Skeleton className="h-10 flex-1 max-w-md" />
-            <Skeleton className="h-10 w-40" />
-            <Skeleton className="h-10 w-40" />
+        {/* Summary bar skeleton */}
+        <Skeleton className="h-10 w-full" borderRadius="lg" />
+        {/* Search + filters skeleton */}
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Skeleton className="h-10 flex-1" />
+            <div className="flex gap-2 flex-shrink-0">
+              <Skeleton className="h-10 w-40" />
+              <Skeleton className="h-10 w-40" />
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-10 w-24" />
-            <Skeleton className="h-10 w-28" />
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-40" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-24" />
+            </div>
           </div>
         </div>
-        <Card variant="elevated">
-          <div className="p-4 space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton className="h-10 w-10 rounded-lg" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-6 w-20" />
-                <Skeleton className="h-6 w-16" />
-                <Skeleton className="h-6 w-16" />
-              </div>
-            ))}
-          </div>
+        {/* Table skeleton */}
+        <Card variant="elevated" className="overflow-hidden">
+          <Table variant="simple" size="md">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12"><Skeleton className="h-4 w-4" /></TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Cost</TableHead>
+                <TableHead className="w-28"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...Array(5)].map((_, i) => (
+                <SkeletonTableRow key={i} columns={7} />
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       </div>
     );
@@ -557,10 +623,26 @@ export default function ItemsPage() {
         </Alert>
       )}
 
+      {/* Summary Bar */}
+      {items.length > 0 && (
+        <Card variant="filled" size="sm">
+          <div className="flex items-center gap-4 text-sm">
+            <span><strong>{totalCount}</strong> total items</span>
+            {stockSummary.critical > 0 && (
+              <Badge colorScheme="error" variant="subtle" size="xs">{stockSummary.critical} critical</Badge>
+            )}
+            {stockSummary.low > 0 && (
+              <Badge colorScheme="warning" variant="subtle" size="xs">{stockSummary.low} low stock</Badge>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Actions Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex flex-1 gap-3">
-          <div className="flex-1 max-w-md">
+      <div className="space-y-3">
+        {/* Row 1: Search + Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
             <SearchInput
               placeholder="Search items by name, SKU..."
               value={searchQuery}
@@ -568,57 +650,65 @@ export default function ItemsPage() {
               onClear={() => setSearchQuery("")}
             />
           </div>
-          <Select
-            options={[{ value: "", label: "All Categories" }, ...categoryOptions]}
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-            placeholder="Category"
-            isClearable
-            className="w-40"
-          />
-          <Select
-            options={[{ value: "", label: "All Status" }, ...stockOptions]}
-            value={stockFilter}
-            onChange={setStockFilter}
-            placeholder="Stock Status"
-            isClearable
-            className="w-40"
-          />
+          <div className="flex gap-2 flex-shrink-0">
+            <Select
+              options={[{ value: "", label: "All Categories" }, ...categoryOptions]}
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              placeholder="Category"
+              isClearable
+              className="w-40"
+            />
+            <Select
+              options={[{ value: "", label: "All Status" }, ...stockOptions]}
+              value={stockFilter}
+              onChange={setStockFilter}
+              placeholder="Stock Status"
+              isClearable
+              className="w-40"
+            />
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            leftIcon={<Download className="w-4 h-4" />}
-            onClick={handleExport}
-          >
-            Export
-          </Button>
-          <Button
-            variant="secondary"
-            leftIcon={<Plus className="w-4 h-4" />}
-            onClick={() => setIsBulkAddOpen(true)}
-          >
-            Bulk Add
-          </Button>
-          <Link href="/admin/items/new">
-            <Button variant="cta" leftIcon={<Plus className="w-4 h-4" />}>
-              Add Item
+
+        {/* Row 2: Info text + Action buttons */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-foreground-muted">
+            Showing {totalCount === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download className="w-4 h-4" />}
+              onClick={handleExport}
+            >
+              Export
             </Button>
-          </Link>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setIsBulkAddOpen(true)}
+            >
+              Bulk Add
+            </Button>
+            <Link href="/admin/items/new">
+              <Button variant="cta" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+                Add Item
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Selected Items Actions */}
       {selectedItems.length > 0 && (
-        <Card variant="filled" size="sm">
+        <Card variant="filled" size="sm" className="animate-slide-in-down">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">
               {selectedItems.length} item{selectedItems.length > 1 ? "s" : ""} selected
             </span>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" disabled>
-                Bulk Edit
-              </Button>
               <Button
                 variant="danger"
                 size="sm"
@@ -635,11 +725,7 @@ export default function ItemsPage() {
       {/* Items Table */}
       <Card variant="elevated" className="overflow-hidden relative">
         {/* Subtle loading overlay for subsequent loads */}
-        {isLoading && !isInitialLoad && (
-          <div className="absolute inset-0 bg-white/60 dark:bg-neutral-900/60 z-10 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          </div>
-        )}
+        <LoadingOverlay isLoading={isLoading && !isInitialLoad} label="Updating items..." />
         <Table variant="simple" size="md">
           <TableHeader>
             <TableRow>
@@ -694,31 +780,46 @@ export default function ItemsPage() {
               >
                 Cost
               </TableHead>
-              <TableHead>Last Updated</TableHead>
-              <TableHead className="w-12"></TableHead>
+              <TableHead className="w-28"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {displayItems.length === 0 ? (
-              <TableEmpty
-                title="No items found"
-                description="Try adjusting your search or filters"
-                icon={<Package className="w-12 h-12" />}
-                action={
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setCategoryFilter("");
-                      setStockFilter("");
-                    }}
-                  >
-                    Clear Filters
-                  </Button>
-                }
-                colSpan={8}
-              />
+              hasActiveFilters ? (
+                <TableEmpty
+                  title="No matching items"
+                  description="Try adjusting your search or filters"
+                  icon={<Package className="w-12 h-12" />}
+                  action={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setCategoryFilter("");
+                        setStockFilter("");
+                      }}
+                    >
+                      Clear All Filters
+                    </Button>
+                  }
+                  colSpan={7}
+                />
+              ) : (
+                <TableEmpty
+                  title="No items yet"
+                  description="Add your first inventory item to get started"
+                  icon={<Package className="w-12 h-12" />}
+                  action={
+                    <Link href="/admin/items/new">
+                      <Button variant="cta" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+                        Add First Item
+                      </Button>
+                    </Link>
+                  }
+                  colSpan={7}
+                />
+              )
             ) : (
               displayItems.map((item) => {
                 const level = getStockLevel(
@@ -736,7 +837,7 @@ export default function ItemsPage() {
                   : "Uncategorized";
 
                 return (
-                  <TableRow key={item.id} isSelected={isSelected}>
+                  <TableRow key={item.id} isSelected={isSelected} className="hover:bg-background-tertiary">
                     <TableCell>
                       <Checkbox
                         isChecked={isSelected}
@@ -773,31 +874,19 @@ export default function ItemsPage() {
                               </Link>
                             )}
                             {isOfflineItem && (
-                              <span
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                title="Created offline - will sync when online"
-                              >
-                                <CloudOff className="w-3 h-3" />
+                              <Badge colorScheme="info" variant="subtle" size="xs" leftIcon={<CloudOff className="w-3 h-3" />}>
                                 Offline
-                              </span>
+                              </Badge>
                             )}
                             {hasPendingEdit && !isOfflineItem && (
-                              <span
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-warning-light text-warning-dark"
-                                title="Pending offline changes"
-                              >
-                                <Clock className="w-3 h-3" />
+                              <Badge colorScheme="warning" variant="subtle" size="xs" leftIcon={<Clock className="w-3 h-3" />}>
                                 Pending Edit
-                              </span>
+                              </Badge>
                             )}
                             {hasPendingArchive && (
-                              <span
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                                title="Pending archive - will sync when online"
-                              >
-                                <Archive className="w-3 h-3" />
+                              <Badge colorScheme="error" variant="subtle" size="xs" leftIcon={<Archive className="w-3 h-3" />}>
                                 Pending Delete
-                              </span>
+                              </Badge>
                             )}
                           </div>
                           <p className="text-sm text-foreground-muted">
@@ -811,7 +900,7 @@ export default function ItemsPage() {
                         onClick={() => setCategoryModalItem(item)}
                         ariaLabel={`Change category for ${item.name}`}
                       >
-                        <Badge colorScheme="neutral" variant="subtle" size="sm">
+                        <Badge colorScheme={getCategoryColor(categoryName)} variant="subtle" size="sm">
                           {categoryName}
                         </Badge>
                       </ClickableTableCell>
@@ -827,6 +916,16 @@ export default function ItemsPage() {
                             {" "}
                             / {item.max_stock || "∞"} {item.unit}
                           </span>
+                          {(item.max_stock ?? 0) > 0 && (
+                            <Progress
+                              value={item.current_stock}
+                              max={item.max_stock!}
+                              size="xs"
+                              colorScheme={STOCK_LEVEL_PROGRESS_COLOR[level]}
+                              className="mt-1"
+                              aria-label={`Stock level: ${item.current_stock} of ${item.max_stock}`}
+                            />
+                          )}
                         </div>
                       </ClickableTableCell>
                     </TableCell>
@@ -847,39 +946,42 @@ export default function ItemsPage() {
                         {formatCurrency(item.unit_price || 0)}
                       </ClickableTableCell>
                     </TableCell>
-                    <TableCell className="text-sm text-foreground-muted">
-                      {formatDateTime(item.updated_at)}
-                    </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         {!isOfflineItem && (
                           <>
-                            <Link href={`/admin/items/${item.id}`}>
-                              <IconButton
-                                icon={<Eye className="w-4 h-4" />}
-                                aria-label="View item"
-                                variant="ghost"
-                                size="sm"
-                              />
-                            </Link>
-                            <Link href={`/admin/items/${item.id}/edit`}>
-                              <IconButton
-                                icon={<Edit className="w-4 h-4" />}
-                                aria-label="Edit item"
-                                variant="ghost"
-                                size="sm"
-                              />
-                            </Link>
+                            <Tooltip content="View" placement="top">
+                              <Link href={`/admin/items/${item.id}`}>
+                                <IconButton
+                                  icon={<Eye className="w-4 h-4" />}
+                                  aria-label="View item"
+                                  variant="ghost"
+                                  size="sm"
+                                />
+                              </Link>
+                            </Tooltip>
+                            <Tooltip content="Edit" placement="top">
+                              <Link href={`/admin/items/${item.id}/edit`}>
+                                <IconButton
+                                  icon={<Edit className="w-4 h-4" />}
+                                  aria-label="Edit item"
+                                  variant="ghost"
+                                  size="sm"
+                                />
+                              </Link>
+                            </Tooltip>
                           </>
                         )}
-                        <IconButton
-                          icon={<Trash2 className="w-4 h-4" />}
-                          aria-label={isOfflineItem ? "Remove offline item" : "Delete item"}
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(item.id)}
-                          className="text-error hover:bg-error-light"
-                        />
+                        <Tooltip content={isOfflineItem ? "Remove" : "Archive"} placement="top">
+                          <IconButton
+                            icon={<Trash2 className="w-4 h-4" />}
+                            aria-label={isOfflineItem ? "Remove offline item" : "Delete item"}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(item.id)}
+                            className="text-error hover:bg-error-light"
+                          />
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -899,64 +1001,73 @@ export default function ItemsPage() {
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <p className="text-sm text-foreground-muted">
-              Showing {totalCount === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-foreground-muted">Items per page:</span>
-              <Select
-                options={[
-                  { value: "10", label: "10" },
-                  { value: "25", label: "25" },
-                  { value: "50", label: "50" },
-                  { value: "100", label: "100" },
-                ]}
-                value={itemsPerPage.toString()}
-                onChange={(value) => {
-                  setItemsPerPage(parseInt(value));
-                  setCurrentPage(1);
-                }}
-                className="w-20"
-              />
-            </div>
-          </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
+            <span className="text-sm text-foreground-muted">Items per page:</span>
+            <Select
+              options={[
+                { value: "10", label: "10" },
+                { value: "25", label: "25" },
+                { value: "50", label: "50" },
+                { value: "100", label: "100" },
+              ]}
+              value={itemsPerPage.toString()}
+              onChange={(value) => {
+                setItemsPerPage(parseInt(value));
+                setCurrentPage(1);
+              }}
+              className="w-20"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <IconButton
+              icon={<ChevronsLeft className="w-4 h-4" />}
+              aria-label="First page"
+              variant="ghost"
               size="sm"
               onClick={() => handlePageChange(1)}
               disabled={currentPage === 1}
-            >
-              First
-            </Button>
-            <Button
-              variant="secondary"
+            />
+            <IconButton
+              icon={<ChevronLeft className="w-4 h-4" />}
+              aria-label="Previous page"
+              variant="ghost"
               size="sm"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-foreground-muted px-2">
-              Page {currentPage} of {totalPages || 1}
-            </span>
-            <Button
-              variant="secondary"
+            />
+            {getPageNumbers(currentPage, totalPages || 1).map((page, idx) =>
+              page === "ellipsis" ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-foreground-muted">...</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
+                    page === currentPage
+                      ? "bg-primary text-white"
+                      : "text-foreground-secondary hover:bg-background-tertiary"
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            )}
+            <IconButton
+              icon={<ChevronRight className="w-4 h-4" />}
+              aria-label="Next page"
+              variant="ghost"
               size="sm"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage >= totalPages}
-            >
-              Next
-            </Button>
-            <Button
-              variant="secondary"
+            />
+            <IconButton
+              icon={<ChevronsRight className="w-4 h-4" />}
+              aria-label="Last page"
+              variant="ghost"
               size="sm"
               onClick={() => handlePageChange(totalPages)}
               disabled={currentPage >= totalPages}
-            >
-              Last
-            </Button>
+            />
           </div>
         </div>
       )}

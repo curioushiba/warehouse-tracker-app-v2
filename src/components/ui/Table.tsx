@@ -57,7 +57,7 @@ export const TableHeader = React.forwardRef<
   return (
     <thead
       ref={ref}
-      className={cn("bg-neutral-50 border-b border-border", className)}
+      className={cn("bg-background-tertiary border-b border-border", className)}
       {...props}
     />
   );
