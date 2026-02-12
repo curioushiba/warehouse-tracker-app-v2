@@ -20,6 +20,8 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/admin/notifications": { title: "Notifications", subtitle: "Alerts and updates" },
   "/admin/help": { title: "Help & Support", subtitle: "Documentation and resources" },
   "/admin/sync-errors": { title: "Sync Errors", subtitle: "Failed offline transactions" },
+  "/admin/frozengoods/items": { title: "Frozen Goods", subtitle: "Manage frozen inventory items" },
+  "/admin/frozengoods/items/new": { title: "New Frozen Good", subtitle: "Add a new frozen goods item" },
 };
 
 export default function AdminLayoutWrapper({

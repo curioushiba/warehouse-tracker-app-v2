@@ -14,6 +14,9 @@ import {
   Settings,
   BarChart3,
   Bell,
+  Snowflake,
+  ChefHat,
+  Smartphone,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -51,10 +54,28 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: "Frozen Goods",
+    items: [
+      { label: "Frozen Items", href: "/admin/frozengoods/items", icon: Snowflake },
+    ],
+  },
+  {
+    title: "Commissary",
+    items: [
+      { label: "Commissary Items", href: "/admin/commissary/items", icon: ChefHat },
+    ],
+  },
+  {
     title: "Operations",
     items: [
       { label: "Transactions", href: "/admin/transactions", icon: ArrowLeftRight },
       { label: "Reports", href: "/admin/reports", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Applications",
+    items: [
+      { label: "PWA Hub", href: "/PWA", icon: Smartphone },
     ],
   },
   {

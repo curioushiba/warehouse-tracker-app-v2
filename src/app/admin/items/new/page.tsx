@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Package, RefreshCw, WifiOff, Clock } from "lucide-react";
 import {
@@ -66,6 +66,8 @@ const generateSku = (): string => {
 
 export default function NewItemPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedCategory = searchParams.get("category") || "";
   const { settings } = useSettings();
   const { queueItemCreate, isOnline } = useOfflineItemSync();
 
@@ -82,7 +84,7 @@ export default function NewItemPage() {
     sku: generateSku(),
     barcode: "",
     description: "",
-    category_id: "",
+    category_id: preselectedCategory,
     location_id: "",
     unit: "pcs",
     current_stock: "0",

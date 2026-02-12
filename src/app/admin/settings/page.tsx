@@ -37,7 +37,7 @@ const CURRENCY_OPTIONS = [
   { value: "CAD", label: "CAD ($)" },
   { value: "INR", label: "INR (₹)" },
   { value: "PHP", label: "PHP (₱)" },
-] as const;
+];
 
 interface SettingRowProps {
   icon: React.ReactNode;

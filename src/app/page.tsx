@@ -16,14 +16,16 @@ export default function HomePage() {
           <div className="relative w-64 h-64 rounded-full flex items-center justify-center overflow-visible">
             {/* Green Circle Background for Icon if needed, or just let the icon shine */}
             {/* Using the scan-icon-circle.png as requested */}
-            <Image
-              src="/icons/scan-icon-circle.png"
-              alt="Ready to Scan"
-              width={256}
-              height={256}
-              priority
-              className="object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 ease-nature"
-            />
+            <Link href="/admin" className="cursor-pointer">
+              <Image
+                src="/icons/scan-icon-circle.png"
+                alt="Ready to Scan"
+                width={256}
+                height={256}
+                priority
+                className="object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 ease-nature"
+              />
+            </Link>
           </div>
         </div>
 
