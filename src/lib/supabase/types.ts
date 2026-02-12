@@ -238,6 +238,104 @@ export interface Database {
           is_read?: boolean
         }
       }
+      fg_items: {
+        Row: {
+          id: string
+          sku: string
+          name: string
+          description: string | null
+          category_id: string | null
+          location_id: string | null
+          unit: string
+          current_stock: number
+          min_stock: number
+          max_stock: number | null
+          unit_price: number | null
+          barcode: string | null
+          image_url: string | null
+          is_archived: boolean
+          version: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sku?: string
+          name: string
+          description?: string | null
+          category_id?: string | null
+          location_id?: string | null
+          unit?: string
+          current_stock?: number
+          min_stock?: number
+          max_stock?: number | null
+          unit_price?: number | null
+          barcode?: string | null
+          image_url?: string | null
+          is_archived?: boolean
+          version?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          sku?: string
+          name?: string
+          description?: string | null
+          category_id?: string | null
+          location_id?: string | null
+          unit?: string
+          current_stock?: number
+          min_stock?: number
+          max_stock?: number | null
+          unit_price?: number | null
+          barcode?: string | null
+          image_url?: string | null
+          is_archived?: boolean
+          version?: number
+          updated_at?: string
+        }
+      }
+      fg_transactions: {
+        Row: {
+          id: string
+          transaction_type: TransactionType
+          item_id: string
+          quantity: number
+          stock_before: number | null
+          stock_after: number | null
+          source_location_id: string | null
+          destination_location_id: string | null
+          user_id: string
+          notes: string | null
+          device_timestamp: string
+          event_timestamp: string
+          server_timestamp: string
+          sync_status: SyncStatus
+          idempotency_key: string | null
+        }
+        Insert: {
+          id?: string
+          transaction_type: TransactionType
+          item_id: string
+          quantity: number
+          stock_before?: number | null
+          stock_after?: number | null
+          source_location_id?: string | null
+          destination_location_id?: string | null
+          user_id: string
+          notes?: string | null
+          device_timestamp: string
+          server_timestamp?: string
+          sync_status?: SyncStatus
+          idempotency_key?: string | null
+        }
+        Update: {
+          transaction_type?: TransactionType
+          quantity?: number
+          notes?: string | null
+          sync_status?: SyncStatus
+        }
+      }
       sync_errors: {
         Row: {
           id: string
@@ -323,6 +421,40 @@ export interface Database {
           created_at: string
           updated_at: string
         }[]
+      }
+      generate_fg_sku: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      submit_fg_transaction: {
+        Args: {
+          p_transaction_type: TransactionType
+          p_item_id: string
+          p_quantity: number
+          p_user_id: string
+          p_notes: string | null
+          p_source_location_id: string | null
+          p_destination_location_id: string | null
+          p_idempotency_key: string | null
+          p_device_timestamp: string
+        }
+        Returns: {
+          id: string
+          transaction_type: TransactionType
+          item_id: string
+          quantity: number
+          stock_before: number | null
+          stock_after: number | null
+          source_location_id: string | null
+          destination_location_id: string | null
+          user_id: string
+          notes: string | null
+          device_timestamp: string
+          event_timestamp: string
+          server_timestamp: string
+          sync_status: SyncStatus
+          idempotency_key: string | null
+        }
       }
       submit_transaction: {
         Args: {
