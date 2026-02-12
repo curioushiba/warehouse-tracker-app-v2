@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import type { TransactionType } from '@/lib/supabase/types'
@@ -70,6 +71,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Revalidate dashboard to show updated recent transactions
+    revalidatePath('/admin')
 
     return NextResponse.json({ success: true, data })
   } catch (error) {

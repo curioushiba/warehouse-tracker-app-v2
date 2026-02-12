@@ -45,19 +45,43 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/auth/login', '/auth/signup', '/auth/forgot-password', '/auth/reset-password', '/employee/login']
+  const publicRoutes = [
+    '/auth/login',
+    '/auth/signup',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/employee/login',
+    '/PWA/frozengoodspwa/login',
+    '/PWA/frozengoodspwa/manifest.json',
+    '/PWA/commissarypwa/login',
+    '/PWA/commissarypwa/manifest.json',
+  ]
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   // Protected route patterns
   const isAdminRoute = pathname.startsWith('/admin')
   const isEmployeeRoute = pathname.startsWith('/employee') && !pathname.startsWith('/employee/login')
-  const isProtectedRoute = isAdminRoute || isEmployeeRoute
+  const isPWAHubRoute = pathname === '/PWA' || pathname === '/PWA/'
+  const isFrozenGoodsPWARoute = pathname.startsWith('/PWA/frozengoodspwa')
+    && !pathname.startsWith('/PWA/frozengoodspwa/login')
+    && !pathname.startsWith('/PWA/frozengoodspwa/manifest.json')
+  const isCommissaryPWARoute = pathname.startsWith('/PWA/commissarypwa')
+    && !pathname.startsWith('/PWA/commissarypwa/login')
+    && !pathname.startsWith('/PWA/commissarypwa/manifest.json')
+  const isProtectedRoute = isAdminRoute || isEmployeeRoute || isPWAHubRoute || isFrozenGoodsPWARoute || isCommissaryPWARoute
 
   // Redirect unauthenticated users to appropriate login
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()
-    // Employees go to employee login, admins go to main login
-    url.pathname = isEmployeeRoute ? '/employee/login' : '/auth/login'
+    if (isFrozenGoodsPWARoute) {
+      url.pathname = '/PWA/frozengoodspwa/login'
+    } else if (isCommissaryPWARoute) {
+      url.pathname = '/PWA/commissarypwa/login'
+    } else if (isEmployeeRoute) {
+      url.pathname = '/employee/login'
+    } else {
+      url.pathname = '/auth/login'
+    }
     url.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(url)
   }
@@ -65,6 +89,16 @@ export async function updateSession(request: NextRequest) {
   // Redirect authenticated users away from public auth pages
   if (user && isPublicRoute) {
     const url = request.nextUrl.clone()
+    // Frozen goods login -> frozen goods home
+    if (pathname.startsWith('/PWA/frozengoodspwa/login')) {
+      url.pathname = '/PWA/frozengoodspwa'
+      return NextResponse.redirect(url)
+    }
+    // Commissary login -> commissary home
+    if (pathname.startsWith('/PWA/commissarypwa/login')) {
+      url.pathname = '/PWA/commissarypwa'
+      return NextResponse.redirect(url)
+    }
     // Default to admin if profile not loaded yet (public signup creates admins)
     // Only redirect to employee if we're certain they're an employee
     url.pathname = userProfile?.role === 'employee' ? '/employee' : '/admin'
@@ -80,6 +114,13 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based route protection
   if (user && userProfile) {
+    // PWA Hub is admin-only
+    if (isPWAHubRoute && userProfile.role === 'employee') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/employee'
+      return NextResponse.redirect(url)
+    }
+
     // Admins trying to access employee-only routes
     if (isEmployeeRoute && userProfile.role === 'admin') {
       const url = request.nextUrl.clone()
@@ -94,8 +135,9 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Frozen Goods PWA: accessible by both employees and admins
+    // (no role restriction needed)
   }
 
   return supabaseResponse
 }
-

@@ -32,5 +32,9 @@ export type {
   StockAdjustmentModalProps,
 } from "./quick-actions";
 
+// Shared Items List View
+export { default as ItemsListView } from "./ItemsListView";
+export type { ItemsListViewProps } from "./ItemsListView";
+
 // Offline Support Components
 export { PendingEditsIndicator } from "./PendingEditsIndicator";

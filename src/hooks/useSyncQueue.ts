@@ -52,7 +52,12 @@ export function useSyncQueue() {
   // Process a single transaction
   const processTransaction = useCallback(async (transaction: QueuedTransaction): Promise<boolean> => {
     try {
-      const response = await fetch('/api/transactions/submit', {
+      const endpoint = transaction.domain === 'frozen-goods'
+        ? '/api/frozen-goods/transactions/submit'
+        : transaction.domain === 'commissary'
+        ? '/api/commissary/transactions/submit'
+        : '/api/transactions/submit'
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

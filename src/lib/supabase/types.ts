@@ -336,6 +336,104 @@ export interface Database {
           sync_status?: SyncStatus
         }
       }
+      cm_items: {
+        Row: {
+          id: string
+          sku: string
+          name: string
+          description: string | null
+          category_id: string | null
+          location_id: string | null
+          unit: string
+          current_stock: number
+          min_stock: number
+          max_stock: number | null
+          unit_price: number | null
+          barcode: string | null
+          image_url: string | null
+          is_archived: boolean
+          version: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sku?: string
+          name: string
+          description?: string | null
+          category_id?: string | null
+          location_id?: string | null
+          unit?: string
+          current_stock?: number
+          min_stock?: number
+          max_stock?: number | null
+          unit_price?: number | null
+          barcode?: string | null
+          image_url?: string | null
+          is_archived?: boolean
+          version?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          sku?: string
+          name?: string
+          description?: string | null
+          category_id?: string | null
+          location_id?: string | null
+          unit?: string
+          current_stock?: number
+          min_stock?: number
+          max_stock?: number | null
+          unit_price?: number | null
+          barcode?: string | null
+          image_url?: string | null
+          is_archived?: boolean
+          version?: number
+          updated_at?: string
+        }
+      }
+      cm_transactions: {
+        Row: {
+          id: string
+          transaction_type: TransactionType
+          item_id: string
+          quantity: number
+          stock_before: number | null
+          stock_after: number | null
+          source_location_id: string | null
+          destination_location_id: string | null
+          user_id: string
+          notes: string | null
+          device_timestamp: string
+          event_timestamp: string
+          server_timestamp: string
+          sync_status: SyncStatus
+          idempotency_key: string | null
+        }
+        Insert: {
+          id?: string
+          transaction_type: TransactionType
+          item_id: string
+          quantity: number
+          stock_before?: number | null
+          stock_after?: number | null
+          source_location_id?: string | null
+          destination_location_id?: string | null
+          user_id: string
+          notes?: string | null
+          device_timestamp: string
+          server_timestamp?: string
+          sync_status?: SyncStatus
+          idempotency_key?: string | null
+        }
+        Update: {
+          transaction_type?: TransactionType
+          quantity?: number
+          notes?: string | null
+          sync_status?: SyncStatus
+        }
+      }
       sync_errors: {
         Row: {
           id: string
@@ -421,6 +519,40 @@ export interface Database {
           created_at: string
           updated_at: string
         }[]
+      }
+      generate_cm_sku: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      submit_cm_transaction: {
+        Args: {
+          p_transaction_type: TransactionType
+          p_item_id: string
+          p_quantity: number
+          p_user_id: string
+          p_notes: string | null
+          p_source_location_id: string | null
+          p_destination_location_id: string | null
+          p_idempotency_key: string | null
+          p_device_timestamp: string
+        }
+        Returns: {
+          id: string
+          transaction_type: TransactionType
+          item_id: string
+          quantity: number
+          stock_before: number | null
+          stock_after: number | null
+          source_location_id: string | null
+          destination_location_id: string | null
+          user_id: string
+          notes: string | null
+          device_timestamp: string
+          event_timestamp: string
+          server_timestamp: string
+          sync_status: SyncStatus
+          idempotency_key: string | null
+        }
       }
       generate_fg_sku: {
         Args: Record<string, never>
@@ -512,6 +644,12 @@ export type TransactionInsert = Database['public']['Tables']['inv_transactions']
 
 export type Alert = Database['public']['Tables']['alerts']['Row']
 export type AlertInsert = Database['public']['Tables']['alerts']['Insert']
+
+export type CmItem = Database['public']['Tables']['cm_items']['Row']
+export type CmItemInsert = Database['public']['Tables']['cm_items']['Insert']
+export type CmItemUpdate = Database['public']['Tables']['cm_items']['Update']
+
+export type CmTransaction = Database['public']['Tables']['cm_transactions']['Row']
 
 export type SyncError = Database['public']['Tables']['sync_errors']['Row']
 export type SyncErrorInsert = Database['public']['Tables']['sync_errors']['Insert']

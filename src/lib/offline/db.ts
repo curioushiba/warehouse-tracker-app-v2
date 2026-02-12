@@ -1,6 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { TransactionType, ItemUpdate, ItemInsert, Item, Category } from '@/lib/supabase/types'
 
+// Domain routing for sync queue
+export type TransactionDomain = 'inventory' | 'frozen-goods' | 'commissary'
+
 // Offline transaction queue item
 export interface QueuedTransaction {
   id: string
@@ -16,6 +19,7 @@ export interface QueuedTransaction {
   retryCount: number
   lastError?: string
   createdAt: string
+  domain?: TransactionDomain
 }
 
 // Cached item for offline access

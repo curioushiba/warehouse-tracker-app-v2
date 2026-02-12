@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type { Transaction, TransactionType } from '@/lib/supabase/types'
 import { type PaginatedResult, paginatedSuccess } from '@/lib/types/action-result'
@@ -349,6 +350,9 @@ export async function submitTransaction(
   if (error) {
     return { success: false, error: error.message }
   }
+
+  // Revalidate dashboard to show updated recent transactions
+  revalidatePath('/admin')
 
   return { success: true, data }
 }

@@ -383,16 +383,22 @@ function escapeLikePattern(query: string): string {
   return query.replace(/[%_\\]/g, '\\$&')
 }
 
-export async function searchItems(query: string): Promise<ActionResult<Item[]>> {
+export async function searchItems(query: string, categoryId?: string): Promise<ActionResult<Item[]>> {
   try {
     const supabase = await createClient()
     const escaped = escapeLikePattern(query)
 
-    const { data, error } = await supabase
+    let q = supabase
       .from('inv_items')
       .select('*')
       .eq('is_archived', false)
       .or(`name.ilike.%${escaped}%,sku.ilike.%${escaped}%,barcode.ilike.%${escaped}%`)
+
+    if (categoryId) {
+      q = q.eq('category_id', categoryId)
+    }
+
+    const { data, error } = await q
       .order('name')
       .limit(15)
 
@@ -440,14 +446,20 @@ export async function getItemByCode(code: string): Promise<ActionResult<Item>> {
  * Get recently updated items with a limit.
  * Optimized for the scan page "recent items" display.
  */
-export async function getRecentItems(limit: number = 4): Promise<ActionResult<Item[]>> {
+export async function getRecentItems(limit: number = 4, categoryId?: string): Promise<ActionResult<Item[]>> {
   try {
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    let q = supabase
       .from('inv_items')
       .select('*')
       .eq('is_archived', false)
+
+    if (categoryId) {
+      q = q.eq('category_id', categoryId)
+    }
+
+    const { data, error } = await q
       .order('updated_at', { ascending: false })
       .limit(limit)
 

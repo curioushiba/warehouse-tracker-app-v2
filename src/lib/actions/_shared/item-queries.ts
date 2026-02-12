@@ -8,9 +8,9 @@ import { type ActionResult, type PaginatedResult, success, failure, paginatedSuc
 // ---------------------------------------------------------------------------
 
 export interface DomainConfig {
-  itemsTable: 'inv_items' | 'fg_items'
-  transactionsTable: 'inv_transactions' | 'fg_transactions'
-  submitRpc: 'submit_transaction' | 'submit_fg_transaction'
+  itemsTable: 'inv_items' | 'fg_items' | 'cm_items'
+  transactionsTable: 'inv_transactions' | 'fg_transactions' | 'cm_transactions'
+  submitRpc: 'submit_transaction' | 'submit_fg_transaction' | 'submit_cm_transaction'
   revalidatePaths: string[]
 }
 
@@ -31,6 +31,13 @@ export const FG_DOMAIN: DomainConfig = {
   transactionsTable: 'fg_transactions',
   submitRpc: 'submit_fg_transaction',
   revalidatePaths: ['/admin/frozengoods/items'],
+}
+
+export const CM_DOMAIN: DomainConfig = {
+  itemsTable: 'cm_items',
+  transactionsTable: 'cm_transactions',
+  submitRpc: 'submit_cm_transaction',
+  revalidatePaths: ['/admin/commissary/items'],
 }
 
 // ---------------------------------------------------------------------------

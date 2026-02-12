@@ -9,6 +9,7 @@ import { ItemImage } from "@/components/items/ItemImage";
 import { useDebounce } from "@/hooks";
 import { searchItems } from "@/lib/actions";
 import type { Item } from "@/lib/supabase/types";
+import type { ActionResult } from "@/lib/types/action-result";
 
 export interface ItemSearchAutocompleteProps {
   /** Called when user selects an item from the dropdown */
@@ -25,6 +26,10 @@ export interface ItemSearchAutocompleteProps {
   autoFocus?: boolean;
   /** Additional className for container */
   className?: string;
+  /** Optional category ID to filter search results */
+  categoryId?: string;
+  /** Optional custom search function (defaults to searchItems) */
+  searchFn?: (query: string, categoryId?: string) => Promise<ActionResult<Item[]>>;
 }
 
 export function ItemSearchAutocomplete({
@@ -35,6 +40,8 @@ export function ItemSearchAutocomplete({
   debounceMs = 300,
   autoFocus = false,
   className,
+  categoryId,
+  searchFn,
 }: ItemSearchAutocompleteProps) {
   // Search state
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -73,7 +80,8 @@ export function ItemSearchAutocomplete({
       setError(null);
 
       try {
-        const result = await searchItems(debouncedQuery);
+        const search = searchFn ?? searchItems;
+        const result = await search(debouncedQuery, categoryId);
 
         // Discard if a newer request was made while this one was in flight
         if (currentRequestId !== requestIdRef.current) return;
@@ -102,7 +110,7 @@ export function ItemSearchAutocomplete({
     }
 
     performSearch();
-  }, [debouncedQuery, minCharacters]);
+  }, [debouncedQuery, minCharacters, categoryId, searchFn]);
 
   // Handle item selection
   const handleItemSelect = React.useCallback(

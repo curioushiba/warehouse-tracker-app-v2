@@ -148,6 +148,66 @@ export async function deleteCategory(id: string): Promise<ActionResult<void>> {
 }
 
 /**
+ * Get a category by exact name
+ */
+export async function getCategoryByName(name: string): Promise<ActionResult<Category>> {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('inv_categories')
+      .select('*')
+      .eq('name', name)
+      .single()
+
+    if (error) {
+      return failure(error.code === 'PGRST116' ? `Category "${name}" not found` : error.message)
+    }
+
+    return success(data)
+  } catch (err) {
+    return failure('Failed to fetch category by name')
+  }
+}
+
+/**
+ * Get or create a category by name
+ */
+export async function getOrCreateCategory(name: string, description?: string): Promise<ActionResult<Category>> {
+  try {
+    const supabase = await createClient()
+
+    // Try to find existing
+    const { data: existing } = await supabase
+      .from('inv_categories')
+      .select('*')
+      .eq('name', name)
+      .single()
+
+    if (existing) {
+      return success(existing)
+    }
+
+    // Create new
+    const { data: created, error } = await supabase
+      .from('inv_categories')
+      .insert({ name, description: description || null } as never)
+      .select()
+      .single()
+
+    if (error) {
+      return failure(error.message)
+    }
+
+    revalidatePath('/categories')
+    revalidatePath('/items')
+    return success(created)
+  } catch (err) {
+    return failure('Failed to get or create category')
+  }
+}
+
+/**
  * Get the count of items in a category
  */
 export async function getCategoryItemCount(id: string): Promise<ActionResult<number>> {
