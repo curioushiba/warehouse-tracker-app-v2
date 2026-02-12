@@ -7,7 +7,8 @@ import {
   Moon,
   Sun,
   LogOut,
-  Camera,
+  AtSign,
+  Shield,
 } from "lucide-react";
 import {
   Card,
@@ -21,7 +22,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui";
-import { SyncStatusIndicator } from "@/components/ui";
+import { SyncStatusIndicator, UserRoleBadge } from "@/components/ui";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useSyncQueue } from "@/hooks";
 
@@ -66,17 +67,12 @@ export default function ProfilePage() {
       <Card variant="elevated">
         <CardBody className="p-6">
           <div className="flex flex-col items-center text-center">
-            <div className="relative">
-              <Avatar
-                name={currentUser.name}
-                src={currentUser.avatar}
-                size="2xl"
-                className="border-4 border-primary-50"
-              />
-              <button className="absolute bottom-0 right-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white shadow-lg">
-                <Camera className="w-5 h-5" />
-              </button>
-            </div>
+            <Avatar
+              name={currentUser.name}
+              src={currentUser.avatar}
+              size="2xl"
+              className="border-4 border-primary-50"
+            />
             <h2 className="font-heading font-semibold text-xl text-foreground mt-4">
               {currentUser.name}
             </h2>
@@ -95,7 +91,26 @@ export default function ProfilePage() {
                 <p className="font-medium text-foreground">{currentUser.id}</p>
               </div>
             </div>
-
+            {profile?.username && (
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
+                  <AtSign className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-foreground-muted">Username</p>
+                  <p className="font-medium text-foreground">{profile.username}</p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
+                <Shield className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-foreground-muted">Role</p>
+                <UserRoleBadge role={profile?.role || "employee"} size="sm" />
+              </div>
+            </div>
           </div>
 
         </CardBody>
@@ -132,21 +147,32 @@ export default function ProfilePage() {
         </CardBody>
       </Card>
 
-      {/* Sync Status */}
-      <Card variant="filled" className="bg-neutral-100">
-        <CardBody className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <SyncStatusIndicator status={displaySyncStatus} size="md" showLabel />
-              {queueCount > 0 && (
-                <span className="text-xs text-foreground-muted">
-                  ({queueCount} pending)
-                </span>
-              )}
+      {/* App Info */}
+      <Card variant="elevated">
+        <CardBody className="p-0">
+          <div className="px-4 py-3 border-b border-border">
+            <h3 className="font-semibold text-foreground">App Info</h3>
+          </div>
+          <div className="divide-y divide-border">
+            <div className="flex items-center justify-between px-4 py-4">
+              <p className="text-sm text-foreground-muted">Version</p>
+              <p className="text-sm font-medium text-foreground">PackTrack v1.0.0</p>
             </div>
-            <p className="text-xs text-foreground-muted">
-              Last synced: {formatLastSync()}
-            </p>
+            <div className="flex items-center justify-between px-4 py-4">
+              <p className="text-sm text-foreground-muted">Sync Status</p>
+              <div className="flex items-center gap-2">
+                <SyncStatusIndicator status={displaySyncStatus} size="sm" showLabel />
+                {queueCount > 0 && (
+                  <span className="text-xs text-foreground-muted">
+                    ({queueCount})
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-4 py-4">
+              <p className="text-sm text-foreground-muted">Last Synced</p>
+              <p className="text-sm font-medium text-foreground">{formatLastSync()}</p>
+            </div>
           </div>
         </CardBody>
       </Card>
@@ -162,11 +188,6 @@ export default function ProfilePage() {
       >
         Log Out
       </Button>
-
-      {/* App Version */}
-      <p className="text-center text-xs text-foreground-muted">
-        PackTrack v1.0.0
-      </p>
 
       {/* Logout Confirmation Modal */}
       <Modal

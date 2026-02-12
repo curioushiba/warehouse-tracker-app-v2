@@ -13,6 +13,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Send,
+  Check,
 } from "lucide-react";
 import {
   Card,
@@ -347,17 +348,22 @@ function TransactionContent() {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-xs text-foreground-muted">Current</p>
-                <p className="font-semibold text-foreground">
+                <p className={`font-semibold ${
+                  stockLevel === "critical" ? "text-error" :
+                  stockLevel === "low" ? "text-warning" :
+                  stockLevel === "overstocked" ? "text-info" :
+                  "text-foreground"
+                }`}>
                   {item.current_stock}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">Min</p>
-                <p className="font-semibold text-foreground">{item.min_stock ?? 0}</p>
+                <p className="font-semibold text-foreground-muted">{item.min_stock ?? 0}</p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">Max</p>
-                <p className="font-semibold text-foreground">{item.max_stock ?? 100}</p>
+                <p className="font-semibold text-foreground-muted">{item.max_stock ?? 100}</p>
               </div>
             </div>
           </div>
@@ -380,12 +386,17 @@ function TransactionContent() {
                 onClick={() =>
                   setTransactionType(type.value as TransactionType)
                 }
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                className={`relative p-4 rounded-xl border-2 transition-all text-left ${
                   isSelected
                     ? "border-primary bg-primary-50"
                     : "border-border bg-white hover:border-primary/50"
                 }`}
               >
+                {isSelected && (
+                  <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
                 <div
                   className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${type.bgColor}`}
                 >
@@ -428,10 +439,9 @@ function TransactionContent() {
                 value={quantityInput}
                 onChange={handleQuantityInputChange}
                 onBlur={handleQuantityInputBlur}
-                className="text-4xl font-bold text-foreground text-center bg-transparent border-b-2 border-border focus:border-primary outline-none w-full appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="text-4xl font-bold text-foreground text-center bg-neutral-50 rounded-xl py-2 px-4 border-2 border-border focus:border-primary focus:bg-white outline-none w-full transition-colors appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <p className="text-sm text-foreground-muted mt-1">{item.unit}</p>
-              <p className="text-xs text-foreground-muted">Max: {MAX_QUANTITY}</p>
             </div>
             <IconButton
               icon={<Plus className="w-6 h-6" />}
@@ -448,12 +458,13 @@ function TransactionContent() {
           </div>
 
           {/* Quick quantity buttons */}
-          <div className="flex justify-center gap-2 mt-4">
+          <div className="flex justify-center gap-3 mt-4">
             {[5, 10, 25, 50].map((q) => (
               <Button
                 key={q}
                 variant={quantity === q ? "primary" : "secondary"}
-                size="sm"
+                size="md"
+                className="min-w-[48px]"
                 onClick={() => {
                   const validationError = validateQuantity(q);
                   if (validationError) {

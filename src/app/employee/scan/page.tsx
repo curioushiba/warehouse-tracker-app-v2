@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Search,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardBody,
@@ -183,8 +184,8 @@ export default function ScanPage() {
 
   // Gradient background based on transaction type
   const gradientClass = transactionType === "check_in"
-    ? "before:from-[rgba(40,167,69,0.55)] before:via-[rgba(40,167,69,0.15)]"
-    : "before:from-[rgba(220,53,69,0.55)] before:via-[rgba(220,53,69,0.15)]";
+    ? "before:from-[rgba(40,167,69,0.35)] before:via-[rgba(40,167,69,0.08)]"
+    : "before:from-[rgba(220,53,69,0.35)] before:via-[rgba(220,53,69,0.08)]";
 
   return (
     <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-40% before:to-transparent before:to-75% before:pointer-events-none before:-z-10`}>
@@ -206,10 +207,12 @@ export default function ScanPage() {
             setScanMode("camera");
             setError(null);
           }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${scanMode === "camera"
-              ? "bg-white text-foreground shadow-sm"
-              : "text-foreground-muted"
-            }`}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all duration-200",
+            scanMode === "camera"
+              ? "bg-white text-primary shadow-md"
+              : "text-foreground-muted hover:text-foreground"
+          )}
         >
           <Camera className="w-5 h-5" />
           Camera
@@ -219,10 +222,12 @@ export default function ScanPage() {
             setScanMode("manual");
             setError(null);
           }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${scanMode === "manual"
-              ? "bg-white text-foreground shadow-sm"
-              : "text-foreground-muted"
-            }`}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all duration-200",
+            scanMode === "manual"
+              ? "bg-white text-primary shadow-md"
+              : "text-foreground-muted hover:text-foreground"
+          )}
         >
           <Search className="w-5 h-5" />
           Manual
@@ -260,13 +265,19 @@ export default function ScanPage() {
             )}
 
             {/* Batch Mini List */}
-            <div className="bg-neutral-50 rounded-xl p-3">
-              <BatchMiniList
-                items={batchItems}
-                onRemove={removeItem}
-                maxVisibleItems={3}
-              />
-            </div>
+            {batchItems.length > 0 ? (
+              <div className="bg-neutral-50 rounded-xl p-3">
+                <BatchMiniList
+                  items={batchItems}
+                  onRemove={removeItem}
+                  maxVisibleItems={3}
+                />
+              </div>
+            ) : (
+              <p className="text-center text-sm text-foreground-muted py-2">
+                Scan a barcode to add items
+              </p>
+            )}
           </>
         ) : (
           <>
@@ -274,8 +285,8 @@ export default function ScanPage() {
             <Card variant="elevated">
               <CardBody>
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <Package className="w-8 h-8 text-primary" />
+                  <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <Package className="w-5 h-5 text-primary" />
                   </div>
                   <h3 className="font-heading font-semibold text-foreground">
                     Find Item

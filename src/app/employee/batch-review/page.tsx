@@ -146,8 +146,8 @@ export default function BatchReviewPage() {
 
   // Gradient background based on transaction type
   const gradientClass = transactionType === "in"
-    ? "before:from-[rgba(40,167,69,0.55)] before:via-[rgba(40,167,69,0.15)]"
-    : "before:from-[rgba(220,53,69,0.55)] before:via-[rgba(220,53,69,0.15)]";
+    ? "before:from-[rgba(40,167,69,0.35)] before:via-[rgba(40,167,69,0.08)]"
+    : "before:from-[rgba(220,53,69,0.35)] before:via-[rgba(220,53,69,0.08)]";
 
   return (
     <div className={`relative flex flex-col h-full before:absolute before:inset-0 before:bg-gradient-to-b ${gradientClass} before:via-40% before:to-transparent before:to-75% before:pointer-events-none before:-z-10`}>
@@ -196,12 +196,12 @@ export default function BatchReviewPage() {
 
       {/* Item count summary */}
       <div className="flex items-center justify-between mb-4 px-1">
-        <span className="text-sm text-foreground-muted">
+        <Badge colorScheme="neutral" variant="subtle" size="sm">
           {totalItems} item{totalItems !== 1 ? "s" : ""}
-        </span>
-        <span className="text-sm text-foreground-muted">
+        </Badge>
+        <Badge colorScheme="neutral" variant="subtle" size="sm">
           {totalUnits} total unit{totalUnits !== 1 ? "s" : ""}
-        </span>
+        </Badge>
       </div>
 
       {/* Scrollable item list */}
@@ -220,7 +220,8 @@ export default function BatchReviewPage() {
       </div>
 
       {/* Fixed bottom submit button */}
-      <div className="pt-4 mt-auto border-t border-border">
+      <div className="pt-4 mt-auto relative">
+        <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-t from-white via-white to-transparent -translate-y-full pointer-events-none" />
         <Button
           variant="cta"
           isFullWidth

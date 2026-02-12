@@ -13,7 +13,6 @@ import {
   TrendingUp,
   PenLine,
   RefreshCw,
-  CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import {
@@ -29,6 +28,7 @@ import {
   TransactionTypeBadge,
   SyncStatusIndicator,
 } from "@/components/ui";
+import { useToastHelpers } from "@/components/ui/Toast";
 import { formatRelativeTime } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
@@ -79,27 +79,25 @@ export default function EmployeeHomePage() {
   const { profile, user, isLoading: authLoading } = useAuthContext();
   const { queueCount, isSyncing, syncQueue, isOnline, lastSyncTime } = useSyncQueue();
   const { failedSyncCount } = useSyncErrorCount();
-
-  // Batch success toast state
-  const [showBatchSuccess, setShowBatchSuccess] = React.useState(false);
-  const [batchSuccessCount, setBatchSuccessCount] = React.useState(0);
+  const toast = useToastHelpers();
+  const batchToastShown = React.useRef(false);
 
   // Handle batch success from URL params
   React.useEffect(() => {
+    if (batchToastShown.current) return;
     const batchSuccess = searchParams.get("batchSuccess");
     if (batchSuccess) {
       const count = parseInt(batchSuccess, 10);
       if (!isNaN(count) && count > 0) {
-        setBatchSuccessCount(count);
-        setShowBatchSuccess(true);
-        // Clear the URL param
+        batchToastShown.current = true;
+        toast.success(
+          "Batch submitted successfully!",
+          `${count} item${count !== 1 ? "s" : ""} checked in/out.`
+        );
         router.replace("/employee", { scroll: false });
-        // Auto-hide after 5 seconds
-        const timer = setTimeout(() => setShowBatchSuccess(false), 5000);
-        return () => clearTimeout(timer);
       }
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, toast]);
 
   // Prefetch likely next routes for faster navigation
   React.useEffect(() => {
@@ -185,30 +183,6 @@ export default function EmployeeHomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Batch Success Toast */}
-      {showBatchSuccess && (
-        <div className="bg-success-light border border-success/30 rounded-card p-4 flex items-center gap-3 animate-fade-in">
-          <div className="w-10 h-10 bg-success/20 rounded-full flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-success" />
-          </div>
-          <div className="flex-1">
-            <p className="font-medium text-success-dark">
-              Batch submitted successfully!
-            </p>
-            <p className="text-sm text-success-dark/70">
-              {batchSuccessCount} item{batchSuccessCount !== 1 ? "s" : ""} checked {batchSuccessCount > 0 ? "in/out" : ""}.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowBatchSuccess(false)}
-            className="text-success-dark/50 hover:text-success-dark p-1"
-            aria-label="Dismiss"
-          >
-            &times;
-          </button>
-        </div>
-      )}
-
       {/* Welcome Section */}
       <div className="bg-gradient-to-br from-primary to-primary-700 rounded-card p-6 text-white">
         <div className="flex items-center gap-4 mb-4">
@@ -233,7 +207,7 @@ export default function EmployeeHomePage() {
           </div>
         </div>
         <div className={`grid ${failedSyncCount > 0 ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
-          <div className="bg-white/10 rounded-card p-3">
+          <div className="bg-white/10 border border-white/10 rounded-card p-3">
             <p className="text-white/70 text-xs mb-1">Today&apos;s Transactions</p>
             {isLoading ? (
               <div className="h-8 w-12 bg-white/20 rounded animate-pulse" />
@@ -241,7 +215,7 @@ export default function EmployeeHomePage() {
               <p className="text-h3 font-bold">{todayTransactionsCount}</p>
             )}
           </div>
-          <div className="bg-white/10 rounded-card p-3">
+          <div className={`border border-white/10 rounded-card p-3 ${queueCount > 0 ? "bg-cta/15" : "bg-white/10"}`}>
             <p className="text-white/70 text-xs mb-1">Pending Sync</p>
             <div className="flex items-center gap-2">
               <p className="text-h3 font-bold">{queueCount}</p>
@@ -280,8 +254,6 @@ export default function EmployeeHomePage() {
             <span className="text-xs text-success-dark/70 mt-0.5 font-medium">Add Stock</span>
           </div>
 
-          {/* Subtle corner accent */}
-          <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-success opacity-60" />
         </button>
 
         {/* OUT Button */}
@@ -300,8 +272,6 @@ export default function EmployeeHomePage() {
             <span className="text-xs text-error-dark/70 mt-0.5 font-medium">Remove Stock</span>
           </div>
 
-          {/* Subtle corner accent */}
-          <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-error opacity-60" />
         </button>
       </div>
 
@@ -381,10 +351,12 @@ export default function EmployeeHomePage() {
               ))
             ) : recentTransactions.length === 0 ? (
               <div className="p-8 text-center">
-                <Package className="w-10 h-10 mx-auto text-foreground-muted mb-3" />
+                <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Package className="w-7 h-7 text-primary-300" />
+                </div>
                 <p className="text-foreground-muted text-sm">No transactions yet</p>
                 <p className="text-foreground-placeholder text-xs mt-1">
-                  Start by checking items in or out
+                  Tap the IN or OUT buttons above to begin
                 </p>
               </div>
             ) : (

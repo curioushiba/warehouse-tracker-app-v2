@@ -17,13 +17,13 @@ import { IconButton, Avatar, ToastProvider } from "@/components/ui";
 import { OnlineIndicator, ConnectionStatusBar } from "@/components/ui";
 import type { SyncStatus } from "@/types";
 
-interface NavItem {
+export interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const bottomNavItems: NavItem[] = [
+const defaultBottomNavItems: NavItem[] = [
   { label: "Home", href: "/employee", icon: Home },
   { label: "Scan", href: "/employee/scan", icon: QrCode },
   { label: "History", href: "/employee/history", icon: History },
@@ -37,6 +37,12 @@ export interface MobileHeaderProps {
   showNotifications?: boolean;
   notificationCount?: number;
   rightAction?: React.ReactNode;
+  /** Logo letter shown in header (default: "PT") */
+  appLetter?: string;
+  /** Brand color class for the logo (default: "bg-primary") */
+  brandColorClass?: string;
+  /** Link for notifications bell (default: "/employee/notifications") */
+  notificationsHref?: string;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -46,9 +52,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   showNotifications = true,
   notificationCount = 0,
   rightAction,
+  appLetter = "PT",
+  brandColorClass = "bg-primary",
+  notificationsHref = "/employee/notifications",
 }) => {
   return (
-    <header className="sticky top-0 z-sticky bg-white border-b border-border">
+    <header className="sticky top-0 z-sticky bg-white border-b border-border shadow-xs">
       <div className="flex items-center justify-between h-14 px-4">
         {/* Left Section */}
         <div className="flex items-center gap-3">
@@ -61,8 +70,8 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               onClick={onBackClick}
             />
           ) : (
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
+            <div className={`w-8 h-8 ${brandColorClass} rounded-lg flex items-center justify-center shadow-sm`}>
+              <span className="text-cta font-heading font-bold text-sm">{appLetter}</span>
             </div>
           )}
           <h1 className="font-heading font-semibold text-lg text-foreground">
@@ -74,7 +83,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         <div className="flex items-center gap-2">
           {rightAction}
           {showNotifications && (
-            <Link href="/employee/notifications" className="relative">
+            <Link href={notificationsHref} className="relative">
               <IconButton
                 icon={<Bell />}
                 aria-label="Notifications"
@@ -96,10 +105,19 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
 export interface MobileBottomNavProps {
   className?: string;
+  /** Custom nav items (defaults to employee nav) */
+  navItems?: NavItem[];
+  /** The root path for exact-match on the first nav item (default: "/employee") */
+  rootPath?: string;
 }
 
-export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ className }) => {
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
+  className,
+  navItems = defaultBottomNavItems,
+  rootPath,
+}) => {
   const pathname = usePathname();
+  const effectiveRootPath = rootPath || (navItems.length > 0 ? navItems[0].href : "/employee");
 
   return (
     <nav
@@ -109,10 +127,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ className }) =
         className
       )}
     >
-      {bottomNavItems.map((item) => {
+      {navItems.map((item) => {
         const isActive =
-          item.href === "/employee"
-            ? pathname === "/employee"
+          item.href === effectiveRootPath
+            ? pathname === effectiveRootPath
             : pathname?.startsWith(item.href);
         const Icon = item.icon;
 
@@ -121,13 +139,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ className }) =
             key={item.href}
             href={item.href}
             className={cn(
-              "flex flex-col items-center justify-center w-16 py-1",
+              "relative flex flex-col items-center justify-center w-16 py-1",
               "text-foreground-muted transition-colors touch-target",
               isActive && "text-primary"
             )}
           >
-            <Icon className={cn("w-6 h-6", isActive && "text-primary")} />
-            <span className="text-xs mt-1">{item.label}</span>
+            {isActive && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-full" />
+            )}
+            <Icon className={cn("w-6 h-6 transition-transform duration-200", isActive && "text-primary scale-110")} />
+            <span className={cn("text-xs mt-1", isActive && "font-semibold")}>{item.label}</span>
           </Link>
         );
       })}
@@ -149,6 +170,16 @@ export interface MobileLayoutProps {
   pendingCount?: number;
   /** Count of failed sync errors to display warning banner */
   failedSyncCount?: number;
+  /** Custom bottom nav items (defaults to employee nav) */
+  bottomNavItems?: NavItem[];
+  /** Logo letter shown in header (default: "PT") */
+  appLetter?: string;
+  /** Brand color class for the logo (default: "bg-primary") */
+  brandColorClass?: string;
+  /** Link for notifications bell (default: "/employee/notifications") */
+  notificationsHref?: string;
+  /** Link for failed syncs banner (default: "/employee/failed-syncs") */
+  failedSyncsHref?: string;
 }
 
 export const MobileLayout: React.FC<MobileLayoutProps> = ({
@@ -164,6 +195,11 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   syncStatus = "synced",
   pendingCount = 0,
   failedSyncCount = 0,
+  bottomNavItems,
+  appLetter = "PT",
+  brandColorClass = "bg-primary",
+  notificationsHref = "/employee/notifications",
+  failedSyncsHref = "/employee/failed-syncs",
 }) => {
   return (
     <ToastProvider>
@@ -178,7 +214,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         {/* Failed Sync Warning Banner */}
         {failedSyncCount > 0 && (
           <Link
-            href="/employee/failed-syncs"
+            href={failedSyncsHref}
             className="block bg-error-light border-b border-error/20 px-4 py-2 hover:bg-error-light/80 transition-colors"
           >
             <div className="flex items-center gap-2 text-error-dark">
@@ -198,20 +234,23 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
           showNotifications={showNotifications}
           notificationCount={notificationCount}
           rightAction={headerRightAction}
+          appLetter={appLetter}
+          brandColorClass={brandColorClass}
+          notificationsHref={notificationsHref}
         />
 
         {/* Main Content */}
         <main
           className={cn(
             "flex-1 overflow-y-auto p-4",
-            showBottomNav && "pb-20" // Account for bottom nav
+            showBottomNav && "pb-20"
           )}
         >
           {children}
         </main>
 
         {/* Bottom Navigation */}
-        {showBottomNav && <MobileBottomNav />}
+        {showBottomNav && <MobileBottomNav navItems={bottomNavItems} />}
       </div>
     </ToastProvider>
   );

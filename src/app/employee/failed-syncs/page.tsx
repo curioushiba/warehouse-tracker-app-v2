@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   RefreshCw,
@@ -15,7 +15,6 @@ import {
   CardBody,
   Button,
   Alert,
-  Spinner,
 } from "@/components/ui";
 import { TransactionTypeBadge } from "@/components/ui";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -25,6 +24,7 @@ import type { SyncError } from "@/lib/supabase/types";
 import type { TransactionType } from "@/lib/supabase/types";
 
 export default function FailedSyncsPage() {
+  const router = useRouter();
   const { user } = useAuthContext();
   const [syncErrors, setSyncErrors] = React.useState<SyncError[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -99,8 +99,26 @@ export default function FailedSyncsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Spinner size="lg" />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-28 bg-neutral-200 rounded-lg animate-pulse" />
+          <div className="h-8 w-20 bg-neutral-200 rounded-lg animate-pulse" />
+        </div>
+        <div className="h-12 w-full bg-neutral-200 rounded-lg animate-pulse" />
+        {[1, 2, 3].map((i) => (
+          <Card key={i} variant="elevated">
+            <CardBody className="p-4">
+              <div className="flex items-start gap-3 animate-pulse">
+                <div className="w-10 h-10 rounded-card bg-neutral-200 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="h-4 w-32 bg-neutral-200 rounded mb-2" />
+                  <div className="h-3 w-24 bg-neutral-100 rounded mb-3" />
+                  <div className="h-8 w-full bg-neutral-100 rounded" />
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        ))}
       </div>
     );
   }
@@ -122,13 +140,14 @@ export default function FailedSyncsPage() {
   if (syncErrors.length === 0) {
     return (
       <div className="space-y-4">
-        <Link
-          href="/employee"
-          className="inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground"
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={<ArrowLeft className="w-4 h-4" />}
+          onClick={() => router.push("/employee")}
         >
-          <ArrowLeft className="w-4 h-4" />
           Back to Home
-        </Link>
+        </Button>
 
         <Card variant="elevated">
           <CardBody className="text-center py-12">
@@ -150,13 +169,14 @@ export default function FailedSyncsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Link
-          href="/employee"
-          className="inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground"
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={<ArrowLeft className="w-4 h-4" />}
+          onClick={() => router.push("/employee")}
         >
-          <ArrowLeft className="w-4 h-4" />
           Back
-        </Link>
+        </Button>
         <Button
           variant="secondary"
           size="sm"
@@ -181,7 +201,7 @@ export default function FailedSyncsPage() {
           const isRetrying = retryingIds.has(syncError.id);
 
           return (
-            <Card key={syncError.id} variant="elevated">
+            <Card key={syncError.id} variant="elevated" className="border-l-4 border-l-error">
               <CardBody className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-card bg-error-light flex items-center justify-center flex-shrink-0">

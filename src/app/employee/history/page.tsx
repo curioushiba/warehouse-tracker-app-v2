@@ -328,9 +328,10 @@ export default function HistoryPage() {
         <Button
           variant={showFilters ? "primary" : "secondary"}
           onClick={() => setShowFilters(!showFilters)}
+          leftIcon={<Filter className="w-5 h-5" />}
           className="relative"
         >
-          <Filter className="w-5 h-5" />
+          Filter
           {activeFilters > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-error rounded-full text-white text-xs flex items-center justify-center">
               {activeFilters}
@@ -425,10 +426,11 @@ export default function HistoryPage() {
           {Object.entries(groupedTransactions).map(([date, txs]) => (
             <div key={date}>
               <div className="flex items-center gap-3 mb-3">
-                <Calendar className="w-4 h-4 text-foreground-muted" />
+                <Calendar className="w-4 h-4 text-primary-400" />
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">
                   {date}
                 </h3>
+                <div className="flex-1 h-px bg-border" />
               </div>
               <div className="space-y-2">
                 {txs.map((transaction) => (
@@ -498,9 +500,10 @@ export default function HistoryPage() {
 
           {/* Load More Button */}
           {hasMore && !activeFilters && !searchQuery && (
-            <div className="flex justify-center pt-4">
+            <div className="pt-4">
               <Button
                 variant="secondary"
+                isFullWidth
                 onClick={loadMore}
                 isLoading={isLoadingMore}
                 leftIcon={!isLoadingMore ? <RefreshCw className="w-4 h-4" /> : undefined}
@@ -516,7 +519,7 @@ export default function HistoryPage() {
       <Modal
         isOpen={!!selectedTransaction}
         onClose={() => setSelectedTransaction(null)}
-        size="lg"
+        size="md"
       >
         <ModalHeader
           showCloseButton
