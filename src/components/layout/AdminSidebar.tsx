@@ -57,12 +57,14 @@ const navSections: NavSection[] = [
     title: "Frozen Goods",
     items: [
       { label: "Frozen Items", href: "/admin/frozengoods/items", icon: Snowflake },
+      { label: "FG Transactions", href: "/admin/frozengoods/transactions", icon: ArrowLeftRight },
     ],
   },
   {
     title: "Commissary",
     items: [
       { label: "Commissary Items", href: "/admin/commissary/items", icon: ChefHat },
+      { label: "CM Transactions", href: "/admin/commissary/transactions", icon: ArrowLeftRight },
     ],
   },
   {
