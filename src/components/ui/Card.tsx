@@ -63,7 +63,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
             : undefined
         }
         className={cn(
-          "rounded-card overflow-hidden transition-all duration-200",
+          "rounded-card transition-all duration-200",
           variantClasses[variant],
           variant !== "unstyled" && sizeClasses[size],
           direction === "horizontal" && "flex flex-row",

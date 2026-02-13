@@ -70,7 +70,8 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
   ) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const [internalValue, setInternalValue] = React.useState(defaultValue || "");
-    const containerRef = React.useRef<HTMLDivElement>(null);
+    const internalRef = React.useRef<HTMLDivElement>(null);
+    React.useImperativeHandle(ref, () => internalRef.current!);
     const listboxRef = React.useRef<HTMLUListElement>(null);
     const [focusedIndex, setFocusedIndex] = React.useState(-1);
 
@@ -81,8 +82,8 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     React.useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
         if (
-          containerRef.current &&
-          !containerRef.current.contains(event.target as Node)
+          internalRef.current &&
+          !internalRef.current.contains(event.target as Node)
         ) {
           setIsOpen(false);
         }
@@ -160,7 +161,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     };
 
     return (
-      <div ref={ref} className={cn("relative w-full", className)}>
+      <div ref={internalRef} className={cn("relative w-full", className)}>
         {/* Hidden native select for form submission */}
         <select
           name={name}
@@ -180,7 +181,6 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 
         {/* Custom Select Trigger */}
         <div
-          ref={containerRef}
           id={id}
           role="combobox"
           aria-expanded={isOpen}
