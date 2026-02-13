@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "PackTrack",
   },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -41,7 +44,6 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Vollkorn:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen bg-background-secondary font-body antialiased">
         <AuthProvider>

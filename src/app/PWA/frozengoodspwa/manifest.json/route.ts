@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
   const manifest = {
+    id: "/PWA/frozengoodspwa",
     name: "Frozen Goods - PackTrack",
     short_name: "Frozen Goods",
     description: "Check in/out frozen inventory items",
