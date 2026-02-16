@@ -11,10 +11,12 @@ import { Button, Badge, Alert } from "@/components/ui";
 import { BatchItemRow, BatchConfirmModal } from "@/components/batch";
 import { useBatchScan } from "@/contexts/BatchScanContext";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function BatchReviewPage() {
   const router = useRouter();
   const { queueTransaction, isOnline } = useSyncQueue();
+  const { isAuthenticated } = useAuthContext();
   const {
     items: batchItems,
     transactionType,
@@ -72,6 +74,13 @@ export default function BatchReviewPage() {
   // Queue all batch items - they will sync immediately if online,
   // or be queued for later sync if offline. The queue handles retries.
   const handleConfirmSubmit = async () => {
+    if (!isAuthenticated) {
+      setIsSubmitting(false);
+      setSubmitError("Your session has expired. Please log in again.");
+      router.push("/employee/login");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     setFailedItems([]);

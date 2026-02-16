@@ -11,10 +11,12 @@ import { Button, Badge, Alert } from "@/components/ui";
 import { BatchItemRow, BatchConfirmModal } from "@/components/batch";
 import { useBatchScan } from "@/contexts/BatchScanContext";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function CommissaryBatchReviewPage() {
   const router = useRouter();
   const { queueTransaction, isOnline } = useSyncQueue();
+  const { isAuthenticated } = useAuthContext();
   const {
     items: batchItems,
     transactionType,
@@ -64,6 +66,13 @@ export default function CommissaryBatchReviewPage() {
   };
 
   const handleConfirmSubmit = async () => {
+    if (!isAuthenticated) {
+      setIsSubmitting(false);
+      setSubmitError("Your session has expired. Please log in again.");
+      router.push("/PWA/commissarypwa/login");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     setFailedItems([]);
