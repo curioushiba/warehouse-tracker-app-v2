@@ -1,27 +1,29 @@
 import React, { useState, useCallback } from 'react'
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native'
 import { useRouter, Redirect } from 'expo-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { Eye, EyeOff } from 'lucide-react-native'
 import Toast from 'react-native-toast-message'
 
 export default function LoginScreen() {
   const { isAuthenticated, isLoading: authLoading, signIn } = useAuth()
   const router = useRouter()
 
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
-  const isFormValid = email.trim().length > 0 && password.trim().length > 0
+  const isFormValid = username.trim().length > 0 && password.trim().length > 0
 
   const handleSignIn = useCallback(async () => {
     if (!isFormValid || isSubmitting) return
 
     setIsSubmitting(true)
     try {
-      const result = await signIn(email.trim(), password)
+      const result = await signIn(username.trim(), password)
       if (result.error) {
         Toast.show({
           type: 'error',
@@ -33,7 +35,7 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [email, password, isFormValid, isSubmitting, signIn, router])
+  }, [username, password, isFormValid, isSubmitting, signIn, router])
 
   if (isAuthenticated && !authLoading) {
     return <Redirect href="/domain-picker" />
@@ -52,10 +54,11 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <Input
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            testID="email-input"
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            testID="username-input"
           />
 
           <View style={styles.spacer} />
@@ -64,7 +67,18 @@ export default function LoginScreen() {
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
+            rightIcon={
+              <TouchableOpacity
+                onPress={() => setShowPassword(prev => !prev)}
+                testID="password-toggle"
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                hitSlop={8}
+              >
+                {showPassword ? <EyeOff size={20} color="#6B7280" /> : <Eye size={20} color="#6B7280" />}
+              </TouchableOpacity>
+            }
             testID="password-input"
           />
 
