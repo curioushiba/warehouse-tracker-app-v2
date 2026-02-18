@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "PackTrack",
+    "slug": "packtrack",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "packtrack",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#01722f"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#01722f"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.packtrack.app"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "PackTrack needs camera access to scan barcodes"
+        }
+      ],
+      "expo-sqlite"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/packtrack"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
