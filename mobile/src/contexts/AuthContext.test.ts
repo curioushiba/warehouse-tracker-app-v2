@@ -49,9 +49,23 @@ vi.mock('@/lib/db/item-archive-queue', () => ({
   clearItemArchiveQueue: (...args: unknown[]) => mockClearItemArchiveQueue(...args),
 }))
 
-import { deriveAuthState, createAuthManager, type AuthState } from './AuthContext'
+import { deriveAuthState, createAuthManager, toEmployeeEmail, type AuthState } from './AuthContext'
 
 // --- Tests ---
+
+describe('toEmployeeEmail', () => {
+  it('converts username to employee email', () => {
+    expect(toEmployeeEmail('johndoe')).toBe('johndoe@employee.internal')
+  })
+
+  it('lowercases the username', () => {
+    expect(toEmployeeEmail('JohnDoe')).toBe('johndoe@employee.internal')
+  })
+
+  it('trims whitespace', () => {
+    expect(toEmployeeEmail('  johndoe  ')).toBe('johndoe@employee.internal')
+  })
+})
 
 describe('deriveAuthState', () => {
   it('returns isAuthenticated=true when user is non-null', () => {
@@ -132,7 +146,7 @@ describe('createAuthManager', () => {
     it('sets user and profile on success', async () => {
       mockSignInWithPassword.mockResolvedValue({
         data: {
-          user: { id: 'u1', email: 'test@test.com' },
+          user: { id: 'u1', email: 'testuser@employee.internal' },
           session: { access_token: 'token-123' },
         },
         error: null,
@@ -143,10 +157,14 @@ describe('createAuthManager', () => {
       })
 
       const manager = createAuthManager(setState, getState)
-      const result = await manager.signIn('test@test.com', 'password')
+      const result = await manager.signIn('testuser', 'password')
 
+      expect(mockSignInWithPassword).toHaveBeenCalledWith({
+        email: 'testuser@employee.internal',
+        password: 'password',
+      })
       expect(result.error).toBeNull()
-      expect(state.user).toEqual({ id: 'u1', email: 'test@test.com' })
+      expect(state.user).toEqual({ id: 'u1', email: 'testuser@employee.internal' })
       expect(state.profile).toEqual({ id: 'u1', role: 'employee', is_active: true })
       expect(state.isLoading).toBe(false)
     })
@@ -154,16 +172,23 @@ describe('createAuthManager', () => {
     it('stores session token on success', async () => {
       mockSignInWithPassword.mockResolvedValue({
         data: {
-          user: { id: 'u1', email: 'test@test.com' },
+          user: { id: 'u1', email: 'testuser@employee.internal' },
           session: { access_token: 'my-token' },
         },
         error: null,
       })
-      mockSingle.mockResolvedValue({ data: { id: 'u1' }, error: null })
+      mockSingle.mockResolvedValue({
+        data: { id: 'u1', role: 'employee', is_active: true },
+        error: null,
+      })
 
       const manager = createAuthManager(setState, getState)
-      await manager.signIn('test@test.com', 'password')
+      await manager.signIn('testuser', 'password')
 
+      expect(mockSignInWithPassword).toHaveBeenCalledWith({
+        email: 'testuser@employee.internal',
+        password: 'password',
+      })
       expect(mockSetSessionToken).toHaveBeenCalledWith('my-token')
     })
 
@@ -174,7 +199,7 @@ describe('createAuthManager', () => {
       })
 
       const manager = createAuthManager(setState, getState)
-      const result = await manager.signIn('bad@test.com', 'wrong')
+      const result = await manager.signIn('baduser', 'wrong')
 
       expect(result.error).toBe('Invalid credentials')
       expect(state.user).toBeNull()
@@ -188,7 +213,7 @@ describe('createAuthManager', () => {
       })
 
       const manager = createAuthManager(setState, getState)
-      const result = await manager.signIn('a@b.com', 'x')
+      const result = await manager.signIn('someuser', 'x')
 
       expect(result.error).toBe('Sign in failed')
     })
@@ -200,15 +225,78 @@ describe('createAuthManager', () => {
         if (partial.isLoading === true) loadingDuringCall = true
       }
       mockSignInWithPassword.mockResolvedValue({
-        data: { user: { id: 'u1', email: 'a@b.com' }, session: { access_token: 't' } },
+        data: { user: { id: 'u1', email: 'someuser@employee.internal' }, session: { access_token: 't' } },
         error: null,
       })
-      mockSingle.mockResolvedValue({ data: { id: 'u1' }, error: null })
+      mockSingle.mockResolvedValue({ data: { id: 'u1', role: 'employee', is_active: true }, error: null })
 
       const manager = createAuthManager(trackSetState, getState)
-      await manager.signIn('a@b.com', 'p')
+      await manager.signIn('someuser', 'p')
 
       expect(loadingDuringCall).toBe(true)
+    })
+
+    it('rejects non-employee role after auth success', async () => {
+      mockSignInWithPassword.mockResolvedValue({
+        data: {
+          user: { id: 'u1', email: 'adminuser@employee.internal' },
+          session: { access_token: 'token' },
+        },
+        error: null,
+      })
+      mockSingle.mockResolvedValue({
+        data: { id: 'u1', role: 'admin', is_active: true },
+        error: null,
+      })
+      mockSignOut.mockResolvedValue({ error: null })
+
+      const manager = createAuthManager(setState, getState)
+      const result = await manager.signIn('adminuser', 'password')
+
+      expect(result.error).toBe('This login is for employees only.')
+      expect(mockSignOut).toHaveBeenCalled()
+      expect(state.user).toBeNull()
+    })
+
+    it('rejects inactive employee after auth success', async () => {
+      mockSignInWithPassword.mockResolvedValue({
+        data: {
+          user: { id: 'u1', email: 'inactive@employee.internal' },
+          session: { access_token: 'token' },
+        },
+        error: null,
+      })
+      mockSingle.mockResolvedValue({
+        data: { id: 'u1', role: 'employee', is_active: false },
+        error: null,
+      })
+      mockSignOut.mockResolvedValue({ error: null })
+
+      const manager = createAuthManager(setState, getState)
+      const result = await manager.signIn('inactive', 'password')
+
+      expect(result.error).toBe('Your account has been deactivated. Please contact your administrator.')
+      expect(mockSignOut).toHaveBeenCalled()
+      expect(state.user).toBeNull()
+    })
+
+    it('rejects when profile not found after auth success', async () => {
+      mockSignInWithPassword.mockResolvedValue({
+        data: {
+          user: { id: 'u1', email: 'ghost@employee.internal' },
+          session: { access_token: 'token' },
+        },
+        error: null,
+      })
+      mockSingle.mockResolvedValue({ data: null, error: null })
+      mockSignOut.mockResolvedValue({ error: null })
+
+      const manager = createAuthManager(setState, getState)
+      const result = await manager.signIn('ghost', 'password')
+
+      expect(result.error).toBe('Account not found. Please contact your administrator.')
+      expect(mockSignOut).toHaveBeenCalled()
+      expect(state.user).toBeNull()
     })
   })
 

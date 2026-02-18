@@ -28,19 +28,23 @@ export interface AuthDerived {
 }
 
 export interface AuthManager {
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (username: string, password: string) => Promise<{ error: string | null }>
   signOut: (db?: unknown) => Promise<void>
   refreshProfile: () => Promise<void>
   restoreSession: () => Promise<void>
 }
 
 interface AuthContextValue extends AuthState, AuthDerived {
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (username: string, password: string) => Promise<{ error: string | null }>
   signOut: (db?: unknown) => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
 // --- Pure logic (testable) ---
+
+export function toEmployeeEmail(username: string): string {
+  return `${username.trim().toLowerCase()}@employee.internal`
+}
 
 export function deriveAuthState(user: AuthUser | null, profile: Profile | null): AuthDerived {
   return {
@@ -67,14 +71,25 @@ export function createAuthManager(
     return data as unknown as Profile
   }
 
-  async function signIn(email: string, password: string): Promise<{ error: string | null }> {
+  async function signIn(username: string, password: string): Promise<{ error: string | null }> {
     setState({ isLoading: true })
+    const email = toEmployeeEmail(username)
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error || !data.user) {
       setState({ isLoading: false })
       return { error: error?.message ?? 'Sign in failed' }
     }
     const profile = await fetchProfile(data.user.id)
+
+    async function rejectAuth(error: string): Promise<{ error: string }> {
+      await supabase.auth.signOut()
+      setState({ user: null, profile: null, isLoading: false })
+      return { error }
+    }
+
+    if (!profile) return rejectAuth('Account not found. Please contact your administrator.')
+    if (profile.role !== 'employee') return rejectAuth('This login is for employees only.')
+    if (!profile.is_active) return rejectAuth('Your account has been deactivated. Please contact your administrator.')
     setState({
       user: { id: data.user.id, email: data.user.email! },
       profile,
@@ -179,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const derived = useMemo(() => deriveAuthState(state.user, state.profile), [state.user, state.profile])
 
   const signIn = useCallback(
-    (email: string, password: string) => managerRef.current!.signIn(email, password),
+    (username: string, password: string) => managerRef.current!.signIn(username, password),
     []
   )
 
