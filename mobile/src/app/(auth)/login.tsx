@@ -36,6 +36,11 @@ export default function LoginScreen() {
       } else {
         router.replace('/domain-picker')
       }
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Something went wrong. Please check your connection and try again.',
+      })
     } finally {
       setIsSubmitting(false)
     }

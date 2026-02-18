@@ -223,6 +223,24 @@ describe('LoginScreen', () => {
     })
   })
 
+  it('shows toast on unexpected network error', async () => {
+    mockSignIn.mockRejectedValue(new Error('Network request failed'))
+    const { getByTestId } = render(<LoginScreen />)
+
+    fireEvent.changeText(getByTestId('username-input'), 'testuser')
+    fireEvent.changeText(getByTestId('password-input'), 'password123')
+    fireEvent.press(getByTestId('sign-in-button'))
+
+    await waitFor(() => {
+      expect(Toast.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          text1: 'Something went wrong. Please check your connection and try again.',
+        })
+      )
+    })
+  })
+
   it('auto-redirects if already authenticated', () => {
     ;(useAuth as jest.Mock).mockReturnValue({
       user: { id: '1', email: 'a@b.com' },
