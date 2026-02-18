@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { DOMAIN_CONFIGS, type DomainId, type DomainConfig } from '@/lib/domain-config'
 import {
   getSelectedDomain,
   setSelectedDomain,
-  remove,
-} from '@/lib/storage/mmkv'
+  clearSelectedDomain,
+} from '@/lib/storage/storage'
 
 // --- Types ---
 
@@ -16,7 +16,7 @@ export interface DomainState {
 export interface DomainManager {
   setDomain: (domainId: DomainId) => void
   clearDomain: () => void
-  restoreFromStorage: () => DomainId | null
+  restoreFromStorage: () => Promise<DomainId | null>
 }
 
 interface DomainContextValue {
@@ -46,16 +46,16 @@ export function createDomainManager(
   function setDomain(domainId: DomainId) {
     const config = DOMAIN_CONFIGS[domainId]
     setState({ domainId, domainConfig: config })
-    setSelectedDomain(domainId)
+    void setSelectedDomain(domainId)
   }
 
   function clearDomain() {
     setState({ domainId: null, domainConfig: null })
-    remove('selected-domain')
+    void clearSelectedDomain()
   }
 
-  function restoreFromStorage(): DomainId | null {
-    const stored = getSelectedDomain()
+  async function restoreFromStorage(): Promise<DomainId | null> {
+    const stored = await getSelectedDomain()
     if (stored && isValidDomainId(stored)) {
       return stored
     }
@@ -79,19 +79,20 @@ export function DomainProvider({ children }: { children: React.ReactNode }) {
     domainConfig: null,
   })
 
-  const managerRef = React.useRef<DomainManager | null>(null)
+  const managerRef = useRef<DomainManager | null>(null)
   if (!managerRef.current) {
     managerRef.current = createDomainManager(
       (partial) => setDomainState(prev => ({ ...prev, ...partial }))
     )
   }
 
-  // Restore from MMKV on mount
+  // Restore from storage on mount
   useEffect(() => {
-    const stored = managerRef.current!.restoreFromStorage()
-    if (stored) {
-      managerRef.current!.setDomain(stored)
-    }
+    managerRef.current!.restoreFromStorage().then((stored) => {
+      if (stored) {
+        managerRef.current!.setDomain(stored)
+      }
+    })
   }, [])
 
   const setDomain = useCallback((domainId: DomainId) => {

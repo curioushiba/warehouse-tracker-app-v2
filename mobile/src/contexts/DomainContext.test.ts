@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { DOMAIN_CONFIGS, type DomainId } from '@/lib/domain-config'
-import { clearAll, setSelectedDomain } from '@/lib/storage/mmkv'
+import { clearAll, setSelectedDomain } from '@/lib/storage/storage'
 import {
   createDomainManager,
   type DomainState,
@@ -16,8 +16,8 @@ describe('createDomainManager', () => {
   let setState: (partial: Partial<DomainState>) => void
   let manager: DomainManager
 
-  beforeEach(() => {
-    clearAll()
+  beforeEach(async () => {
+    await clearAll()
     state = { domainId: null, domainConfig: null }
     setState = (partial) => {
       state = { ...state, ...partial }
@@ -45,11 +45,13 @@ describe('createDomainManager', () => {
       expect(state.domainConfig).toEqual(DOMAIN_CONFIGS['frozen-goods'])
     })
 
-    it('stores domain in MMKV', () => {
+    it('stores domain in storage', async () => {
       manager.setDomain('commissary')
+      // Wait for fire-and-forget write to complete
+      await new Promise(r => setTimeout(r, 0))
       // Verify by restoring from storage
       const fresh = createDomainManager(setState)
-      const restored = fresh.restoreFromStorage()
+      const restored = await fresh.restoreFromStorage()
       expect(restored).toBe('commissary')
     })
 
@@ -75,13 +77,14 @@ describe('createDomainManager', () => {
   })
 
   describe('restoreFromStorage', () => {
-    it('returns null when no domain stored', () => {
-      const result = manager.restoreFromStorage()
+    it('returns null when no domain stored', async () => {
+      const result = await manager.restoreFromStorage()
       expect(result).toBeNull()
     })
 
-    it('restores commissary from MMKV', () => {
+    it('restores commissary from storage', async () => {
       manager.setDomain('commissary')
+      await new Promise(r => setTimeout(r, 0))
 
       // Create a fresh manager and restore
       const state2: DomainState = { domainId: null, domainConfig: null }
@@ -89,27 +92,28 @@ describe('createDomainManager', () => {
         Object.assign(state2, partial)
       }
       const manager2 = createDomainManager(setState2)
-      const restored = manager2.restoreFromStorage()
+      const restored = await manager2.restoreFromStorage()
       expect(restored).toBe('commissary')
     })
 
-    it('restores frozen-goods from MMKV', () => {
+    it('restores frozen-goods from storage', async () => {
       manager.setDomain('frozen-goods')
+      await new Promise(r => setTimeout(r, 0))
 
       const state2: DomainState = { domainId: null, domainConfig: null }
       const setState2 = (partial: Partial<DomainState>) => {
         Object.assign(state2, partial)
       }
       const manager2 = createDomainManager(setState2)
-      const restored = manager2.restoreFromStorage()
+      const restored = await manager2.restoreFromStorage()
       expect(restored).toBe('frozen-goods')
     })
 
-    it('returns null for invalid stored domain', () => {
+    it('returns null for invalid stored domain', async () => {
       // Manually store an invalid domain directly via the imported function
-      setSelectedDomain('invalid-domain')
+      await setSelectedDomain('invalid-domain')
 
-      const result = manager.restoreFromStorage()
+      const result = await manager.restoreFromStorage()
       expect(result).toBeNull()
     })
   })
@@ -124,11 +128,13 @@ describe('createDomainManager', () => {
       expect(state.domainConfig).toBeNull()
     })
 
-    it('clears from MMKV storage', () => {
+    it('clears from storage', async () => {
       manager.setDomain('commissary')
+      await new Promise(r => setTimeout(r, 0))
       manager.clearDomain()
+      await new Promise(r => setTimeout(r, 0))
 
-      const restored = manager.restoreFromStorage()
+      const restored = await manager.restoreFromStorage()
       expect(restored).toBeNull()
     })
   })

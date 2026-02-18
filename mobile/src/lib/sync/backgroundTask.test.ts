@@ -25,8 +25,8 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }))
 
-const mockGetSessionToken = vi.fn(() => 'valid-token' as string | undefined)
-vi.mock('@/lib/storage/mmkv', () => ({
+const mockGetSessionToken = vi.fn(() => Promise.resolve('valid-token' as string | undefined))
+vi.mock('@/lib/storage/storage', () => ({
   getSessionToken: (...args: unknown[]) => mockGetSessionToken(...args),
 }))
 
@@ -54,7 +54,7 @@ import {
 describe('backgroundTask', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetSessionToken.mockReturnValue('valid-token')
+    mockGetSessionToken.mockResolvedValue('valid-token')
     mockGetQueuedTransactions.mockReturnValue([])
     mockRpc.mockResolvedValue({ error: null })
   })
@@ -139,7 +139,7 @@ describe('backgroundTask', () => {
   })
 
   it('handles no auth gracefully', async () => {
-    mockGetSessionToken.mockReturnValue(undefined)
+    mockGetSessionToken.mockResolvedValue(undefined)
 
     const result = await processBackgroundSync({} as never)
     expect(result).toBe('NoData')

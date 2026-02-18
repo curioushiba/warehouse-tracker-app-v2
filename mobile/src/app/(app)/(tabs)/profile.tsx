@@ -20,10 +20,9 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
+import type { ThemeMode } from '@/lib/storage/storage'
 
-type DarkMode = 'light' | 'dark' | 'system'
-
-const DARK_MODE_OPTIONS: { value: DarkMode; label: string }[] = [
+const DARK_MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' },

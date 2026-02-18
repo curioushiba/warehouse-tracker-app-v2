@@ -25,7 +25,7 @@ const mockSetSessionToken = vi.fn()
 const mockGetSessionToken = vi.fn()
 const mockClearSession = vi.fn()
 
-vi.mock('@/lib/storage/mmkv', () => ({
+vi.mock('@/lib/storage/storage', () => ({
   setSessionToken: (...args: unknown[]) => mockSetSessionToken(...args),
   getSessionToken: () => mockGetSessionToken(),
   clearSession: () => mockClearSession(),

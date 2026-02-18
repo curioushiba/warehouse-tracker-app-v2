@@ -1,21 +1,19 @@
 import 'react-native-url-polyfill/auto'
 import { createClient } from '@/lib/supabase/client'
-import { getSessionToken } from '@/lib/storage/mmkv'
+import { getSessionToken } from '@/lib/storage/storage'
 import { DOMAIN_CONFIGS, type DomainId } from '@/lib/domain-config'
 import {
   getQueuedTransactions,
   removeFromQueue,
   incrementRetryCount,
 } from '@/lib/db/transaction-queue'
-import type { QueuedTransaction } from '@/types/offline'
-
 export const BACKGROUND_SYNC_TASK = 'background-sync'
 
 export type BackgroundSyncResult = 'NewData' | 'NoData' | 'Failed'
 
 export async function processBackgroundSync(db: unknown): Promise<BackgroundSyncResult> {
   try {
-    const token = getSessionToken()
+    const token = await getSessionToken()
     if (!token) return 'NoData'
 
     const transactions = getQueuedTransactions(db as never)

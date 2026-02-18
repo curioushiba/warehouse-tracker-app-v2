@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { clearAll, setSettings as saveToMMKV } from '@/lib/storage/mmkv'
+import { clearAll, setSettings as saveToStorage } from '@/lib/storage/storage'
 import {
   createSettingsManager,
   DEFAULT_SETTINGS,
@@ -17,8 +17,8 @@ describe('createSettingsManager', () => {
   let setState: (partial: Partial<SettingsState>) => void
   let manager: SettingsManager
 
-  beforeEach(() => {
-    clearAll()
+  beforeEach(async () => {
+    await clearAll()
     state = { settings: { ...DEFAULT_SETTINGS } }
     setState = (partial) => {
       state = { ...state, ...partial }
@@ -49,18 +49,14 @@ describe('createSettingsManager', () => {
   })
 
   describe('loadFromStorage', () => {
-    it('returns DEFAULT_SETTINGS when MMKV is empty', () => {
-      const loaded = manager.loadFromStorage()
+    it('returns DEFAULT_SETTINGS when storage is empty', async () => {
+      const loaded = await manager.loadFromStorage()
       expect(loaded).toEqual(DEFAULT_SETTINGS)
     })
 
-    it('restores saved settings from MMKV', () => {
-      const custom: AppSettings = {
-        ...DEFAULT_SETTINGS,
-        currency: 'PHP',
-        darkMode: 'dark',
-      }
+    it('restores saved settings from storage', async () => {
       manager.updateSettings({ currency: 'PHP', darkMode: 'dark' })
+      await new Promise(r => setTimeout(r, 0))
 
       // Create fresh manager to verify restoration
       const state2: SettingsState = { settings: { ...DEFAULT_SETTINGS } }
@@ -68,16 +64,16 @@ describe('createSettingsManager', () => {
         Object.assign(state2, partial)
       }
       const manager2 = createSettingsManager(setState2, () => state2)
-      const loaded = manager2.loadFromStorage()
+      const loaded = await manager2.loadFromStorage()
       expect(loaded.currency).toBe('PHP')
       expect(loaded.darkMode).toBe('dark')
     })
 
-    it('merges with defaults for partial stored settings', () => {
-      // Simulate storing only partial settings directly via MMKV
-      saveToMMKV({ currency: 'USD' })
+    it('merges with defaults for partial stored settings', async () => {
+      // Simulate storing only partial settings directly via storage
+      await saveToStorage({ currency: 'USD' })
 
-      const loaded = manager.loadFromStorage()
+      const loaded = await manager.loadFromStorage()
       expect(loaded.currency).toBe('USD')
       expect(loaded.enableLowStockAlerts).toBe(true) // from defaults
     })
@@ -103,8 +99,9 @@ describe('createSettingsManager', () => {
       expect(state.settings.autoReorderPoint).toBe(20)
     })
 
-    it('persists to MMKV', () => {
+    it('persists to storage', async () => {
       manager.updateSettings({ currency: 'EUR' })
+      await new Promise(r => setTimeout(r, 0))
 
       // Verify by loading from fresh manager
       const state2: SettingsState = { settings: { ...DEFAULT_SETTINGS } }
@@ -112,7 +109,7 @@ describe('createSettingsManager', () => {
         Object.assign(state2, partial)
       }
       const manager2 = createSettingsManager(setState2, () => state2)
-      const loaded = manager2.loadFromStorage()
+      const loaded = await manager2.loadFromStorage()
       expect(loaded.currency).toBe('EUR')
     })
 
@@ -145,16 +142,18 @@ describe('createSettingsManager', () => {
       expect(state.settings).toEqual(DEFAULT_SETTINGS)
     })
 
-    it('persists reset to MMKV', () => {
+    it('persists reset to storage', async () => {
       manager.updateSettings({ currency: 'PHP' })
+      await new Promise(r => setTimeout(r, 0))
       manager.resetSettings()
+      await new Promise(r => setTimeout(r, 0))
 
       const state2: SettingsState = { settings: { ...DEFAULT_SETTINGS } }
       const setState2 = (partial: Partial<SettingsState>) => {
         Object.assign(state2, partial)
       }
       const manager2 = createSettingsManager(setState2, () => state2)
-      const loaded = manager2.loadFromStorage()
+      const loaded = await manager2.loadFromStorage()
       expect(loaded).toEqual(DEFAULT_SETTINGS)
     })
   })

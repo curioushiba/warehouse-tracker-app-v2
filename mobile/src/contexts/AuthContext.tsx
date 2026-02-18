@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Profile } from '@/lib/supabase/types'
 import { createClient } from '@/lib/supabase/client'
-import { clearSession, getSessionToken, setSessionToken } from '@/lib/storage/mmkv'
+import { clearSession, getSessionToken, setSessionToken } from '@/lib/storage/storage'
 import { clearQueue } from '@/lib/db/transaction-queue'
 import { clearItemEditQueue } from '@/lib/db/item-edit-queue'
 import { clearItemCreateQueue } from '@/lib/db/item-create-queue'
@@ -81,7 +81,7 @@ export function createAuthManager(
       isLoading: false,
     })
     if (data.session?.access_token) {
-      setSessionToken(data.session.access_token)
+      void setSessionToken(data.session.access_token)
     }
     return { error: null }
   }
@@ -99,7 +99,7 @@ export function createAuthManager(
       }
     }
     await supabase.auth.signOut()
-    clearSession()
+    void clearSession()
     setState({ user: null, profile: null, isLoading: false })
   }
 
@@ -114,7 +114,7 @@ export function createAuthManager(
 
   async function restoreSession() {
     setState({ isLoading: true })
-    const token = getSessionToken()
+    const token = await getSessionToken()
     if (!token) {
       setState({ isLoading: false })
       return
@@ -129,11 +129,11 @@ export function createAuthManager(
           isLoading: false,
         })
       } else {
-        clearSession()
+        void clearSession()
         setState({ user: null, profile: null, isLoading: false })
       }
     } catch {
-      clearSession()
+      void clearSession()
       setState({ user: null, profile: null, isLoading: false })
     }
   }

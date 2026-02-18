@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
-import { getSettings, setSettings as saveToMMKV } from '@/lib/storage/mmkv'
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { getSettings, setSettings as saveToStorage, type ThemeMode } from '@/lib/storage/storage'
 
 // --- Types ---
 
@@ -10,7 +10,7 @@ export interface AppSettings {
   autoReorderPoint: number
 
   // Display Settings - three-state dark mode for mobile
-  darkMode: 'light' | 'dark' | 'system'
+  darkMode: ThemeMode
 
   // Currency Settings
   currency: string // Empty string means no currency (plain numbers)
@@ -21,7 +21,7 @@ export interface SettingsState {
 }
 
 export interface SettingsManager {
-  loadFromStorage: () => AppSettings
+  loadFromStorage: () => Promise<AppSettings>
   updateSettings: (updates: Partial<AppSettings>) => void
   resetSettings: () => void
 }
@@ -55,24 +55,21 @@ export function createSettingsManager(
   setState: (state: Partial<SettingsState>) => void,
   getState: () => SettingsState
 ): SettingsManager {
-  function loadFromStorage(): AppSettings {
-    const stored = getSettings<Partial<AppSettings>>()
-    if (stored) {
-      return { ...DEFAULT_SETTINGS, ...stored }
-    }
-    return { ...DEFAULT_SETTINGS }
+  async function loadFromStorage(): Promise<AppSettings> {
+    const stored = await getSettings<Partial<AppSettings>>()
+    return { ...DEFAULT_SETTINGS, ...stored }
   }
 
   function updateSettings(updates: Partial<AppSettings>) {
     const current = getState().settings
     const newSettings = { ...current, ...updates }
     setState({ settings: newSettings })
-    saveToMMKV(newSettings)
+    void saveToStorage(newSettings)
   }
 
   function resetSettings() {
     setState({ settings: { ...DEFAULT_SETTINGS } })
-    saveToMMKV({ ...DEFAULT_SETTINGS })
+    void saveToStorage({ ...DEFAULT_SETTINGS })
   }
 
   return {
@@ -89,10 +86,10 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>({ ...DEFAULT_SETTINGS })
 
-  const stateRef = React.useRef<SettingsState>({ settings })
+  const stateRef = useRef<SettingsState>({ settings })
   stateRef.current = { settings }
 
-  const managerRef = React.useRef<SettingsManager | null>(null)
+  const managerRef = useRef<SettingsManager | null>(null)
   if (!managerRef.current) {
     managerRef.current = createSettingsManager(
       (partial) => {
@@ -104,10 +101,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Load settings from MMKV on mount
+  // Load settings from storage on mount
   useEffect(() => {
-    const loaded = managerRef.current!.loadFromStorage()
-    setSettings(loaded)
+    managerRef.current!.loadFromStorage().then((loaded) => {
+      setSettings(loaded)
+    })
   }, [])
 
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {

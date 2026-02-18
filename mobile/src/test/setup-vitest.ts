@@ -48,50 +48,38 @@ vi.mock('expo-sqlite', () => {
   }
 })
 
-// --- react-native-mmkv mock ---
-vi.mock('react-native-mmkv', () => {
-  class MMKV {
-    private store = new Map<string, string | number | boolean>()
-
-    constructor(_options?: { id?: string }) {}
-
-    set(key: string, value: string | number | boolean) {
-      this.store.set(key, value)
-    }
-
-    getString(key: string): string | undefined {
-      const val = this.store.get(key)
-      return typeof val === 'string' ? val : undefined
-    }
-
-    getNumber(key: string): number {
-      const val = this.store.get(key)
-      return typeof val === 'number' ? val : 0
-    }
-
-    getBoolean(key: string): boolean {
-      const val = this.store.get(key)
-      return typeof val === 'boolean' ? val : false
-    }
-
-    delete(key: string) {
-      this.store.delete(key)
-    }
-
-    contains(key: string): boolean {
-      return this.store.has(key)
-    }
-
-    clearAll() {
-      this.store.clear()
-    }
-
-    getAllKeys(): string[] {
-      return Array.from(this.store.keys())
-    }
+// --- @react-native-async-storage/async-storage mock ---
+vi.mock('@react-native-async-storage/async-storage', () => {
+  const store = new Map<string, string>()
+  return {
+    default: {
+      getItem: vi.fn((key: string) => Promise.resolve(store.get(key) ?? null)),
+      setItem: vi.fn((key: string, value: string) => {
+        store.set(key, value)
+        return Promise.resolve()
+      }),
+      removeItem: vi.fn((key: string) => {
+        store.delete(key)
+        return Promise.resolve()
+      }),
+      clear: vi.fn(() => {
+        store.clear()
+        return Promise.resolve()
+      }),
+      getAllKeys: vi.fn(() => Promise.resolve(Array.from(store.keys()))),
+      multiGet: vi.fn((keys: string[]) =>
+        Promise.resolve(keys.map((k) => [k, store.get(k) ?? null]))
+      ),
+      multiSet: vi.fn((pairs: [string, string][]) => {
+        for (const [k, v] of pairs) store.set(k, v)
+        return Promise.resolve()
+      }),
+      multiRemove: vi.fn((keys: string[]) => {
+        for (const k of keys) store.delete(k)
+        return Promise.resolve()
+      }),
+    },
   }
-
-  return { MMKV }
 })
 
 // --- expo-crypto mock ---

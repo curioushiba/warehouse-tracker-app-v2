@@ -46,29 +46,38 @@ jest.mock('expo-image', () => {
   }
 })
 
-// react-native-mmkv mock
-jest.mock('react-native-mmkv', () => {
-  const store = new Map()
+// @react-native-async-storage/async-storage mock
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const store = new Map<string, string>()
   return {
-    MMKV: jest.fn().mockImplementation(() => ({
-      set: (key: string, value: unknown) => store.set(key, value),
-      getString: (key: string) => {
-        const v = store.get(key)
-        return typeof v === 'string' ? v : undefined
-      },
-      getNumber: (key: string) => {
-        const v = store.get(key)
-        return typeof v === 'number' ? v : 0
-      },
-      getBoolean: (key: string) => {
-        const v = store.get(key)
-        return typeof v === 'boolean' ? v : false
-      },
-      delete: (key: string) => store.delete(key),
-      contains: (key: string) => store.has(key),
-      clearAll: () => store.clear(),
-      getAllKeys: () => Array.from(store.keys()),
-    })),
+    __esModule: true,
+    default: {
+      getItem: jest.fn((key: string) => Promise.resolve(store.get(key) ?? null)),
+      setItem: jest.fn((key: string, value: string) => {
+        store.set(key, value)
+        return Promise.resolve()
+      }),
+      removeItem: jest.fn((key: string) => {
+        store.delete(key)
+        return Promise.resolve()
+      }),
+      clear: jest.fn(() => {
+        store.clear()
+        return Promise.resolve()
+      }),
+      getAllKeys: jest.fn(() => Promise.resolve(Array.from(store.keys()))),
+      multiGet: jest.fn((keys: string[]) =>
+        Promise.resolve(keys.map((k: string) => [k, store.get(k) ?? null]))
+      ),
+      multiSet: jest.fn((pairs: [string, string][]) => {
+        for (const [k, v] of pairs) store.set(k, v)
+        return Promise.resolve()
+      }),
+      multiRemove: jest.fn((keys: string[]) => {
+        for (const k of keys) store.delete(k)
+        return Promise.resolve()
+      }),
+    },
   }
 })
 
