@@ -7,8 +7,10 @@ export interface InputProps {
   value: string
   error?: string
   leftIcon?: React.ReactNode
+  rightIcon?: React.ReactNode
   disabled?: boolean
   secureTextEntry?: boolean
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
   testID?: string
 }
 
@@ -18,8 +20,10 @@ export function Input({
   value,
   error,
   leftIcon,
+  rightIcon,
   disabled = false,
   secureTextEntry = false,
+  autoCapitalize,
   testID,
 }: InputProps) {
   return (
@@ -34,8 +38,10 @@ export function Input({
           value={value}
           editable={!disabled}
           secureTextEntry={secureTextEntry}
+          autoCapitalize={autoCapitalize}
           testID={testID}
         />
+        {rightIcon && <View style={styles.rightIconContainer}>{rightIcon}</View>}
       </View>
       {error ? (
         <Text style={styles.errorText} testID={testID ? `${testID}-error` : 'input-error'}>
@@ -65,6 +71,9 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginRight: 8,
+  },
+  rightIconContainer: {
+    marginLeft: 8,
   },
   input: {
     flex: 1,

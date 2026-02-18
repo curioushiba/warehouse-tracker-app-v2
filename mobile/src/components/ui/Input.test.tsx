@@ -88,4 +88,31 @@ describe('Input', () => {
     )
     expect(getByTestId('input').props.secureTextEntry).toBe(true)
   })
+
+  it('renders right icon', () => {
+    const icon = <Text testID="right-icon">icon</Text>
+    const { getByTestId } = render(
+      <Input
+        placeholder="Password"
+        onChangeText={() => {}}
+        value=""
+        rightIcon={icon}
+        testID="input"
+      />
+    )
+    expect(getByTestId('right-icon')).toBeTruthy()
+  })
+
+  it('passes autoCapitalize to TextInput', () => {
+    const { getByTestId } = render(
+      <Input
+        placeholder="Username"
+        onChangeText={() => {}}
+        value=""
+        autoCapitalize="none"
+        testID="input"
+      />
+    )
+    expect(getByTestId('input').props.autoCapitalize).toBe('none')
+  })
 })
