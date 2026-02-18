@@ -15,10 +15,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
 
   const isFormValid = username.trim().length > 0 && password.trim().length > 0
+  const usernameError = hasAttemptedSubmit && username.trim().length === 0 ? 'Username is required' : undefined
+  const passwordError = hasAttemptedSubmit && password.trim().length === 0 ? 'Password is required' : undefined
 
   const handleSignIn = useCallback(async () => {
+    setHasAttemptedSubmit(true)
     if (!isFormValid || isSubmitting) return
 
     setIsSubmitting(true)
@@ -58,6 +62,7 @@ export default function LoginScreen() {
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
+            error={usernameError}
             testID="username-input"
           />
 
@@ -68,6 +73,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
+            error={passwordError}
             rightIcon={
               <TouchableOpacity
                 onPress={() => setShowPassword(prev => !prev)}
@@ -87,7 +93,7 @@ export default function LoginScreen() {
           <Button
             label="Sign In"
             onPress={handleSignIn}
-            disabled={!isFormValid || isSubmitting}
+            disabled={isSubmitting}
             isLoading={isSubmitting}
             loadingText="Signing in..."
             size="lg"

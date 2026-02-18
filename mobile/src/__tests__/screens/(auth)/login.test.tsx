@@ -78,7 +78,7 @@ describe('LoginScreen', () => {
     expect(getByTestId('sign-in-button')).toBeTruthy()
   })
 
-  it('sign in button is disabled when inputs are empty', () => {
+  it('does not call signIn when fields are empty', () => {
     const { getByTestId } = render(<LoginScreen />)
     const button = getByTestId('sign-in-button')
     fireEvent.press(button)
@@ -160,6 +160,67 @@ describe('LoginScreen', () => {
 
     // Password should now be visible
     expect(getByTestId('password-input').props.secureTextEntry).toBe(false)
+  })
+
+  it('shows username required error on submit with empty username', async () => {
+    const { getByTestId, queryByTestId } = render(<LoginScreen />)
+
+    // No error initially
+    expect(queryByTestId('username-input-error')).toBeNull()
+
+    // Fill password only, leave username empty
+    fireEvent.changeText(getByTestId('password-input'), 'password123')
+    fireEvent.press(getByTestId('sign-in-button'))
+
+    await waitFor(() => {
+      expect(getByTestId('username-input-error')).toBeTruthy()
+    })
+  })
+
+  it('shows password required error on submit with empty password', async () => {
+    const { getByTestId, queryByTestId } = render(<LoginScreen />)
+
+    expect(queryByTestId('password-input-error')).toBeNull()
+
+    fireEvent.changeText(getByTestId('username-input'), 'testuser')
+    fireEvent.press(getByTestId('sign-in-button'))
+
+    await waitFor(() => {
+      expect(getByTestId('password-input-error')).toBeTruthy()
+    })
+  })
+
+  it('shows both field errors on submit with both fields empty', async () => {
+    const { getByTestId } = render(<LoginScreen />)
+
+    fireEvent.press(getByTestId('sign-in-button'))
+
+    await waitFor(() => {
+      expect(getByTestId('username-input-error')).toBeTruthy()
+      expect(getByTestId('password-input-error')).toBeTruthy()
+    })
+  })
+
+  it('does not show field errors before first submit attempt', () => {
+    const { queryByTestId } = render(<LoginScreen />)
+    expect(queryByTestId('username-input-error')).toBeNull()
+    expect(queryByTestId('password-input-error')).toBeNull()
+  })
+
+  it('clears field error when user fills in the field after failed submit', async () => {
+    const { getByTestId, queryByTestId } = render(<LoginScreen />)
+
+    fireEvent.press(getByTestId('sign-in-button'))
+
+    await waitFor(() => {
+      expect(getByTestId('username-input-error')).toBeTruthy()
+    })
+
+    fireEvent.changeText(getByTestId('username-input'), 'testuser')
+
+    await waitFor(() => {
+      expect(queryByTestId('username-input-error')).toBeNull()
+    })
   })
 
   it('auto-redirects if already authenticated', () => {
