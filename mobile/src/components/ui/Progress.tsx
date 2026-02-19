@@ -1,5 +1,11 @@
-import React from 'react'
-import { View, StyleSheet, type ViewStyle } from 'react-native'
+import React, { useEffect } from 'react'
+import { View, type ViewStyle } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated'
+import { useTheme, TIMING_CONFIG } from '@/theme'
 
 export interface ProgressProps {
   value: number
@@ -10,39 +16,45 @@ export interface ProgressProps {
 
 export function Progress({
   value,
-  color = '#01722f',
-  trackColor = '#E5E7EB',
+  color,
+  trackColor,
   testID,
 }: ProgressProps) {
+  const { colors } = useTheme()
   const clampedValue = Math.min(100, Math.max(0, value))
+  const animatedWidth = useSharedValue(clampedValue)
+
+  useEffect(() => {
+    animatedWidth.value = withTiming(clampedValue, TIMING_CONFIG)
+  }, [clampedValue, animatedWidth])
+
+  const fillAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${animatedWidth.value}%` as unknown as number,
+  }))
+
+  const resolvedTrackColor = trackColor ?? colors.bgTertiary
+  const resolvedFillColor = color ?? colors.brandPrimary
 
   const trackStyle: ViewStyle = {
-    ...styles.track,
-    backgroundColor: trackColor,
-  }
-
-  const fillStyle: ViewStyle = {
-    ...styles.fill,
-    width: `${clampedValue}%` as unknown as number,
-    backgroundColor: color,
-  }
-
-  return (
-    <View style={trackStyle} testID={testID}>
-      <View style={fillStyle} testID={testID ? `${testID}-fill` : 'progress-fill'} />
-    </View>
-  )
-}
-
-const styles = StyleSheet.create({
-  track: {
     height: 8,
     borderRadius: 4,
     width: '100%',
     overflow: 'hidden',
-  },
-  fill: {
+    backgroundColor: resolvedTrackColor,
+  }
+
+  const fillStyle: ViewStyle = {
     height: '100%',
     borderRadius: 4,
-  },
-})
+    backgroundColor: resolvedFillColor,
+  }
+
+  return (
+    <View style={trackStyle} testID={testID}>
+      <Animated.View
+        style={[fillStyle, fillAnimatedStyle]}
+        testID={testID ? `${testID}-fill` : 'progress-fill'}
+      />
+    </View>
+  )
+}

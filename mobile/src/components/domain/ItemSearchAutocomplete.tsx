@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, FlatList } from 'react-native'
 import { Search } from 'lucide-react-native'
+import Animated, { FadeIn } from 'react-native-reanimated'
+import { useTheme } from '@/theme'
 
 export interface AutocompleteItem {
   id: string
@@ -16,6 +18,58 @@ export interface ItemSearchAutocompleteProps {
   testID?: string
 }
 
+function HighlightedText({
+  text,
+  highlight,
+  baseColor,
+  highlightColor,
+  fontWeight,
+  highlightWeight,
+  fontSize,
+  lineHeight,
+}: {
+  text: string
+  highlight: string
+  baseColor: string
+  highlightColor: string
+  fontWeight: string
+  highlightWeight: string
+  fontSize: number
+  lineHeight: number
+}) {
+  if (!highlight.trim()) {
+    return (
+      <Text style={{ color: baseColor, fontWeight: fontWeight as any, fontSize, lineHeight }}>
+        {text}
+      </Text>
+    )
+  }
+
+  const lowerText = text.toLowerCase()
+  const lowerHighlight = highlight.toLowerCase()
+  const startIndex = lowerText.indexOf(lowerHighlight)
+
+  if (startIndex === -1) {
+    return (
+      <Text style={{ color: baseColor, fontWeight: fontWeight as any, fontSize, lineHeight }}>
+        {text}
+      </Text>
+    )
+  }
+
+  const before = text.slice(0, startIndex)
+  const match = text.slice(startIndex, startIndex + highlight.length)
+  const after = text.slice(startIndex + highlight.length)
+
+  return (
+    <Text style={{ fontSize, lineHeight }}>
+      <Text style={{ color: baseColor, fontWeight: fontWeight as any }}>{before}</Text>
+      <Text style={{ color: highlightColor, fontWeight: highlightWeight as any }}>{match}</Text>
+      <Text style={{ color: baseColor, fontWeight: fontWeight as any }}>{after}</Text>
+    </Text>
+  )
+}
+
 export function ItemSearchAutocomplete({
   items,
   onSelect,
@@ -23,6 +77,7 @@ export function ItemSearchAutocomplete({
   testID,
 }: ItemSearchAutocompleteProps) {
   const [query, setQuery] = useState('')
+  const { colors, spacing, typography, radii } = useTheme()
 
   const filteredItems = useMemo(() => {
     if (!query.trim()) return []
@@ -43,22 +98,60 @@ export function ItemSearchAutocomplete({
   const showDropdown = query.trim().length > 0
 
   return (
-    <View style={styles.container} testID={testID}>
-      <View style={styles.inputRow}>
-        <Search size={18} color="#9CA3AF" />
+    <View style={{ width: '100%', zIndex: 10 }} testID={testID}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: colors.borderPrimary,
+          borderRadius: radii.md,
+          backgroundColor: colors.surfacePrimary,
+          paddingHorizontal: spacing[3],
+          height: 44,
+          gap: spacing[2],
+        }}
+      >
+        <Search size={18} color={colors.iconSecondary} />
         <TextInput
           testID={`${testID ?? 'search'}-input`}
-          style={styles.input}
+          style={{
+            flex: 1,
+            fontSize: typography.base.fontSize,
+            color: colors.textPrimary,
+            padding: 0,
+          }}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textPlaceholder}
           value={query}
           onChangeText={setQuery}
         />
       </View>
       {showDropdown && (
-        <View style={styles.dropdown}>
+        <Animated.View
+          entering={FadeIn.duration(150)}
+          style={{
+            marginTop: spacing[1],
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.borderSubtle,
+            borderRadius: radii.md,
+            maxHeight: 200,
+            overflow: 'hidden',
+          }}
+        >
           {filteredItems.length === 0 ? (
-            <Text style={styles.noResults}>No results</Text>
+            <Text
+              style={{
+                padding: spacing[3],
+                fontSize: typography.base.fontSize,
+                lineHeight: typography.base.lineHeight,
+                color: colors.textSecondary,
+                textAlign: 'center',
+              }}
+            >
+              No results
+            </Text>
           ) : (
             <FlatList
               data={filteredItems}
@@ -66,72 +159,40 @@ export function ItemSearchAutocomplete({
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.resultRow}
+                  style={{
+                    paddingVertical: spacing[2.5],
+                    paddingHorizontal: spacing[3],
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.bgTertiary,
+                  }}
                   onPress={() => handleSelect(item)}
                 >
-                  <Text style={styles.resultName}>{item.name}</Text>
-                  <Text style={styles.resultSku}>{item.sku}</Text>
+                  <HighlightedText
+                    text={item.name}
+                    highlight={query}
+                    baseColor={colors.textPrimary}
+                    highlightColor={colors.brandPrimary}
+                    fontWeight={typography.weight.semibold}
+                    highlightWeight={typography.weight.bold}
+                    fontSize={typography.base.fontSize}
+                    lineHeight={typography.base.lineHeight}
+                  />
+                  <Text
+                    style={{
+                      fontSize: typography.sm.fontSize,
+                      lineHeight: typography.sm.lineHeight,
+                      color: colors.textSecondary,
+                      marginTop: spacing[0.5],
+                    }}
+                  >
+                    {item.sku}
+                  </Text>
                 </TouchableOpacity>
               )}
             />
           )}
-        </View>
+        </Animated.View>
       )}
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    zIndex: 10,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1F2937',
-    padding: 0,
-  },
-  dropdown: {
-    marginTop: 4,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    maxHeight: 200,
-    overflow: 'hidden',
-  },
-  noResults: {
-    padding: 12,
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  resultRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  resultName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  resultSku: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-})

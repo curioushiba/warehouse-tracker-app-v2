@@ -2,6 +2,36 @@ import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { BatchConfirmModal } from './BatchConfirmModal'
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const { View } = require('react-native')
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    default: {
+      ...Reanimated.default,
+      View,
+    },
+    SlideInDown: {
+      springify: jest.fn().mockReturnValue({
+        damping: jest.fn().mockReturnValue({
+          stiffness: jest.fn().mockReturnThis(),
+        }),
+      }),
+    },
+  }
+})
+
 const baseProps = {
   isOpen: true,
   transactionType: 'in' as const,

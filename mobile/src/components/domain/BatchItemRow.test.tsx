@@ -2,6 +2,46 @@ import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { BatchItemRow } from './BatchItemRow'
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+  }
+})
+
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native')
+  return {
+    Swipeable: ({ children }: any) =>
+      require('react').createElement(View, null, children),
+    GestureHandlerRootView: View,
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { Pressable } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, style, ...props }: any) =>
+      React.createElement(Pressable, { ...props, style }, children),
+  }
+})
+
 const baseItem = {
   id: 'item-1',
   name: 'Widget A',
@@ -72,7 +112,6 @@ describe('BatchItemRow', () => {
       />
     )
     fireEvent.press(getByTestId('row-minus'))
-    // clampQuantity(1 - 1 = 0) => MIN_QUANTITY = 0.001
     expect(onQuantityChange).toHaveBeenCalledWith('item-1', 0.001)
   })
 
@@ -136,5 +175,24 @@ describe('BatchItemRow', () => {
       />
     )
     expect(getByText('5 pcs')).toBeTruthy()
+  })
+
+  it('has stepper buttons with 48x48 touch targets', () => {
+    const { getByTestId } = render(
+      <BatchItemRow
+        item={baseItem}
+        onQuantityChange={jest.fn()}
+        onRemove={jest.fn()}
+        testID="row"
+      />
+    )
+    const plus = getByTestId('row-plus')
+    expect(plus.props.style).toEqual(
+      expect.objectContaining({ width: 48, height: 48 })
+    )
+    const minus = getByTestId('row-minus')
+    expect(minus.props.style).toEqual(
+      expect.objectContaining({ width: 48, height: 48 })
+    )
   })
 })

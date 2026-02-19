@@ -1,5 +1,7 @@
 import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { Text, View } from 'react-native'
+import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
+import { useTheme } from '@/theme'
 
 export interface ConnectionStatusBarProps {
   isOnline: boolean
@@ -14,61 +16,71 @@ export function ConnectionStatusBar({
   syncProgress,
   testID,
 }: ConnectionStatusBarProps) {
+  const { colors, spacing, typography } = useTheme()
+
   if (isOnline && !isSyncing) {
     return null
   }
 
+  const textStyle = {
+    color: colors.textInverse,
+    fontSize: typography.sm.fontSize,
+    lineHeight: typography.sm.lineHeight,
+    fontWeight: typography.weight.semibold,
+  } as const
+
   if (isSyncing) {
     return (
-      <View testID={testID} style={styles.syncingBar}>
-        <Text style={styles.text}>
+      <Animated.View
+        testID={testID}
+        entering={SlideInDown.duration(250)}
+        exiting={SlideOutUp.duration(250)}
+        style={{
+          backgroundColor: colors.info,
+          paddingVertical: spacing[1.5],
+          paddingHorizontal: spacing[3],
+          alignItems: 'center',
+        }}
+      >
+        <Text style={textStyle}>
           Syncing... {syncProgress != null ? `${syncProgress}%` : ''}
         </Text>
-        <View style={styles.progressTrack}>
+        <View
+          style={{
+            height: 3,
+            backgroundColor: colors.overlaySubtle,
+            borderRadius: 1.5,
+            marginTop: spacing[1],
+            width: '100%',
+          }}
+        >
           <View
             testID={testID ? `${testID}-progress` : undefined}
-            style={{ ...styles.progressFill, width: `${syncProgress ?? 0}%` }}
+            style={{
+              height: 3,
+              backgroundColor: colors.textInverse,
+              borderRadius: 1.5,
+              width: `${syncProgress ?? 0}%`,
+            }}
           />
         </View>
-      </View>
+      </Animated.View>
     )
   }
 
   return (
-    <View testID={testID} style={styles.offlineBar}>
-      <Text style={styles.text}>No internet connection</Text>
-    </View>
+    <Animated.View
+      testID={testID}
+      entering={SlideInDown.duration(250)}
+      exiting={SlideOutUp.duration(250)}
+      style={{
+        backgroundColor: colors.error,
+        paddingVertical: spacing[1.5],
+        paddingHorizontal: spacing[3],
+        alignItems: 'center',
+      }}
+    >
+      <Text style={textStyle}>No internet connection</Text>
+    </Animated.View>
   )
 }
-
-const styles = StyleSheet.create({
-  offlineBar: {
-    backgroundColor: '#dc2626',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  syncingBar: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  text: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  progressTrack: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1.5,
-    marginTop: 4,
-    width: '100%',
-  },
-  progressFill: {
-    height: 3,
-    backgroundColor: '#ffffff',
-    borderRadius: 1.5,
-  },
-})

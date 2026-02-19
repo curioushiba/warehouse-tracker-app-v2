@@ -3,6 +3,37 @@ import { Text } from 'react-native'
 import { render, fireEvent } from '@testing-library/react-native'
 import { TabBar } from './TabBar'
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { Pressable } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, style, ...props }: any) =>
+      React.createElement(Pressable, { ...props, style }, children),
+  }
+})
+
 const makeTabs = (badgeOverrides: Record<string, number | undefined> = {}) => [
   { key: 'home', label: 'Home', icon: <Text>H</Text>, badge: badgeOverrides.home },
   { key: 'scan', label: 'Scan', icon: <Text>S</Text>, badge: badgeOverrides.scan },
@@ -25,6 +56,7 @@ describe('TabBar', () => {
   })
 
   it('highlights active tab with different color', () => {
+    const { lightColors } = require('@/theme/tokens')
     const { getByTestId } = render(
       <TabBar
         tabs={makeTabs()}
@@ -36,13 +68,13 @@ describe('TabBar', () => {
     const activeLabel = getByTestId('tab-bar-tab-scan-label')
     const inactiveLabel = getByTestId('tab-bar-tab-home-label')
 
-    // Active tab text should have the active color
+    // Active tab text should have the brand color
     expect(activeLabel.props.style).toEqual(
-      expect.objectContaining({ color: '#01722f' })
+      expect.objectContaining({ color: lightColors.brandPrimary })
     )
-    // Inactive tab text should have the inactive color
+    // Inactive tab text should have the tertiary color
     expect(inactiveLabel.props.style).toEqual(
-      expect.objectContaining({ color: '#9ca3af' })
+      expect.objectContaining({ color: lightColors.textTertiary })
     )
   })
 

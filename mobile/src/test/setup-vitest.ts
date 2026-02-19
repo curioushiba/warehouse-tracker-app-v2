@@ -117,8 +117,11 @@ vi.mock('react-native-url-polyfill/auto', () => ({}))
 
 // --- expo-haptics mock ---
 vi.mock('expo-haptics', () => ({
-  impactAsync: vi.fn(),
+  impactAsync: vi.fn(() => Promise.resolve()),
+  notificationAsync: vi.fn(() => Promise.resolve()),
+  selectionAsync: vi.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }))
 
 // --- expo-av mock ---

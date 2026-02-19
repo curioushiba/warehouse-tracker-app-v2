@@ -3,16 +3,17 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
-  StyleSheet,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSQLiteContext } from 'expo-sqlite'
+import { ChevronRight, LogOut } from 'lucide-react-native'
+import Constants from 'expo-constants'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDomain } from '@/contexts/DomainContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useSyncQueue } from '@/hooks/useSyncQueue'
 import { useSyncErrorCount } from '@/hooks/useSyncErrorCount'
+import { useTheme } from '@/theme'
 import { getDisplayName } from '@/lib/display-name'
 import { getAllQueueCounts } from '@/lib/db/queue-counts'
 import { Avatar } from '@/components/ui/Avatar'
@@ -20,12 +21,15 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 import type { ThemeMode } from '@/lib/storage/storage'
 
-const DARK_MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' },
+const DARK_MODE_OPTIONS = [
+  { label: 'Light', value: 'light' },
+  { label: 'System', value: 'system' },
+  { label: 'Dark', value: 'dark' },
 ]
 
 export default function ProfileScreen() {
@@ -41,6 +45,7 @@ export default function ProfileScreen() {
     true // assume online for display
   )
   const { count: failedSyncCount } = useSyncErrorCount()
+  const { colors, spacing, typography, radii, shadows, fontFamily } = useTheme()
 
   const [showSignOutModal, setShowSignOutModal] = useState(false)
 
@@ -82,16 +87,43 @@ export default function ProfileScreen() {
     signOut(db)
   }
 
+  const appVersion = Constants.expoConfig?.version
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* User Info Section */}
-      <View style={styles.userSection}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.bgPrimary }}
+      contentContainerStyle={{ paddingBottom: spacing[6] }}
+    >
+      {/* Hero Section */}
+      <View
+        style={{
+          alignItems: 'center',
+          paddingVertical: spacing[6],
+          paddingHorizontal: spacing[6],
+          gap: spacing[2],
+          backgroundColor: colors.surfacePrimary,
+          borderBottomLeftRadius: radii.xl,
+          borderBottomRightRadius: radii.xl,
+          ...shadows.sm,
+        }}
+        testID="profile-hero"
+      >
         <Avatar
           name={displayName}
           size="xl"
           testID="profile-avatar"
         />
-        <Text style={styles.displayName}>{displayName}</Text>
+        <Text
+          style={{
+            ...typography['2xl'],
+            fontWeight: typography.weight.bold,
+            fontFamily: fontFamily.heading,
+            color: colors.textPrimary,
+            marginTop: spacing[2],
+          }}
+        >
+          {displayName}
+        </Text>
         <Badge
           label={roleBadge}
           colorScheme={roleBadgeColor as any}
@@ -99,104 +131,169 @@ export default function ProfileScreen() {
           testID="role-badge"
         />
         {user?.email && (
-          <Text style={styles.email}>{user.email}</Text>
+          <Text style={{ ...typography.base, color: colors.textSecondary }}>
+            {user.email}
+          </Text>
         )}
       </View>
 
-      {/* Dark Mode Section */}
-      <Card variant="elevated" testID="dark-mode-card">
-        <Text style={styles.sectionTitle}>Appearance</Text>
-        <View style={styles.darkModeRow}>
-          {DARK_MODE_OPTIONS.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              testID={`dark-mode-${option.value}`}
-              style={[
-                styles.darkModeOption,
-                settings.darkMode === option.value && styles.darkModeOptionActive,
-              ]}
-              onPress={() => updateSettings({ darkMode: option.value })}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.darkModeText,
-                  settings.darkMode === option.value && styles.darkModeTextActive,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
+      {/* Content sections */}
+      <View style={{ paddingHorizontal: spacing[4] }}>
+        {/* APPEARANCE section */}
+        <SectionHeader label="APPEARANCE" testID="section-appearance" />
+        <SegmentedControl
+          options={DARK_MODE_OPTIONS}
+          value={settings.darkMode}
+          onValueChange={(v) => updateSettings({ darkMode: v as ThemeMode })}
+          fullWidth
+          testID="dark-mode-control"
+        />
 
-      {/* Queue Status Section */}
-      <Card variant="elevated" testID="queue-status-card">
-        <Text style={styles.sectionTitle}>Sync Status</Text>
-
-        <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>Pending Items</Text>
-          <Text style={styles.statusValue}>{totalQueueCount}</Text>
-        </View>
-
-        <TouchableOpacity
-          testID="failed-sync-link"
-          style={styles.statusRow}
-          onPress={() => router.push('/sync-errors')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.statusLabel}>Failed Syncs</Text>
-          <View style={styles.failedSyncRow}>
+        {/* SYNC & DATA section */}
+        <SectionHeader label="SYNC & DATA" testID="section-sync" />
+        <Card variant="elevated" testID="queue-status-card">
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingVertical: spacing[2.5],
+              borderBottomWidth: 1,
+              borderBottomColor: colors.bgTertiary,
+            }}
+          >
+            <Text style={{ ...typography.base, color: colors.textSecondary }}>Pending Items</Text>
             <Text
-              style={[
-                styles.statusValue,
-                failedSyncCount > 0 && styles.statusValueError,
-              ]}
+              style={{
+                ...typography.lg,
+                fontWeight: typography.weight.semibold,
+                color: colors.textPrimary,
+              }}
             >
-              {failedSyncCount}
+              {totalQueueCount}
             </Text>
-            <Text style={styles.chevron}>{'>'}</Text>
           </View>
-        </TouchableOpacity>
-      </Card>
 
-      {/* Domain Section */}
-      {domainConfig && (
-        <Card variant="elevated" testID="domain-card">
-          <Text style={styles.sectionTitle}>Current Domain</Text>
-          <View style={styles.domainRow}>
-            <View
-              style={[
-                styles.domainBadge,
-                { backgroundColor: domainConfig.brandColor },
-              ]}
-            >
-              <Text style={styles.domainLetter}>{domainConfig.letter}</Text>
+          <AnimatedPressable
+            onPress={() => router.push('/sync-errors')}
+            testID="failed-sync-link"
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingVertical: spacing[2.5],
+            }}
+          >
+            <Text style={{ ...typography.base, color: colors.textSecondary }}>Failed Syncs</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1.5] }}>
+              <Text
+                style={{
+                  ...typography.lg,
+                  fontWeight: typography.weight.semibold,
+                  color: failedSyncCount > 0 ? colors.error : colors.textPrimary,
+                }}
+              >
+                {failedSyncCount}
+              </Text>
+              <ChevronRight size={16} color={colors.textTertiary} />
             </View>
-            <Text style={styles.domainName}>{domainConfig.displayName}</Text>
-          </View>
+          </AnimatedPressable>
         </Card>
-      )}
 
-      {/* Actions */}
-      <View style={styles.actionsSection}>
-        <Button
-          label="Switch Domain"
-          variant="outline"
-          onPress={handleSwitchDomain}
-          testID="switch-domain-button"
-        />
+        {/* CURRENT DOMAIN section */}
+        {domainConfig && (
+          <>
+            <SectionHeader label="CURRENT DOMAIN" testID="section-domain" />
+            <Card variant="elevated" testID="domain-card">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: radii.md,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: domainConfig.brandColor,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.textInverse,
+                        ...typography.xl,
+                        fontWeight: typography.weight.bold,
+                      }}
+                    >
+                      {domainConfig.letter}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      ...typography.lg,
+                      fontWeight: typography.weight.semibold,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    {domainConfig.displayName}
+                  </Text>
+                </View>
+                <Button
+                  label="Switch"
+                  variant="ghost"
+                  size="sm"
+                  onPress={handleSwitchDomain}
+                  testID="switch-domain-button"
+                />
+              </View>
+            </Card>
+          </>
+        )}
 
-        <View style={styles.spacer} />
-
-        <Button
-          label="Sign Out"
-          variant="danger"
+        {/* ACCOUNT section */}
+        <SectionHeader label="ACCOUNT" testID="section-account" />
+        <AnimatedPressable
           onPress={handleSignOutPress}
+          hapticPattern="heavy"
           testID="sign-out-button"
-        />
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.surfacePrimary,
+            paddingHorizontal: spacing[4],
+            paddingVertical: spacing[3],
+            borderRadius: radii.lg,
+          }}
+        >
+          <LogOut size={20} color={colors.error} />
+          <Text
+            style={{
+              ...typography.base,
+              fontWeight: typography.weight.semibold,
+              color: colors.error,
+              flex: 1,
+              marginLeft: spacing[3],
+            }}
+          >
+            Sign Out
+          </Text>
+          <ChevronRight size={16} color={colors.textTertiary} />
+        </AnimatedPressable>
       </View>
+
+      {/* Version footer */}
+      {appVersion && (
+        <Text
+          testID="app-version"
+          style={{
+            ...typography.xs,
+            color: colors.textTertiary,
+            textAlign: 'center',
+            padding: spacing[4],
+          }}
+        >
+          PackTrack v{appVersion}
+        </Text>
+      )}
 
       {/* Sign Out Warning Modal */}
       <Modal
@@ -205,11 +302,18 @@ export default function ProfileScreen() {
         title="Unsaved Changes"
         testID="sign-out-modal"
       >
-        <Text style={styles.modalText}>
+        <Text
+          style={{
+            ...typography.base,
+            color: colors.textPrimary,
+            lineHeight: 20,
+            marginBottom: spacing[4],
+          }}
+        >
           You have {queueCount} pending transaction{queueCount !== 1 ? 's' : ''} that
           haven't been synced. Signing out will lose these changes.
         </Text>
-        <View style={styles.modalActions}>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[3] }}>
           <Button
             label="Cancel"
             variant="outline"
@@ -227,132 +331,3 @@ export default function ProfileScreen() {
     </ScrollView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  content: {
-    padding: 16,
-    gap: 16,
-  },
-  userSection: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    gap: 8,
-  },
-  displayName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 8,
-  },
-  email: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  darkModeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  darkModeOption: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-  },
-  darkModeOptionActive: {
-    borderColor: '#01722f',
-    backgroundColor: '#DCFCE7',
-  },
-  darkModeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  darkModeTextActive: {
-    color: '#01722f',
-    fontWeight: '600',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  statusLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  statusValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  statusValueError: {
-    color: '#EF4444',
-  },
-  failedSyncRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  chevron: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
-  domainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  domainBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  domainLetter: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  domainName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  actionsSection: {
-    paddingVertical: 8,
-    gap: 12,
-  },
-  spacer: {
-    height: 4,
-  },
-  modalText: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-})

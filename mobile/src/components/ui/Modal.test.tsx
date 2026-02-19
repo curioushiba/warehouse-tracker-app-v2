@@ -1,3 +1,36 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+  MODAL_SPRING: { damping: 20, stiffness: 200 },
+  FADE_DURATION: 200,
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { TouchableOpacity } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, ...props }: any) =>
+      React.createElement(TouchableOpacity, props, children),
+  }
+})
+
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { Text } from 'react-native'
@@ -20,7 +53,6 @@ describe('Modal', () => {
         <Text>Hidden content</Text>
       </Modal>
     )
-    // When isOpen=false, the modal content should not be rendered/visible
     expect(queryByText('Hidden content')).toBeNull()
   })
 
@@ -62,5 +94,14 @@ describe('Modal', () => {
     )
     fireEvent.press(getByTestId('modal-close'))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses animationType="none" for custom spring animation', () => {
+    const { getByTestId } = render(
+      <Modal isOpen={true} onClose={() => {}} testID="modal">
+        <Text>Content</Text>
+      </Modal>
+    )
+    expect(getByTestId('modal').props.animationType).toBe('none')
   })
 })

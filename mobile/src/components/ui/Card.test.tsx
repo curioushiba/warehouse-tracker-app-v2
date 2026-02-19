@@ -1,7 +1,40 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+  CARD_PRESS: { toValue: 0.98, duration: 80 },
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { TouchableOpacity } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, ...props }: any) =>
+      React.createElement(TouchableOpacity, props, children),
+  }
+})
+
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { Text, StyleSheet } from 'react-native'
 import { Card } from './Card'
+import { spacing } from '@/theme/tokens'
 
 describe('Card', () => {
   it('renders children', () => {
@@ -20,7 +53,6 @@ describe('Card', () => {
       </Card>
     )
     const style = StyleSheet.flatten(getByTestId('card').props.style)
-    // Shadow properties exist on elevated cards
     expect(style.shadowColor).toBeDefined()
     expect(style.shadowOpacity).toBeGreaterThan(0)
     expect(style.elevation).toBeGreaterThan(0)
@@ -53,7 +85,6 @@ describe('Card', () => {
         <Text>Static</Text>
       </Card>
     )
-    // The View is rendered; we verify it exists and renders children
     expect(getByTestId('card')).toBeTruthy()
   })
 
@@ -66,5 +97,35 @@ describe('Card', () => {
     const style = StyleSheet.flatten(getByTestId('card').props.style)
     expect(style.shadowColor).toBeDefined()
     expect(style.elevation).toBeGreaterThan(0)
+  })
+
+  it('compact uses spacing[3] padding', () => {
+    const { getByTestId } = render(
+      <Card compact testID="card">
+        <Text>Compact</Text>
+      </Card>
+    )
+    const style = StyleSheet.flatten(getByTestId('card').props.style)
+    expect(style.padding).toBe(spacing[3])
+  })
+
+  it('noPadding removes all padding', () => {
+    const { getByTestId } = render(
+      <Card noPadding testID="card">
+        <Text>No padding</Text>
+      </Card>
+    )
+    const style = StyleSheet.flatten(getByTestId('card').props.style)
+    expect(style.padding).toBe(0)
+  })
+
+  it('default uses spacing[4] padding', () => {
+    const { getByTestId } = render(
+      <Card testID="card">
+        <Text>Default</Text>
+      </Card>
+    )
+    const style = StyleSheet.flatten(getByTestId('card').props.style)
+    expect(style.padding).toBe(spacing[4])
   })
 })

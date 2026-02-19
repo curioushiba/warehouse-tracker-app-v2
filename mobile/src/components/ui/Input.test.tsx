@@ -1,7 +1,19 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
-import { Text } from 'react-native'
+import { Text, StyleSheet } from 'react-native'
 import { Input } from './Input'
+import { radii } from '@/theme/tokens'
 
 describe('Input', () => {
   it('renders placeholder text', () => {
@@ -114,5 +126,72 @@ describe('Input', () => {
       />
     )
     expect(getByTestId('input').props.autoCapitalize).toBe('none')
+  })
+
+  it('renders label when provided', () => {
+    const { getByText } = render(
+      <Input
+        placeholder="Enter name"
+        onChangeText={() => {}}
+        value=""
+        label="Full Name"
+        testID="input"
+      />
+    )
+    expect(getByText('Full Name')).toBeTruthy()
+  })
+
+  it('uses radii.lg border radius', () => {
+    const { getByTestId } = render(
+      <Input
+        placeholder="Name"
+        onChangeText={() => {}}
+        value=""
+        testID="input"
+      />
+    )
+    const wrapperStyle = StyleSheet.flatten(getByTestId('input-wrapper').props.style)
+    expect(wrapperStyle.borderRadius).toBe(radii.lg)
+  })
+
+  it('default size is md (44px height)', () => {
+    const { getByTestId } = render(
+      <Input
+        placeholder="Name"
+        onChangeText={() => {}}
+        value=""
+        testID="input"
+      />
+    )
+    const wrapperStyle = StyleSheet.flatten(getByTestId('input-wrapper').props.style)
+    expect(wrapperStyle.height).toBe(44)
+  })
+
+  it('sm size uses 36px height', () => {
+    const { getByTestId } = render(
+      <Input
+        placeholder="Name"
+        onChangeText={() => {}}
+        value=""
+        size="sm"
+        testID="input"
+      />
+    )
+    const wrapperStyle = StyleSheet.flatten(getByTestId('input-wrapper').props.style)
+    expect(wrapperStyle.height).toBe(36)
+  })
+
+  it('lg size uses 52px height', () => {
+    const { getByTestId } = render(
+      <Input
+        placeholder="Name"
+        onChangeText={() => {}}
+        value=""
+        size="lg"
+        testID="input"
+      />
+    )
+    const wrapperStyle = StyleSheet.flatten(getByTestId('input-wrapper').props.style)
+    expect(wrapperStyle.height).toBe(52)
   })
 })

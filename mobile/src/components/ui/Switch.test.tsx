@@ -1,3 +1,14 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { Switch } from './Switch'

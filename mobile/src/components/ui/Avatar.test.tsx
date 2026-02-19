@@ -1,7 +1,19 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
 import React from 'react'
 import { render } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { Avatar } from './Avatar'
+import { lightColors } from '@/theme/tokens'
 
 describe('Avatar', () => {
   it('renders image when imageUri provided', () => {
@@ -57,5 +69,13 @@ describe('Avatar', () => {
     const style = StyleSheet.flatten(getByTestId('avatar').props.style)
     expect(style.width).toBe(56)
     expect(style.height).toBe(56)
+  })
+
+  it('uses brandSecondary for fallback background', () => {
+    const { getByTestId } = render(
+      <Avatar name="AB" size="md" testID="avatar" />
+    )
+    const style = StyleSheet.flatten(getByTestId('avatar').props.style)
+    expect(style.backgroundColor).toBe(lightColors.brandSecondary)
   })
 })

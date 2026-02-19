@@ -56,6 +56,24 @@ jest.mock('@/contexts/DomainContext', () => ({
   useDomain: (...args: any[]) => mockUseDomain(...args),
 }))
 
+const mockUseBatchScan = jest.fn(() => ({
+  items: [] as any[],
+  addItem: jest.fn(),
+  hasItem: jest.fn(),
+  totalItems: 0,
+  transactionType: 'in' as const,
+  setTransactionType: jest.fn(),
+  incrementItem: jest.fn(),
+  updateQuantity: jest.fn(),
+  removeItem: jest.fn(),
+  removeItems: jest.fn(),
+  clearBatch: jest.fn(),
+  totalUnits: 0,
+}))
+jest.mock('@/contexts/BatchScanContext', () => ({
+  useBatchScan: (...args: any[]) => mockUseBatchScan(...args),
+}))
+
 const mockUseOnlineStatus = jest.fn(() => ({
   isOnline: true,
   wasOffline: false,
@@ -103,7 +121,47 @@ jest.mock('@/lib/display-name', () => ({
   }),
 }))
 
-import HomeScreen from './index'
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    fontFamily: require('@/theme/tokens').fontFamily,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+}))
+
+jest.mock('@/components/ui/SectionHeader', () => ({
+  SectionHeader: ({ label, testID }: any) => {
+    const { Text } = require('react-native')
+    return <Text testID={testID}>{label}</Text>
+  },
+}))
+
+jest.mock('@/components/ui/StatCard', () => ({
+  StatCard: ({ label, value, testID, onPress }: any) => {
+    const { Text, Pressable, View } = require('react-native')
+    const Wrapper = onPress ? Pressable : View
+    return (
+      <Wrapper testID={testID} onPress={onPress}>
+        <Text>{value}</Text>
+        <Text>{label}</Text>
+      </Wrapper>
+    )
+  },
+}))
+
+import HomeScreen from '@/app/(app)/(tabs)/index'
 import { getDisplayName } from '@/lib/display-name'
 
 // --- Tests ---
@@ -112,6 +170,20 @@ describe('HomeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSearchParams = {}
+    mockUseBatchScan.mockReturnValue({
+      items: [] as any[],
+      addItem: jest.fn(),
+      hasItem: jest.fn(),
+      totalItems: 0,
+      transactionType: 'in' as const,
+      setTransactionType: jest.fn(),
+      incrementItem: jest.fn(),
+      updateQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      removeItems: jest.fn(),
+      clearBatch: jest.fn(),
+      totalUnits: 0,
+    })
   })
 
   it('renders user display name (from getDisplayName)', () => {
@@ -120,7 +192,13 @@ describe('HomeScreen', () => {
     expect(getByText(/Test User/)).toBeTruthy()
   })
 
-  it('renders Check In button that navigates to scan with type=in', () => {
+  it('renders greeting with current date', () => {
+    const { getByTestId } = render(<HomeScreen />)
+    expect(getByTestId('greeting-name')).toBeTruthy()
+    expect(getByTestId('greeting-date')).toBeTruthy()
+  })
+
+  it('renders Check In card that navigates to scan with type=in', () => {
     const { getByText } = render(<HomeScreen />)
     const checkInButton = getByText('Check In')
     fireEvent.press(checkInButton)
@@ -129,13 +207,38 @@ describe('HomeScreen', () => {
     )
   })
 
-  it('renders Check Out button that navigates to scan with type=out', () => {
+  it('renders Check Out card that navigates to scan with type=out', () => {
     const { getByText } = render(<HomeScreen />)
     const checkOutButton = getByText('Check Out')
     fireEvent.press(checkOutButton)
     expect(mockRouter.push).toHaveBeenCalledWith(
       expect.objectContaining({ pathname: '/scan', params: { type: 'out' } })
     )
+  })
+
+  it('renders quick action descriptions', () => {
+    const { getByText } = render(<HomeScreen />)
+    expect(getByText('Receive stock')).toBeTruthy()
+    expect(getByText('Dispatch stock')).toBeTruthy()
+  })
+
+  it('renders section headers', () => {
+    const { getByTestId } = render(<HomeScreen />)
+    expect(getByTestId('section-quick-actions')).toBeTruthy()
+    expect(getByTestId('section-todays-summary')).toBeTruthy()
+  })
+
+  it('renders stat cards', () => {
+    const { getByTestId } = render(<HomeScreen />)
+    expect(getByTestId('stat-pending')).toBeTruthy()
+    expect(getByTestId('stat-errors')).toBeTruthy()
+    expect(getByTestId('stat-batch')).toBeTruthy()
+  })
+
+  it('stat errors card navigates to sync-errors on press', () => {
+    const { getByTestId } = render(<HomeScreen />)
+    fireEvent.press(getByTestId('stat-errors'))
+    expect(mockRouter.push).toHaveBeenCalledWith('/sync-errors')
   })
 
   it('shows sync status with pending count', () => {
@@ -208,5 +311,68 @@ describe('HomeScreen', () => {
         text1: expect.stringContaining('3'),
       })
     )
+  })
+
+  it('hides sync section when queue is 0 and online', () => {
+    mockUseSyncQueue.mockReturnValue({
+      queueCount: 0,
+      isSyncing: false,
+      lastSyncTime: null,
+      lastError: null,
+      syncQueue: mockSyncQueue,
+      queueTransaction: mockQueueTransaction,
+    })
+    mockUseOnlineStatus.mockReturnValue({
+      isOnline: true,
+      wasOffline: false,
+      clearWasOffline: jest.fn(),
+    })
+    const { queryByTestId } = render(<HomeScreen />)
+    expect(queryByTestId('sync-indicator')).toBeNull()
+  })
+
+  it('shows resume batch banner when batch has items', () => {
+    mockUseBatchScan.mockReturnValue({
+      items: [{ itemId: 'item-1', item: { name: 'Test' }, quantity: 1, idempotencyKey: 'k1' }] as any[],
+      addItem: jest.fn(),
+      hasItem: jest.fn(),
+      totalItems: 1,
+      transactionType: 'in' as const,
+      setTransactionType: jest.fn(),
+      incrementItem: jest.fn(),
+      updateQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      removeItems: jest.fn(),
+      clearBatch: jest.fn(),
+      totalUnits: 1,
+    })
+    const { getByTestId, getByText } = render(<HomeScreen />)
+    expect(getByTestId('resume-batch-banner')).toBeTruthy()
+    expect(getByText(/1 item in your batch/)).toBeTruthy()
+  })
+
+  it('resume batch banner navigates to scan', () => {
+    mockUseBatchScan.mockReturnValue({
+      items: [{ itemId: 'item-1', item: { name: 'Test' }, quantity: 1, idempotencyKey: 'k1' }] as any[],
+      addItem: jest.fn(),
+      hasItem: jest.fn(),
+      totalItems: 1,
+      transactionType: 'in' as const,
+      setTransactionType: jest.fn(),
+      incrementItem: jest.fn(),
+      updateQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      removeItems: jest.fn(),
+      clearBatch: jest.fn(),
+      totalUnits: 1,
+    })
+    const { getByTestId } = render(<HomeScreen />)
+    fireEvent.press(getByTestId('resume-batch-banner'))
+    expect(mockRouter.push).toHaveBeenCalledWith('/scan')
+  })
+
+  it('hides resume batch banner when no items', () => {
+    const { queryByTestId } = render(<HomeScreen />)
+    expect(queryByTestId('resume-batch-banner')).toBeNull()
   })
 })

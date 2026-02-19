@@ -1,3 +1,35 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    zIndex: require('@/theme/tokens').zIndex,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { Pressable } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, style, disabled, ...props }: any) =>
+      React.createElement(Pressable, { ...props, style, disabled }, children),
+  }
+})
+
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { Select } from './Select'
@@ -46,7 +78,6 @@ describe('Select', () => {
       />
     )
     fireEvent.press(getByTestId('select'))
-    // All options should be visible after opening
     expect(getByText('Apple')).toBeTruthy()
     expect(getByText('Banana')).toBeTruthy()
     expect(getByText('Cherry')).toBeTruthy()
@@ -63,9 +94,7 @@ describe('Select', () => {
         testID="select"
       />
     )
-    // Open the dropdown
     fireEvent.press(getByTestId('select'))
-    // Select an option
     fireEvent.press(getByText('Cherry'))
     expect(onValueChange).toHaveBeenCalledWith('cherry')
   })
@@ -82,7 +111,6 @@ describe('Select', () => {
       />
     )
     fireEvent.press(getByTestId('select'))
-    // Option list should not appear
     expect(queryByTestId('select-options')).toBeNull()
   })
 })

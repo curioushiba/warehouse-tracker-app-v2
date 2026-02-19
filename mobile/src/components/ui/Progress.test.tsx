@@ -1,7 +1,30 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+  TIMING_CONFIG: { duration: 200 },
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn((fn) => fn()),
+    withTiming: jest.fn((val) => val),
+  }
+})
+
 import React from 'react'
 import { render } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { Progress } from './Progress'
+import { lightColors } from '@/theme/tokens'
 
 describe('Progress', () => {
   it('renders at 0% (no fill width)', () => {
@@ -39,11 +62,11 @@ describe('Progress', () => {
     expect(style.width).toBe('0%')
   })
 
-  it('default color is primary green (#01722f)', () => {
+  it('default color is brandPrimary from theme', () => {
     const { getByTestId } = render(<Progress value={50} testID="progress" />)
     const fill = getByTestId('progress-fill')
     const style = StyleSheet.flatten(fill.props.style)
-    expect(style.backgroundColor).toBe('#01722f')
+    expect(style.backgroundColor).toBe(lightColors.brandPrimary)
   })
 
   it('applies custom color', () => {

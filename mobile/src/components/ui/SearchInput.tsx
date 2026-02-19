@@ -1,6 +1,8 @@
-import React from 'react'
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
+import React, { useState } from 'react'
+import { View, TextInput } from 'react-native'
 import { Search, X } from 'lucide-react-native'
+import { useTheme } from '@/theme'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 
 export interface SearchInputProps {
   onChangeText: (text: string) => void
@@ -17,6 +19,9 @@ export function SearchInput({
   onClear,
   testID,
 }: SearchInputProps) {
+  const { colors, spacing, radii, typography } = useTheme()
+  const [isFocused, setIsFocused] = useState(false)
+
   const handleClear = () => {
     if (onClear) {
       onClear()
@@ -26,45 +31,44 @@ export function SearchInput({
   }
 
   return (
-    <View style={styles.container}>
-      <Search size={18} color="#9CA3AF" />
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: isFocused ? colors.borderFocus : colors.borderPrimary,
+      borderRadius: radii.md,
+      backgroundColor: colors.surfacePrimary,
+      paddingHorizontal: spacing[3],
+      height: 44,
+    }}>
+      <Search size={18} color={colors.iconSecondary} />
       <TextInput
-        style={styles.input}
+        style={{
+          flex: 1,
+          fontSize: typography.base.fontSize,
+          lineHeight: typography.base.lineHeight,
+          color: colors.textPrimary,
+          marginLeft: spacing[2],
+          padding: 0,
+        }}
         placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
+        placeholderTextColor={colors.textPlaceholder}
         onChangeText={onChangeText}
         value={value}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         testID={testID ? `${testID}-input` : 'search-input'}
       />
       {value.length > 0 ? (
-        <TouchableOpacity
+        <AnimatedPressable
           onPress={handleClear}
           testID="search-clear"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <X size={18} color="#6B7280" />
-        </TouchableOpacity>
+          <View style={{ padding: 8 }}>
+            <X size={18} color={colors.iconSecondary} />
+          </View>
+        </AnimatedPressable>
       ) : null}
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1F2937',
-    marginLeft: 8,
-    padding: 0,
-  },
-})

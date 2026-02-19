@@ -1,7 +1,41 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+  SLIDE_DURATION: 250,
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+    SlideInUp: { duration: jest.fn().mockReturnThis() },
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { TouchableOpacity } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, ...props }: any) =>
+      React.createElement(TouchableOpacity, props, children),
+  }
+})
+
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { Alert } from './Alert'
+import { lightColors } from '@/theme/tokens'
 
 describe('Alert', () => {
   it('renders title text', () => {
@@ -41,35 +75,35 @@ describe('Alert', () => {
     expect(queryByTestId('alert-close')).toBeNull()
   })
 
-  it('applies blue background for info status', () => {
+  it('applies info background from theme', () => {
     const { getByTestId } = render(
       <Alert title="Info" status="info" testID="alert" />
     )
     const bgColor = StyleSheet.flatten(getByTestId('alert').props.style).backgroundColor
-    expect(bgColor).toBe('#DBEAFE')
+    expect(bgColor).toBe(lightColors.infoBg)
   })
 
-  it('applies green background for success status', () => {
+  it('applies success background from theme', () => {
     const { getByTestId } = render(
       <Alert title="Done" status="success" testID="alert" />
     )
     const bgColor = StyleSheet.flatten(getByTestId('alert').props.style).backgroundColor
-    expect(bgColor).toBe('#DCFCE7')
+    expect(bgColor).toBe(lightColors.successBg)
   })
 
-  it('applies yellow background for warning status', () => {
+  it('applies warning background from theme', () => {
     const { getByTestId } = render(
       <Alert title="Caution" status="warning" testID="alert" />
     )
     const bgColor = StyleSheet.flatten(getByTestId('alert').props.style).backgroundColor
-    expect(bgColor).toBe('#FEF9C3')
+    expect(bgColor).toBe(lightColors.warningBg)
   })
 
-  it('applies red background for error status', () => {
+  it('applies error background from theme', () => {
     const { getByTestId } = render(
       <Alert title="Error" status="error" testID="alert" />
     )
     const bgColor = StyleSheet.flatten(getByTestId('alert').props.style).backgroundColor
-    expect(bgColor).toBe('#FEE2E2')
+    expect(bgColor).toBe(lightColors.errorBg)
   })
 })

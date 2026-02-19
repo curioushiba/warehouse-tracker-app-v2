@@ -13,10 +13,10 @@ export const BACKGROUND_FETCH_INTERVAL = 900 // 15 minutes (Android minimum)
 
 // UI constants
 export const TABLET_BREAKPOINT = 600 // dp
-export const SCAN_DEBOUNCE_MS = 500
+export const SCAN_DEBOUNCE_MS = 300
 export const SEARCH_DEBOUNCE_MS = 300
-export const FEEDBACK_DURATION_MS = 1000
-export const FEEDBACK_EXIT_MS = 800
+export const FEEDBACK_DURATION_MS = 600
+export const FEEDBACK_EXIT_MS = 400
 
 // Barcode prefixes
 export const PT_CODE_PREFIX = 'PT-'

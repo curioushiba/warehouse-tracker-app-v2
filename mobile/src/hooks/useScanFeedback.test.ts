@@ -96,7 +96,7 @@ describe('createScanFeedbackManager', () => {
       expect(mockVibrate).toHaveBeenCalledTimes(1)
     })
 
-    it('sets isExiting at FEEDBACK_EXIT_MS (800ms)', () => {
+    it('sets isExiting at FEEDBACK_EXIT_MS (400ms)', () => {
       manager.triggerFeedback(testItem)
 
       vi.advanceTimersByTime(FEEDBACK_EXIT_MS - 1)
@@ -106,7 +106,7 @@ describe('createScanFeedbackManager', () => {
       expect(state.isExiting).toBe(true)
     })
 
-    it('hides feedback at FEEDBACK_DURATION_MS (1000ms)', () => {
+    it('hides feedback at FEEDBACK_DURATION_MS (600ms)', () => {
       manager.triggerFeedback(testItem)
 
       vi.advanceTimersByTime(FEEDBACK_DURATION_MS - 1)
@@ -196,12 +196,12 @@ describe('createScanFeedbackManager', () => {
   })
 
   describe('constants', () => {
-    it('FEEDBACK_EXIT_MS is 800', () => {
-      expect(FEEDBACK_EXIT_MS).toBe(800)
+    it('FEEDBACK_EXIT_MS is 400', () => {
+      expect(FEEDBACK_EXIT_MS).toBe(400)
     })
 
-    it('FEEDBACK_DURATION_MS is 1000', () => {
-      expect(FEEDBACK_DURATION_MS).toBe(1000)
+    it('FEEDBACK_DURATION_MS is 600', () => {
+      expect(FEEDBACK_DURATION_MS).toBe(600)
     })
   })
 })

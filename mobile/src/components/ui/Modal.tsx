@@ -1,15 +1,21 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
   Modal as RNModal,
   View,
   Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  StyleSheet,
+  Pressable,
   type ViewStyle,
 } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { X } from 'lucide-react-native'
 import type { ModalSize } from '@/types'
+import { useTheme, MODAL_SPRING, FADE_DURATION } from '@/theme'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 
 export interface ModalProps {
   isOpen: boolean
@@ -35,66 +41,93 @@ export function Modal({
   size = 'md',
   testID,
 }: ModalProps) {
+  const { colors, spacing, typography, radii } = useTheme()
+
+  const scale = useSharedValue(0.9)
+  const translateY = useSharedValue(20)
+  const opacity = useSharedValue(0)
+
+  useEffect(() => {
+    if (isOpen) {
+      scale.value = withSpring(1, MODAL_SPRING)
+      translateY.value = withSpring(0, MODAL_SPRING)
+      opacity.value = withTiming(1, { duration: FADE_DURATION })
+    } else {
+      scale.value = 0.9
+      translateY.value = 20
+      opacity.value = 0
+    }
+  }, [isOpen, scale, translateY, opacity])
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value },
+    ],
+    opacity: opacity.value,
+  }))
+
   return (
     <RNModal
       visible={isOpen}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
       testID={testID}
     >
-      <TouchableWithoutFeedback onPress={onClose} testID="modal-overlay">
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={[styles.content, SIZE_WIDTHS[size]]}>
-              <View style={styles.header}>
-                {title ? (
-                  <Text style={styles.title}>{title}</Text>
-                ) : (
-                  <View />
-                )}
-                <TouchableOpacity
-                  onPress={onClose}
-                  testID="modal-close"
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <X size={20} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.body}>{children}</View>
+      <Pressable
+        onPress={onClose}
+        testID="modal-overlay"
+        style={{
+          flex: 1,
+          backgroundColor: colors.overlay,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: spacing[6],
+        }}
+      >
+        <Pressable onPress={(e) => e.stopPropagation()}>
+          <Animated.View style={[
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radii.lg,
+              width: '100%',
+              padding: spacing[5],
+            },
+            SIZE_WIDTHS[size],
+            animatedContentStyle,
+          ]}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: spacing[4],
+            }}>
+              {title ? (
+                <Text style={{
+                  ...typography.xl,
+                  fontWeight: typography.weight.semibold,
+                  color: colors.textPrimary,
+                  flex: 1,
+                }}>
+                  {title}
+                </Text>
+              ) : (
+                <View />
+              )}
+              <AnimatedPressable
+                onPress={onClose}
+                testID="modal-close"
+              >
+                <View style={{ padding: 8 }}>
+                  <X size={20} color={colors.iconSecondary} />
+                </View>
+              </AnimatedPressable>
             </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+            <View>{children}</View>
+          </Animated.View>
+        </Pressable>
+      </Pressable>
     </RNModal>
   )
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  content: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    width: '100%',
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    flex: 1,
-  },
-  body: {},
-})

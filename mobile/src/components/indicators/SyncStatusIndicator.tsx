@@ -1,5 +1,12 @@
-import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import React, { useEffect } from 'react'
+import { View, Text } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated'
+import { useTheme } from '@/theme'
 import type { SyncStatus } from '@/types'
 
 export interface SyncStatusIndicatorProps {
@@ -8,50 +15,78 @@ export interface SyncStatusIndicatorProps {
   testID?: string
 }
 
-const STATUS_CONFIG: Record<SyncStatus, { color: string; label: string }> = {
-  synced: { color: '#16a34a', label: 'Synced' },
-  syncing: { color: '#3b82f6', label: 'Syncing...' },
-  pending: { color: '#f97316', label: 'pending' },
-  offline: { color: '#dc2626', label: 'Offline' },
-  error: { color: '#dc2626', label: 'Error' },
-}
-
 export function SyncStatusIndicator({
   status,
   pendingCount,
   testID,
 }: SyncStatusIndicatorProps) {
-  const config = STATUS_CONFIG[status]
+  const { colors, spacing, typography } = useTheme()
+
+  const dotOpacity = useSharedValue(1)
+
+  useEffect(() => {
+    if (status === 'syncing') {
+      dotOpacity.value = withRepeat(
+        withTiming(0.3, { duration: 800 }),
+        -1,
+        true
+      )
+    } else {
+      dotOpacity.value = withTiming(1, { duration: 200 })
+    }
+  }, [status, dotOpacity])
+
+  const animatedDotStyle = useAnimatedStyle(() => ({
+    opacity: dotOpacity.value,
+  }))
+
+  const statusColorMap: Record<SyncStatus, string> = {
+    synced: colors.success,
+    syncing: colors.info,
+    pending: colors.warning,
+    offline: colors.error,
+    error: colors.error,
+  }
+
+  const statusLabelMap: Record<SyncStatus, string> = {
+    synced: 'Synced',
+    syncing: 'Syncing...',
+    pending: 'pending',
+    offline: 'Offline',
+    error: 'Error',
+  }
+
+  const color = statusColorMap[status]
 
   const label =
     status === 'pending' && pendingCount != null
-      ? `${pendingCount} ${config.label}`
-      : config.label
+      ? `${pendingCount} ${statusLabelMap[status]}`
+      : statusLabelMap[status]
 
   return (
-    <View testID={testID} style={styles.container}>
-      <View
+    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1.5] }}>
+      <Animated.View
         testID={testID ? `${testID}-dot` : undefined}
-        style={{ ...styles.dot, backgroundColor: config.color }}
+        style={[
+          {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: color,
+          },
+          animatedDotStyle,
+        ]}
       />
-      <Text style={{ ...styles.text, color: config.color }}>{label}</Text>
+      <Text
+        style={{
+          fontSize: typography.sm.fontSize,
+          lineHeight: typography.sm.lineHeight,
+          fontWeight: typography.weight.medium,
+          color,
+        }}
+      >
+        {label}
+      </Text>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-})

@@ -2,6 +2,41 @@ import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { FailedSyncBanner } from './FailedSyncBanner'
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const { View } = require('react-native')
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    default: {
+      ...Reanimated.default,
+      View,
+    },
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSequence: jest.fn((...vals) => vals[vals.length - 1]),
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { TouchableOpacity } = require('react-native')
+  return {
+    AnimatedPressable: ({ children, ...props }: any) =>
+      require('react').createElement(TouchableOpacity, props, children),
+  }
+})
+
 describe('FailedSyncBanner', () => {
   it('returns null when count=0', () => {
     const onPress = jest.fn()

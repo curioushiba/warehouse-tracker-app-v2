@@ -1,19 +1,41 @@
-import React, { useState, useCallback, useEffect } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { View, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useSQLiteContext } from 'expo-sqlite'
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated'
+import { ClipboardCheck } from 'lucide-react-native'
 import Toast from 'react-native-toast-message'
 import { useBatchScan, type BatchTransactionType } from '@/contexts/BatchScanContext'
 import { useScanFeedback } from '@/hooks/useScanFeedback'
-import { getCachedItemByBarcode } from '@/lib/db/items-cache'
+import { getCachedItemByBarcode, getAllCachedItems } from '@/lib/db/items-cache'
+import { useTheme } from '@/theme'
 import { BarcodeScanner } from '@/components/domain/BarcodeScanner'
 import { ScanSuccessOverlay } from '@/components/domain/ScanSuccessOverlay'
 import { BatchMiniList } from '@/components/domain/BatchMiniList'
 import { ItemSearchAutocomplete } from '@/components/domain/ItemSearchAutocomplete'
 import { Button } from '@/components/ui/Button'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import type { AutocompleteItem } from '@/components/domain/ItemSearchAutocomplete'
 
 type ScanMode = 'scan' | 'search'
+
+const TYPE_OPTIONS = [
+  { label: 'IN', value: 'in' },
+  { label: 'OUT', value: 'out' },
+]
+
+const MODE_OPTIONS = [
+  { label: 'Scan', value: 'scan' },
+  { label: 'Search', value: 'search' },
+]
 
 export default function ScanScreen() {
   const db = useSQLiteContext()
@@ -22,6 +44,7 @@ export default function ScanScreen() {
   const {
     items,
     addItem,
+    incrementItem,
     hasItem,
     totalItems,
     transactionType,
@@ -33,8 +56,52 @@ export default function ScanScreen() {
     feedbackItem,
     isVisible: feedbackVisible,
   } = useScanFeedback()
+  const { colors, spacing, typography, shadows, radii } = useTheme()
 
   const [mode, setMode] = useState<ScanMode>('scan')
+  const [showInstruction, setShowInstruction] = useState(true)
+
+  // Batch count bounce animation
+  const pillScale = useSharedValue(1)
+  const prevTotalItems = useRef(totalItems)
+
+  useEffect(() => {
+    if (totalItems !== prevTotalItems.current && totalItems > 0) {
+      pillScale.value = withSequence(
+        withTiming(1.1, { duration: 100 }),
+        withTiming(1.0, { duration: 100 })
+      )
+    }
+    prevTotalItems.current = totalItems
+  }, [totalItems, pillScale])
+
+  const pillAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pillScale.value }],
+  }))
+
+  // Auto-dismiss instruction text after 3s
+  useEffect(() => {
+    if (mode === 'scan') {
+      setShowInstruction(true)
+      const timer = setTimeout(() => setShowInstruction(false), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [mode])
+
+  // Load cached items for autocomplete
+  const autocompleteItems = useMemo<AutocompleteItem[]>(() => {
+    try {
+      const cached = getAllCachedItems(db)
+      return cached.map((item) => ({
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        barcode: item.barcode,
+      }))
+    } catch {
+      return []
+    }
+  }, [db])
 
   // Set transaction type from URL params on mount
   useEffect(() => {
@@ -42,6 +109,8 @@ export default function ScanScreen() {
       setTransactionType(params.type)
     }
   }, [params.type, setTransactionType])
+
+  const batchHasItems = items.length > 0
 
   const handleBarcodeScan = useCallback(
     (barcode: string) => {
@@ -55,7 +124,6 @@ export default function ScanScreen() {
         return
       }
 
-      // Convert CachedItem to Item shape for addItem
       const itemForBatch = {
         id: item.id,
         sku: item.sku,
@@ -83,10 +151,18 @@ export default function ScanScreen() {
           itemImageUrl: item.imageUrl ?? null,
         })
       } else {
-        triggerDuplicateAlert()
+        incrementItem(item.id)
+        triggerFeedback({
+          itemName: item.name,
+          itemImageUrl: item.imageUrl ?? null,
+        })
+        Toast.show({
+          type: 'success',
+          text1: 'Quantity updated',
+        })
       }
     },
-    [addItem, hasItem, triggerFeedback, triggerDuplicateAlert]
+    [addItem, incrementItem, triggerFeedback, db]
   )
 
   const handleManualSelect = useCallback(
@@ -114,11 +190,12 @@ export default function ScanScreen() {
         }
         const added = addItem(itemForBatch)
         if (!added) {
-          Toast.show({ type: 'info', text1: 'Item already in batch' })
+          incrementItem(item.id)
+          Toast.show({ type: 'success', text1: 'Quantity updated' })
         }
       }
     },
-    [addItem]
+    [addItem, incrementItem, db]
   )
 
   const miniListItems = items.map((bi) => ({
@@ -127,91 +204,113 @@ export default function ScanScreen() {
     quantity: bi.quantity,
   }))
 
+  // SegmentedControl colored active states for transaction type
+  const typeActiveColor = transactionType === 'in' ? colors.checkIn : colors.checkOut
+  const typeActiveTextColor = colors.textInverse
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Transaction type toggle */}
-      <View style={styles.typeToggleRow}>
-        <TouchableOpacity
-          style={[
-            styles.typeToggleButton,
-            transactionType === 'in' && styles.typeToggleActive,
-          ]}
-          onPress={() => setTransactionType('in')}
-        >
-          <Text
-            style={[
-              styles.typeToggleText,
-              transactionType === 'in' && styles.typeToggleTextActive,
-            ]}
-          >
-            In
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.typeToggleButton,
-            transactionType === 'out' && styles.typeToggleActiveOut,
-          ]}
-          onPress={() => setTransactionType('out')}
-        >
-          <Text
-            style={[
-              styles.typeToggleText,
-              transactionType === 'out' && styles.typeToggleTextActive,
-            ]}
-          >
-            Out
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Mode toggle: Scan / Search */}
-      <View style={styles.modeToggleRow}>
-        <TouchableOpacity
-          style={[styles.modeTab, mode === 'scan' && styles.modeTabActive]}
-          onPress={() => setMode('scan')}
-        >
-          <Text
-            style={[
-              styles.modeTabText,
-              mode === 'scan' && styles.modeTabTextActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeTab, mode === 'search' && styles.modeTabActive]}
-          onPress={() => setMode('search')}
-        >
-          <Text
-            style={[
-              styles.modeTabText,
-              mode === 'search' && styles.modeTabTextActive,
-            ]}
-          >
-            Search
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Main content area */}
-      <View style={styles.scanArea}>
-        {mode === 'scan' ? (
-          <BarcodeScanner
-            onScan={handleBarcodeScan}
-            testID="barcode-scanner"
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['top']}>
+      {/* Controls row: type + mode segmented controls */}
+      <View
+        style={{
+          flexDirection: 'row',
+          paddingHorizontal: spacing[4],
+          paddingVertical: spacing[2],
+          gap: spacing[2],
+          alignItems: 'center',
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <SegmentedControl
+            options={TYPE_OPTIONS}
+            value={transactionType}
+            onValueChange={(val) => setTransactionType(val as BatchTransactionType)}
+            activeColor={typeActiveColor}
+            activeTextColor={typeActiveTextColor}
+            size="sm"
+            testID="type-control"
           />
-        ) : (
-          <View style={styles.searchContainer} testID="manual-search">
-            <ItemSearchAutocomplete
-              items={[]}
-              onSelect={handleManualSelect}
-              placeholder="Search by name, SKU, or barcode..."
-              testID="item-search-autocomplete"
-            />
-          </View>
-        )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <SegmentedControl
+            options={MODE_OPTIONS}
+            value={mode}
+            onValueChange={(val) => setMode(val as ScanMode)}
+            size="sm"
+            testID="mode-control"
+          />
+        </View>
+      </View>
+
+      {/* Lock notice when batch has items */}
+      {batchHasItems && (
+        <Text
+          testID="type-lock-notice"
+          style={{
+            ...typography.sm,
+            color: colors.textTertiary,
+            textAlign: 'center',
+            paddingBottom: spacing[1],
+          }}
+        >
+          Lock: items in batch
+        </Text>
+      )}
+
+      {/* Main content area with cross-fade */}
+      <View style={{ flex: 1, position: 'relative' }}>
+        <Animated.View
+          key={mode}
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={{ flex: 1 }}
+        >
+          {mode === 'scan' ? (
+            <View style={{ flex: 1, position: 'relative' }}>
+              <BarcodeScanner
+                onScan={handleBarcodeScan}
+                testID="barcode-scanner"
+              />
+              {/* Instruction text with auto-dismiss */}
+              {showInstruction && (
+                <Animated.View
+                  entering={FadeIn.duration(200)}
+                  style={{
+                    position: 'absolute',
+                    top: spacing[4],
+                    left: 0,
+                    right: 0,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text
+                    testID="scan-instruction"
+                    style={{
+                      ...typography.sm,
+                      color: colors.textInverse,
+                      backgroundColor: colors.overlay,
+                      paddingHorizontal: spacing[4],
+                      paddingVertical: spacing[2],
+                      borderRadius: radii.lg,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    Point camera at barcode
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
+          ) : (
+            <View style={{ flex: 1, padding: spacing[4] }} testID="manual-search">
+              <ItemSearchAutocomplete
+                items={autocompleteItems}
+                onSelect={handleManualSelect}
+                placeholder="Search by name, SKU, or barcode..."
+                testID="item-search-autocomplete"
+              />
+            </View>
+          )}
+        </Animated.View>
 
         {/* Scan success overlay */}
         <ScanSuccessOverlay
@@ -219,18 +318,55 @@ export default function ScanScreen() {
           isVisible={feedbackVisible}
           testID="scan-overlay"
         />
+
+        {/* Floating batch count pill with bounce animation */}
+        {totalItems > 0 && mode === 'scan' && (
+          <Animated.View
+            testID="batch-count-pill"
+            style={[
+              {
+                position: 'absolute',
+                bottom: spacing[4],
+                right: spacing[4],
+                backgroundColor: colors.brandPrimary,
+                borderRadius: radii.full,
+                paddingHorizontal: spacing[4],
+                paddingVertical: spacing[2],
+              },
+              pillAnimatedStyle,
+            ]}
+          >
+            <Text
+              style={{
+                ...typography.base,
+                fontWeight: typography.weight.bold,
+                color: colors.brandText,
+              }}
+            >
+              {totalItems} item{totalItems !== 1 ? 's' : ''}
+            </Text>
+          </Animated.View>
+        )}
       </View>
 
-      {/* Batch mini-list + review button */}
-      <View style={styles.bottomSection}>
+      {/* Bottom panel with shadow */}
+      <View
+        style={{
+          backgroundColor: colors.surfacePrimary,
+          borderTopWidth: 1,
+          borderTopColor: colors.borderSubtle,
+          ...shadows.lg,
+        }}
+      >
         <BatchMiniList items={miniListItems} testID="batch-mini-list" />
         {totalItems > 0 && (
-          <View style={styles.reviewButtonContainer}>
+          <View style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[4] }}>
             <Button
               label="Review Batch"
               onPress={() => router.push('/batch-review')}
               variant="cta"
               size="lg"
+              leftIcon={<ClipboardCheck size={18} color={colors.ctaText} />}
               testID="review-batch-button"
             />
           </View>
@@ -239,82 +375,3 @@ export default function ScanScreen() {
     </SafeAreaView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  typeToggleRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  typeToggleButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  typeToggleActive: {
-    backgroundColor: '#16a34a',
-    borderColor: '#16a34a',
-  },
-  typeToggleActiveOut: {
-    backgroundColor: '#dc2626',
-    borderColor: '#dc2626',
-  },
-  typeToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  typeToggleTextActive: {
-    color: '#FFFFFF',
-  },
-  modeToggleRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  modeTab: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  modeTabActive: {
-    backgroundColor: '#1F2937',
-  },
-  modeTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  modeTabTextActive: {
-    color: '#FFFFFF',
-  },
-  scanArea: {
-    flex: 1,
-    position: 'relative',
-  },
-  searchContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  bottomSection: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  reviewButtonContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-})

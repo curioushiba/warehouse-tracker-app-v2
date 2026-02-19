@@ -1,5 +1,6 @@
 import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text } from 'react-native'
+import { useTheme } from '@/theme'
 
 type TransactionType = 'in' | 'out' | 'adjustment'
 
@@ -8,36 +9,43 @@ export interface TransactionTypeBadgeProps {
   testID?: string
 }
 
-const TYPE_CONFIG: Record<TransactionType, { label: string; backgroundColor: string }> = {
-  in: { label: 'CHECK IN', backgroundColor: '#16a34a' },
-  out: { label: 'CHECK OUT', backgroundColor: '#dc2626' },
-  adjustment: { label: 'ADJUSTMENT', backgroundColor: '#2563eb' },
+const TYPE_LABELS: Record<TransactionType, string> = {
+  in: 'CHECK IN',
+  out: 'CHECK OUT',
+  adjustment: 'ADJUSTMENT',
 }
 
 export function TransactionTypeBadge({ type, testID }: TransactionTypeBadgeProps) {
-  const config = TYPE_CONFIG[type]
+  const { colors, spacing, typography, radii } = useTheme()
+
+  const colorMap: Record<TransactionType, string> = {
+    in: colors.checkIn,
+    out: colors.checkOut,
+    adjustment: colors.adjustment,
+  }
 
   return (
     <View
       testID={testID}
-      style={{ ...styles.badge, backgroundColor: config.backgroundColor }}
+      style={{
+        paddingHorizontal: spacing[2.5],
+        paddingVertical: spacing[1],
+        borderRadius: radii.sm,
+        alignSelf: 'flex-start',
+        backgroundColor: colorMap[type],
+      }}
     >
-      <Text style={styles.text}>{config.label}</Text>
+      <Text
+        style={{
+          color: colors.textInverse,
+          fontSize: typography.sm.fontSize,
+          lineHeight: typography.sm.lineHeight,
+          fontWeight: typography.weight.bold,
+          letterSpacing: 0.5,
+        }}
+      >
+        {TYPE_LABELS[type]}
+      </Text>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  text: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-})

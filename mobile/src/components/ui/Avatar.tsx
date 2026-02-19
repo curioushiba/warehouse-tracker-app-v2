@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-na
 import { Image } from 'expo-image'
 import { User } from 'lucide-react-native'
 import type { Size } from '@/types'
+import { useTheme } from '@/theme'
 
 export interface AvatarProps {
   imageUri?: string
@@ -38,6 +39,7 @@ function getInitials(name: string): string {
 }
 
 export function Avatar({ imageUri, name, size, testID }: AvatarProps) {
+  const { colors } = useTheme()
   const dimension = SIZE_MAP[size] ?? SIZE_MAP.md
   const fontSize = FONT_SIZE_MAP[size] ?? FONT_SIZE_MAP.md
 
@@ -45,7 +47,7 @@ export function Avatar({ imageUri, name, size, testID }: AvatarProps) {
     width: dimension,
     height: dimension,
     borderRadius: dimension / 2,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: colors.brandSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -54,7 +56,7 @@ export function Avatar({ imageUri, name, size, testID }: AvatarProps) {
   const textStyle: TextStyle = {
     fontSize,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.brandPrimary,
   }
 
   if (imageUri) {
@@ -79,7 +81,7 @@ export function Avatar({ imageUri, name, size, testID }: AvatarProps) {
 
   return (
     <View style={containerStyle} testID={testID}>
-      <User size={dimension * 0.5} color="#6B7280" />
+      <User size={dimension * 0.5} color={colors.iconSecondary} />
     </View>
   )
 }

@@ -2,21 +2,27 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View,
   Text,
-  FlatList,
-  TouchableOpacity,
+  SectionList,
   RefreshControl,
-  StyleSheet,
 } from 'react-native'
 import { useSQLiteContext } from 'expo-sqlite'
+import { ClipboardList, ChevronRight } from 'lucide-react-native'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDomain } from '@/contexts/DomainContext'
+import { useTheme } from '@/theme'
 import { createClient } from '@/lib/supabase/client'
 import { getTransactionsByDomain } from '@/lib/db/transaction-queue'
+import { getCachedItem } from '@/lib/db/items-cache'
 import { formatRelativeTime } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { TransactionTypeBadge } from '@/components/indicators/TransactionTypeBadge'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { DateGroupHeader } from '@/components/ui/DateGroupHeader'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { StaggeredFadeIn } from '@/components/ui/StaggeredFadeIn'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 import type { QueuedTransaction } from '@/types/offline'
 
 // Supabase transaction shape from the domain table
@@ -32,7 +38,7 @@ interface RemoteTransaction {
   server_timestamp: string
 }
 
-// Unified row for the FlatList
+// Unified row for the list
 interface DisplayTransaction {
   id: string
   transactionType: string
@@ -43,6 +49,8 @@ interface DisplayTransaction {
   timestamp: string
   isPending: boolean
 }
+
+type FilterType = 'all' | 'in' | 'out'
 
 function normalizeTransactionType(type: string): 'in' | 'out' | 'adjustment' {
   if (type === 'check_in' || type === 'in') return 'in'
@@ -63,25 +71,67 @@ function remoteToDisplay(tx: RemoteTransaction): DisplayTransaction {
   }
 }
 
-function pendingToDisplay(tx: QueuedTransaction): DisplayTransaction {
-  return {
-    id: tx.id,
-    transactionType: tx.transactionType,
-    quantity: tx.quantity,
-    notes: tx.notes ?? null,
-    itemId: tx.itemId,
-    itemName: tx.itemId, // no name available offline
-    timestamp: tx.deviceTimestamp,
-    isPending: true,
+function getTypeColor(type: 'in' | 'out' | 'adjustment', colors: { checkIn: string; checkOut: string; adjustment: string }): string {
+  if (type === 'in') return colors.checkIn
+  if (type === 'out') return colors.checkOut
+  return colors.adjustment
+}
+
+interface TransactionSection {
+  title: string
+  data: DisplayTransaction[]
+}
+
+export function groupTransactionsByDate(transactions: DisplayTransaction[]): TransactionSection[] {
+  const now = new Date()
+  const todayStr = now.toDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toDateString()
+
+  const groups = new Map<string, DisplayTransaction[]>()
+  const groupOrder: string[] = []
+
+  for (const tx of transactions) {
+    const txDate = new Date(tx.timestamp)
+    const txDateStr = txDate.toDateString()
+    let label: string
+    if (txDateStr === todayStr) {
+      label = 'Today'
+    } else if (txDateStr === yesterdayStr) {
+      label = 'Yesterday'
+    } else {
+      const month = txDate.toLocaleString('en-US', { month: 'short' })
+      const day = txDate.getDate()
+      label = `${month} ${day}`
+    }
+
+    if (!groups.has(label)) {
+      groups.set(label, [])
+      groupOrder.push(label)
+    }
+    groups.get(label)!.push(tx)
   }
+
+  return groupOrder.map((title) => ({
+    title,
+    data: groups.get(title)!,
+  }))
 }
 
 const FETCH_LIMIT = 50
+
+const FILTER_OPTIONS = [
+  { label: 'All', value: 'all' },
+  { label: 'In', value: 'in' },
+  { label: 'Out', value: 'out' },
+]
 
 export default function HistoryScreen() {
   const { user } = useAuth()
   const { domainConfig } = useDomain()
   const db = useSQLiteContext()
+  const { colors, spacing, typography, radii, fontFamily, shadows } = useTheme()
 
   // Use refs for values accessed inside fetchTransactions to avoid
   // re-creating the callback (and thus re-triggering useEffect) on every render
@@ -96,6 +146,7 @@ export default function HistoryScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedTx, setSelectedTx] = useState<DisplayTransaction | null>(null)
+  const [filter, setFilter] = useState<FilterType>('all')
 
   const fetchTransactions = useCallback(async () => {
     const currentUser = userRef.current
@@ -124,7 +175,28 @@ export default function HistoryScreen() {
         // Ignore SQLite errors
       }
 
-      const pendingDisplay = pending.map(pendingToDisplay)
+      // Resolve item names for pending transactions from local cache
+      const pendingDisplay = pending.map((tx) => {
+        let itemName = tx.itemId
+        try {
+          const cachedItem = getCachedItem(dbRef.current as never, tx.itemId)
+          if (cachedItem) {
+            itemName = cachedItem.name
+          }
+        } catch {
+          // Ignore lookup errors
+        }
+        return {
+          id: tx.id,
+          transactionType: tx.transactionType,
+          quantity: tx.quantity,
+          notes: tx.notes ?? null,
+          itemId: tx.itemId,
+          itemName,
+          timestamp: tx.deviceTimestamp,
+          isPending: true,
+        }
+      })
       const remoteDisplay = (data as RemoteTransaction[]).map(remoteToDisplay)
 
       setTransactions([...pendingDisplay, ...remoteDisplay])
@@ -157,19 +229,73 @@ export default function HistoryScreen() {
     setIsRefreshing(false)
   }, [fetchTransactions])
 
-  const renderItem = useCallback(
-    ({ item }: { item: DisplayTransaction }) => {
-      const normalizedType = normalizeTransactionType(item.transactionType)
+  // Filter transactions
+  const filteredTransactions = filter === 'all'
+    ? transactions
+    : transactions.filter((tx) => normalizeTransactionType(tx.transactionType) === filter)
 
-      return (
-        <TouchableOpacity
-          style={styles.row}
-          testID={`tx-row-${item.id}`}
+  const sections = groupTransactionsByDate(filteredTransactions)
+
+  // Track global index for stagger animation (first 10 items)
+  let globalIndex = 0
+
+  const renderItem = useCallback(
+    ({ item, index, section }: { item: DisplayTransaction; index: number; section: TransactionSection }) => {
+      const normalizedType = normalizeTransactionType(item.transactionType)
+      const isCheckOut = normalizedType === 'out'
+      const quantityColor = getTypeColor(normalizedType, colors)
+      const barColor = getTypeColor(normalizedType, colors)
+
+      // Calculate global index across all sections for stagger
+      let itemGlobalIndex = 0
+      for (const s of sections) {
+        if (s === section) {
+          itemGlobalIndex += index
+          break
+        }
+        itemGlobalIndex += s.data.length
+      }
+
+      const row = (
+        <AnimatedPressable
           onPress={() => setSelectedTx(item)}
-          activeOpacity={0.7}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.surfacePrimary,
+            paddingRight: spacing[4],
+            paddingVertical: spacing[3],
+            borderBottomWidth: 1,
+            borderBottomColor: colors.bgTertiary,
+          }}
+          testID={`tx-row-${item.id}`}
         >
-          <View style={styles.rowLeft}>
-            <View style={styles.badgeRow}>
+          {/* Left color bar */}
+          <View
+            style={{
+              width: 3,
+              alignSelf: 'stretch',
+              backgroundColor: barColor,
+              borderTopRightRadius: 2,
+              borderBottomRightRadius: 2,
+              marginRight: spacing[3],
+            }}
+          />
+
+          {/* Content */}
+          <View style={{ flex: 1, marginRight: spacing[3] }}>
+            <Text
+              style={{
+                ...typography.md,
+                fontWeight: typography.weight.semibold,
+                color: colors.textPrimary,
+                marginBottom: 2,
+              }}
+              numberOfLines={1}
+            >
+              {item.itemName}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1.5] }}>
               <TransactionTypeBadge
                 type={normalizedType}
                 testID={`tx-badge-${item.id}`}
@@ -182,39 +308,124 @@ export default function HistoryScreen() {
                   testID={`pending-badge-${item.id}`}
                 />
               )}
+              <Text style={{ ...typography.sm, color: colors.textTertiary }}>
+                {formatRelativeTime(item.timestamp)}
+              </Text>
             </View>
-            <Text style={styles.itemName} numberOfLines={1}>
-              {item.itemName}
-            </Text>
-            <Text style={styles.time}>
-              {formatRelativeTime(item.timestamp)}
-            </Text>
           </View>
-          <Text style={styles.quantity}>
-            {normalizedType === 'out' ? '-' : '+'}
+
+          {/* Quantity */}
+          <Text
+            style={{
+              ...typography.lg,
+              fontWeight: typography.weight.bold,
+              color: quantityColor,
+              marginRight: spacing[2],
+            }}
+          >
+            {isCheckOut ? '-' : '+'}
             {Math.abs(item.quantity)}
           </Text>
-        </TouchableOpacity>
+
+          {/* Chevron */}
+          <ChevronRight size={16} color={colors.textTertiary} />
+        </AnimatedPressable>
       )
+
+      if (itemGlobalIndex < 10) {
+        return (
+          <StaggeredFadeIn index={itemGlobalIndex} testID={`stagger-${item.id}`}>
+            {row}
+          </StaggeredFadeIn>
+        )
+      }
+
+      return row
     },
+    [colors, spacing, typography, sections]
+  )
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: TransactionSection }) => (
+      <DateGroupHeader
+        date={section.title}
+        count={section.data.length}
+        testID={`date-header-${section.title}`}
+      />
+    ),
     []
   )
 
   if (isLoading) {
     return (
-      <View style={styles.centered} testID="history-loading">
+      <View
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing[6], backgroundColor: colors.bgPrimary }}
+        testID="history-loading"
+      >
         <Spinner size="large" />
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      <FlatList
+    <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: spacing[4],
+          paddingTop: spacing[4],
+          paddingBottom: spacing[2],
+          backgroundColor: colors.bgPrimary,
+        }}
+      >
+        <Text
+          style={{
+            ...typography.xl,
+            fontWeight: typography.weight.bold,
+            fontFamily: fontFamily.heading,
+            color: colors.textPrimary,
+          }}
+          testID="history-title"
+        >
+          History
+        </Text>
+        <Text
+          style={{
+            ...typography.sm,
+            color: colors.textTertiary,
+          }}
+          testID="history-count"
+        >
+          {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+        </Text>
+      </View>
+
+      {/* Segmented control filter */}
+      <View
+        style={{
+          paddingHorizontal: spacing[4],
+          paddingVertical: spacing[2],
+          alignItems: 'center',
+        }}
+      >
+        <SegmentedControl
+          options={FILTER_OPTIONS}
+          value={filter}
+          onValueChange={(v) => setFilter(v as FilterType)}
+          fullWidth
+          testID="filter-control"
+        />
+      </View>
+
+      <SectionList
         testID="history-list"
-        data={transactions}
+        sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -222,16 +433,17 @@ export default function HistoryScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.centered}>
-            <Text style={styles.emptyText}>No transactions yet</Text>
-            <Text style={styles.emptySubtext}>
-              Transactions will appear here once you start scanning items.
-            </Text>
-          </View>
+          <EmptyState
+            icon={<ClipboardList size={56} color={colors.textTertiary} />}
+            title="No transactions yet"
+            message="Start scanning items to see your history here"
+            testID="history-empty"
+          />
         }
         contentContainerStyle={
-          transactions.length === 0 ? styles.emptyContainer : undefined
+          filteredTransactions.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : undefined
         }
+        stickySectionHeadersEnabled={false}
       />
 
       {/* Detail Modal */}
@@ -243,29 +455,98 @@ export default function HistoryScreen() {
       >
         {selectedTx && (
           <View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Type</Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: spacing[2],
+                borderBottomWidth: 1,
+                borderBottomColor: colors.bgTertiary,
+              }}
+            >
+              <Text style={{ ...typography.base, color: colors.textSecondary, fontWeight: typography.weight.medium }}>Type</Text>
               <TransactionTypeBadge
                 type={normalizeTransactionType(selectedTx.transactionType)}
               />
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Item</Text>
-              <Text style={styles.detailValue}>{selectedTx.itemName}</Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: spacing[2],
+                borderBottomWidth: 1,
+                borderBottomColor: colors.bgTertiary,
+              }}
+            >
+              <Text style={{ ...typography.base, color: colors.textSecondary, fontWeight: typography.weight.medium }}>Item</Text>
+              <Text
+                style={{
+                  ...typography.base,
+                  color: colors.textPrimary,
+                  fontWeight: typography.weight.semibold,
+                  flexShrink: 1,
+                  textAlign: 'right',
+                  marginLeft: spacing[3],
+                }}
+              >
+                {selectedTx.itemName}
+              </Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Quantity</Text>
-              <Text style={styles.detailValue}>{Math.abs(selectedTx.quantity)}</Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: spacing[2],
+                borderBottomWidth: 1,
+                borderBottomColor: colors.bgTertiary,
+              }}
+            >
+              <Text style={{ ...typography.base, color: colors.textSecondary, fontWeight: typography.weight.medium }}>Quantity</Text>
+              <Text style={{ ...typography.base, color: colors.textPrimary, fontWeight: typography.weight.semibold }}>
+                {Math.abs(selectedTx.quantity)}
+              </Text>
             </View>
             {selectedTx.notes ? (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Notes</Text>
-                <Text style={styles.detailValue}>{selectedTx.notes}</Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: spacing[2],
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.bgTertiary,
+                }}
+              >
+                <Text style={{ ...typography.base, color: colors.textSecondary, fontWeight: typography.weight.medium }}>Notes</Text>
+                <Text
+                  style={{
+                    ...typography.base,
+                    color: colors.textPrimary,
+                    fontWeight: typography.weight.semibold,
+                    flexShrink: 1,
+                    textAlign: 'right',
+                    marginLeft: spacing[3],
+                  }}
+                >
+                  {selectedTx.notes}
+                </Text>
               </View>
             ) : null}
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Time</Text>
-              <Text style={styles.detailValue}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: spacing[2],
+                borderBottomWidth: 1,
+                borderBottomColor: colors.bgTertiary,
+              }}
+            >
+              <Text style={{ ...typography.base, color: colors.textSecondary, fontWeight: typography.weight.medium }}>Time</Text>
+              <Text style={{ ...typography.base, color: colors.textPrimary, fontWeight: typography.weight.semibold }}>
                 {formatRelativeTime(selectedTx.timestamp)}
               </Text>
             </View>
@@ -282,86 +563,3 @@ export default function HistoryScreen() {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyContainer: {
-    flexGrow: 1,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  rowLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  itemName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  time: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  quantity: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#1F2937',
-    fontWeight: '600',
-    flexShrink: 1,
-    textAlign: 'right',
-    marginLeft: 12,
-  },
-})

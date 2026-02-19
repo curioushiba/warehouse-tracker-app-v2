@@ -1,102 +1,96 @@
 import React from 'react'
-import { View, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
+import { View, Text, type ViewStyle, type TextStyle } from 'react-native'
 import type { BadgeVariant, BadgeColorScheme } from '@/types'
+import { useTheme, type SemanticColors } from '@/theme'
 
 export interface BadgeProps {
   label: string
   colorScheme?: BadgeColorScheme
   variant?: BadgeVariant
+  leftIcon?: React.ReactNode
   testID?: string
 }
 
-const SOLID_COLORS: Record<BadgeColorScheme, { bg: string; text: string }> = {
-  primary: { bg: '#01722f', text: '#FFFFFF' },
-  secondary: { bg: '#6366F1', text: '#FFFFFF' },
-  success: { bg: '#16A34A', text: '#FFFFFF' },
-  warning: { bg: '#EAB308', text: '#1F2937' },
-  error: { bg: '#EF4444', text: '#FFFFFF' },
-  info: { bg: '#3B82F6', text: '#FFFFFF' },
-  neutral: { bg: '#6B7280', text: '#FFFFFF' },
+function getSolidColors(colors: SemanticColors): Record<BadgeColorScheme, { bg: string; text: string }> {
+  return {
+    primary: { bg: colors.badgePrimaryBg, text: colors.badgePrimaryText },
+    secondary: { bg: colors.badgeSecondaryBg, text: colors.badgeSecondaryText },
+    success: { bg: colors.badgeSuccessBg, text: colors.badgeSuccessText },
+    warning: { bg: colors.badgeWarningBg, text: colors.badgeWarningText },
+    error: { bg: colors.badgeErrorBg, text: colors.badgeErrorText },
+    info: { bg: colors.badgeInfoBg, text: colors.badgeInfoText },
+    neutral: { bg: colors.badgeNeutralBg, text: colors.badgeNeutralText },
+  }
 }
 
-const SUBTLE_COLORS: Record<BadgeColorScheme, { bg: string; text: string }> = {
-  primary: { bg: '#DCFCE7', text: '#01722f' },
-  secondary: { bg: '#E0E7FF', text: '#6366F1' },
-  success: { bg: '#DCFCE7', text: '#16A34A' },
-  warning: { bg: '#FEF9C3', text: '#A16207' },
-  error: { bg: '#FEE2E2', text: '#EF4444' },
-  info: { bg: '#DBEAFE', text: '#3B82F6' },
-  neutral: { bg: '#F3F4F6', text: '#6B7280' },
-}
-
-const OUTLINE_COLORS: Record<BadgeColorScheme, { border: string; text: string }> = {
-  primary: { border: '#01722f', text: '#01722f' },
-  secondary: { border: '#6366F1', text: '#6366F1' },
-  success: { border: '#16A34A', text: '#16A34A' },
-  warning: { border: '#EAB308', text: '#A16207' },
-  error: { border: '#EF4444', text: '#EF4444' },
-  info: { border: '#3B82F6', text: '#3B82F6' },
-  neutral: { border: '#6B7280', text: '#6B7280' },
+function getSubtleColors(colors: SemanticColors): Record<BadgeColorScheme, { bg: string; text: string }> {
+  return {
+    primary: { bg: colors.badgePrimarySubtleBg, text: colors.badgePrimarySubtleText },
+    secondary: { bg: colors.badgeSecondarySubtleBg, text: colors.badgeSecondarySubtleText },
+    success: { bg: colors.badgeSuccessSubtleBg, text: colors.badgeSuccessSubtleText },
+    warning: { bg: colors.badgeWarningSubtleBg, text: colors.badgeWarningSubtleText },
+    error: { bg: colors.badgeErrorSubtleBg, text: colors.badgeErrorSubtleText },
+    info: { bg: colors.badgeInfoSubtleBg, text: colors.badgeInfoSubtleText },
+    neutral: { bg: colors.badgeNeutralSubtleBg, text: colors.badgeNeutralSubtleText },
+  }
 }
 
 export function Badge({
   label,
   colorScheme = 'neutral',
   variant = 'solid',
+  leftIcon,
   testID,
 }: BadgeProps) {
-  const containerStyle: ViewStyle = {
-    ...styles.base,
-    ...getVariantStyle(variant, colorScheme),
+  const { colors, radii, spacing, typography } = useTheme()
+
+  const solidMap = getSolidColors(colors)
+  const subtleMap = getSubtleColors(colors)
+
+  let containerStyle: ViewStyle
+  let textColor: string
+
+  switch (variant) {
+    case 'solid': {
+      const s = solidMap[colorScheme]
+      containerStyle = { backgroundColor: s.bg }
+      textColor = s.text
+      break
+    }
+    case 'subtle': {
+      const s = subtleMap[colorScheme]
+      containerStyle = { backgroundColor: s.bg }
+      textColor = s.text
+      break
+    }
+    case 'outline': {
+      const borderColor = solidMap[colorScheme].text
+      containerStyle = { backgroundColor: 'transparent', borderWidth: 1, borderColor }
+      textColor = solidMap[colorScheme].text
+      break
+    }
+  }
+
+  const baseStyle: ViewStyle = {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    borderRadius: radii.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...containerStyle!,
   }
 
   const textStyle: TextStyle = {
-    ...styles.text,
-    color: getTextColor(variant, colorScheme),
+    fontSize: typography.sm.fontSize,
+    fontWeight: typography.weight.semibold,
+    color: textColor!,
   }
 
   return (
-    <View style={containerStyle} testID={testID}>
+    <View style={baseStyle} testID={testID}>
+      {leftIcon && <View style={{ marginRight: spacing[1] }}>{leftIcon}</View>}
       <Text style={textStyle}>{label}</Text>
     </View>
   )
 }
-
-function getVariantStyle(variant: BadgeVariant, colorScheme: BadgeColorScheme): ViewStyle {
-  switch (variant) {
-    case 'solid':
-      return { backgroundColor: SOLID_COLORS[colorScheme].bg }
-    case 'subtle':
-      return { backgroundColor: SUBTLE_COLORS[colorScheme].bg }
-    case 'outline':
-      return {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: OUTLINE_COLORS[colorScheme].border,
-      }
-  }
-}
-
-function getTextColor(variant: BadgeVariant, colorScheme: BadgeColorScheme): string {
-  switch (variant) {
-    case 'solid':
-      return SOLID_COLORS[colorScheme].text
-    case 'subtle':
-      return SUBTLE_COLORS[colorScheme].text
-    case 'outline':
-      return OUTLINE_COLORS[colorScheme].text
-  }
-}
-
-const styles = StyleSheet.create({
-  base: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-})

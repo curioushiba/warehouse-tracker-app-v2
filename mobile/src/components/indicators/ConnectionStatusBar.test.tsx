@@ -1,6 +1,32 @@
 import React from 'react'
 import { render } from '@testing-library/react-native'
 import { ConnectionStatusBar } from './ConnectionStatusBar'
+import { lightColors } from '@/theme/tokens'
+
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const { View } = require('react-native')
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    default: {
+      ...Reanimated.default,
+      View,
+    },
+    SlideInDown: { duration: jest.fn().mockReturnThis() },
+    SlideOutUp: { duration: jest.fn().mockReturnThis() },
+  }
+})
 
 describe('ConnectionStatusBar', () => {
   it('returns null when isOnline=true and not syncing', () => {
@@ -10,14 +36,14 @@ describe('ConnectionStatusBar', () => {
     expect(toJSON()).toBeNull()
   })
 
-  it('shows red bar with "No internet connection" when isOnline=false', () => {
+  it('shows error-colored bar with "No internet connection" when isOnline=false', () => {
     const { getByText, getByTestId } = render(
       <ConnectionStatusBar isOnline={false} testID="conn-bar" />
     )
     expect(getByText('No internet connection')).toBeTruthy()
     const bar = getByTestId('conn-bar')
     expect(bar.props.style).toEqual(
-      expect.objectContaining({ backgroundColor: '#dc2626' })
+      expect.objectContaining({ backgroundColor: lightColors.error })
     )
   })
 

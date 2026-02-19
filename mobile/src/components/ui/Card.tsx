@@ -1,55 +1,62 @@
 import React from 'react'
-import { View, TouchableOpacity, StyleSheet, type ViewStyle } from 'react-native'
+import { View, type ViewStyle } from 'react-native'
 import type { CardVariant } from '@/types'
+import { useTheme, CARD_PRESS } from '@/theme'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 
 export interface CardProps {
   children: React.ReactNode
   variant?: CardVariant
+  compact?: boolean
+  noPadding?: boolean
   onPress?: () => void
   testID?: string
-}
-
-const VARIANT_STYLES: Record<CardVariant, ViewStyle> = {
-  elevated: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  outline: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  filled: {
-    backgroundColor: '#F3F4F6',
-  },
-  unstyled: {},
 }
 
 export function Card({
   children,
   variant = 'elevated',
+  compact = false,
+  noPadding = false,
   onPress,
   testID,
 }: CardProps) {
+  const { colors, shadows, radii, spacing } = useTheme()
+
+  const variantStyles: Record<CardVariant, ViewStyle> = {
+    elevated: {
+      backgroundColor: colors.surfaceElevated,
+      ...shadows.md,
+    },
+    outline: {
+      backgroundColor: colors.surfacePrimary,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+    },
+    filled: {
+      backgroundColor: colors.surfaceSecondary,
+    },
+    unstyled: {},
+  }
+
+  const padding = noPadding ? 0 : compact ? spacing[3] : spacing[4]
+
   const cardStyle: ViewStyle = {
-    ...styles.base,
-    ...VARIANT_STYLES[variant],
+    borderRadius: radii.lg,
+    padding,
+    ...variantStyles[variant],
   }
 
   if (onPress) {
     return (
-      <TouchableOpacity
+      <AnimatedPressable
         style={cardStyle}
         onPress={onPress}
+        scaleValue={CARD_PRESS.toValue}
         testID={testID}
-        activeOpacity={0.7}
       >
         {children}
-      </TouchableOpacity>
+      </AnimatedPressable>
     )
   }
 
@@ -59,10 +66,3 @@ export function Card({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: 12,
-    padding: 16,
-  },
-})

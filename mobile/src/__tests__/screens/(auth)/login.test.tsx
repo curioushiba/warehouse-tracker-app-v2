@@ -44,6 +44,57 @@ jest.mock('react-native-toast-message', () => ({
   },
 }))
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    fontFamily: require('@/theme/tokens').fontFamily,
+    typePresets: require('@/theme/tokens').typePresets,
+    zIndex: require('@/theme/tokens').zIndex,
+    touchTarget: require('@/theme/tokens').touchTarget,
+    isDark: false,
+  }),
+}))
+
+jest.mock('@/lib/storage/storage', () => ({
+  getString: jest.fn().mockResolvedValue(undefined),
+  setString: jest.fn().mockResolvedValue(undefined),
+}))
+
+jest.mock('expo-linear-gradient', () => {
+  const { View } = require('react-native')
+  return { LinearGradient: View }
+})
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init: any) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val: any) => val),
+    withSpring: jest.fn((val: any) => val),
+    FadeInDown: { duration: jest.fn().mockReturnThis(), delay: jest.fn().mockReturnThis() },
+    FadeInUp: { duration: jest.fn().mockReturnThis(), delay: jest.fn().mockReturnThis() },
+    FadeIn: { duration: jest.fn().mockReturnThis() },
+    FadeOut: { duration: jest.fn().mockReturnThis() },
+    SlideInUp: { duration: jest.fn().mockReturnThis() },
+    SlideInDown: { duration: jest.fn().mockReturnThis() },
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { TouchableOpacity } = require('react-native')
+  const ReactModule = require('react')
+  return {
+    AnimatedPressable: ({ children, ...props }: any) =>
+      ReactModule.createElement(TouchableOpacity, props, children),
+  }
+})
+
 import LoginScreen from '@/app/(auth)/login'
 import { useAuth } from '@/contexts/AuthContext'
 import Toast from 'react-native-toast-message'
@@ -76,6 +127,33 @@ describe('LoginScreen', () => {
   it('renders sign in button', () => {
     const { getByTestId } = render(<LoginScreen />)
     expect(getByTestId('sign-in-button')).toBeTruthy()
+  })
+
+  it('renders the PackTrack title', () => {
+    const { getByTestId } = render(<LoginScreen />)
+    expect(getByTestId('login-title')).toBeTruthy()
+  })
+
+  it('renders the subtitle', () => {
+    const { getByTestId } = render(<LoginScreen />)
+    expect(getByTestId('login-subtitle')).toBeTruthy()
+  })
+
+  it('renders the top gradient', () => {
+    const { getByTestId } = render(<LoginScreen />)
+    expect(getByTestId('login-gradient')).toBeTruthy()
+  })
+
+  it('renders the divider', () => {
+    const { getByTestId } = render(<LoginScreen />)
+    expect(getByTestId('login-divider')).toBeTruthy()
+  })
+
+  it('renders the version number', () => {
+    const { getByTestId } = render(<LoginScreen />)
+    const version = getByTestId('login-version')
+    expect(version).toBeTruthy()
+    expect(version.props.children).toBe('v1.0.0')
   })
 
   it('does not call signIn when fields are empty', () => {

@@ -1,5 +1,7 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text } from 'react-native'
+import { useTheme } from '@/theme'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 
 export interface TabItem {
   key: string
@@ -15,81 +17,105 @@ export interface TabBarProps {
   testID?: string
 }
 
-export function TabBar({ tabs, activeTab, onTabPress, testID }: TabBarProps) {
+function TabBarTab({
+  tab,
+  isActive,
+  onPress,
+  testID,
+}: {
+  tab: TabItem
+  isActive: boolean
+  onPress: () => void
+  testID?: string
+}) {
+  const { colors, typography, spacing } = useTheme()
+
   return (
-    <View testID={testID} style={styles.container}>
+    <AnimatedPressable
+      testID={testID}
+      style={{
+        flex: 1,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        height: 60,
+      }}
+      onPress={onPress}
+      scaleValue={0.9}
+    >
+      <View style={{ position: 'relative' }}>
+        {tab.icon}
+        {tab.badge != null && tab.badge > 0 && (
+          <View
+            testID={testID ? `${testID}-badge` : undefined}
+            style={{
+              position: 'absolute',
+              top: -4,
+              right: -10,
+              backgroundColor: colors.error,
+              borderRadius: 8,
+              minWidth: 16,
+              height: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: spacing[1],
+            }}
+          >
+            <Text
+              style={{
+                color: colors.textInverse,
+                ...typography.xs,
+                fontWeight: typography.weight.bold,
+                fontSize: 10,
+              }}
+            >
+              {tab.badge}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text
+        testID={testID ? `${testID}-label` : undefined}
+        style={{
+          ...typography.xs,
+          fontWeight: isActive ? typography.weight.semibold : typography.weight.normal,
+          color: isActive ? colors.brandPrimary : colors.textTertiary,
+          marginTop: 2,
+        }}
+      >
+        {tab.label}
+      </Text>
+    </AnimatedPressable>
+  )
+}
+
+export function TabBar({ tabs, activeTab, onTabPress, testID }: TabBarProps) {
+  const { colors, shadows } = useTheme()
+
+  return (
+    <View
+      testID={testID}
+      style={[
+        {
+          flexDirection: 'row',
+          backgroundColor: colors.surfacePrimary,
+          borderTopWidth: 1,
+          borderTopColor: colors.borderSubtle,
+        },
+        shadows.sm,
+      ]}
+    >
       {tabs.map((tab) => {
         const isActive = tab.key === activeTab
         return (
-          <TouchableOpacity
+          <TabBarTab
             key={tab.key}
-            testID={testID ? `${testID}-tab-${tab.key}` : undefined}
-            style={styles.tab}
+            tab={tab}
+            isActive={isActive}
             onPress={() => onTabPress(tab.key)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconContainer}>
-              {tab.icon}
-              {tab.badge != null && tab.badge > 0 && (
-                <View
-                  testID={testID ? `${testID}-tab-${tab.key}-badge` : undefined}
-                  style={styles.badge}
-                >
-                  <Text style={styles.badgeText}>{tab.badge}</Text>
-                </View>
-              )}
-            </View>
-            <Text
-              testID={testID ? `${testID}-tab-${tab.key}-label` : undefined}
-              style={{
-                fontSize: 11,
-                fontWeight: isActive ? '600' : '400',
-                color: isActive ? '#01722f' : '#9ca3af',
-                marginTop: 2,
-              }}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
+            testID={testID ? `${testID}-tab-${tab.key}` : undefined}
+          />
         )
       })}
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingBottom: 4,
-    paddingTop: 6,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  iconContainer: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -10,
-    backgroundColor: '#dc2626',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-})

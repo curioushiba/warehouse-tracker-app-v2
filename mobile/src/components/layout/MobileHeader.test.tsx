@@ -2,6 +2,42 @@ import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
 import { MobileHeader } from './MobileHeader'
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock')
+  return {
+    ...Reanimated,
+    useSharedValue: jest.fn((init) => ({ value: init })),
+    useAnimatedStyle: jest.fn(() => ({})),
+    withTiming: jest.fn((val) => val),
+    withSpring: jest.fn((val) => val),
+    withRepeat: jest.fn((val) => val),
+    FadeIn: { duration: jest.fn().mockReturnThis() },
+    FadeOut: { duration: jest.fn().mockReturnThis() },
+    SlideInDown: { duration: jest.fn().mockReturnThis() },
+    SlideOutUp: { duration: jest.fn().mockReturnThis() },
+  }
+})
+
+jest.mock('@/components/ui/AnimatedPressable', () => {
+  const { Pressable } = require('react-native')
+  const React = require('react')
+  return {
+    AnimatedPressable: ({ children, ...props }: any) =>
+      React.createElement(Pressable, props, children),
+  }
+})
+
 describe('MobileHeader', () => {
   it('renders title text', () => {
     const { getByText } = render(
@@ -48,7 +84,7 @@ describe('MobileHeader', () => {
     expect(getByText('No internet connection')).toBeTruthy()
   })
 
-  it('calls onDomainLongPress on long press of domain badge', () => {
+  it('calls onDomainLongPress when domain badge pressed', () => {
     const onDomainLongPress = jest.fn()
     const { getByTestId } = render(
       <MobileHeader
@@ -59,7 +95,7 @@ describe('MobileHeader', () => {
         testID="header"
       />
     )
-    fireEvent(getByTestId('header-domain-badge-touchable'), 'longPress')
+    fireEvent.press(getByTestId('header-domain-badge-touchable'))
     expect(onDomainLongPress).toHaveBeenCalledTimes(1)
   })
 

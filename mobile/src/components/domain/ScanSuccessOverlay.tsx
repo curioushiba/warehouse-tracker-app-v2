@@ -1,7 +1,9 @@
 import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text } from 'react-native'
 import { Image } from 'expo-image'
-import { Package } from 'lucide-react-native'
+import { Check, Package } from 'lucide-react-native'
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
+import { useTheme } from '@/theme'
 
 export interface ScanSuccessOverlayProps {
   item: { name: string; imageUrl?: string } | null
@@ -10,63 +12,82 @@ export interface ScanSuccessOverlayProps {
 }
 
 export function ScanSuccessOverlay({ item, isVisible, testID }: ScanSuccessOverlayProps) {
+  const { colors, spacing, typography, radii } = useTheme()
+
   if (!isVisible || !item) {
     return null
   }
 
   return (
-    <View style={styles.overlay} testID={testID}>
+    <Animated.View
+      testID={testID}
+      entering={FadeIn.duration(200)}
+      exiting={FadeOut.duration(200)}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 80,
+        backgroundColor: colors.overlayHeavy,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing[4],
+        gap: spacing[3],
+      }}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: radii.full,
+          backgroundColor: colors.success,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Check size={18} color={colors.textInverse} />
+      </View>
+
       {item.imageUrl ? (
         <Image
           testID={`${testID ?? 'overlay'}-image`}
           source={{ uri: item.imageUrl }}
-          style={styles.image}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: radii.md,
+          }}
           contentFit="cover"
         />
       ) : (
         <View
           testID={`${testID ?? 'overlay'}-placeholder`}
-          style={styles.placeholder}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: radii.md,
+            backgroundColor: colors.bgTertiary,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          <Package size={32} color="#9CA3AF" />
+          <Package size={20} color={colors.iconSecondary} />
         </View>
       )}
-      <Text style={styles.name}>{item.name}</Text>
-    </View>
+
+      <Text
+        numberOfLines={2}
+        style={{
+          flex: 1,
+          color: colors.textInverse,
+          fontSize: typography.lg.fontSize,
+          lineHeight: typography.lg.lineHeight,
+          fontWeight: typography.weight.bold,
+        }}
+      >
+        {item.name}
+      </Text>
+    </Animated.View>
   )
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  image: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  placeholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  name: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-})

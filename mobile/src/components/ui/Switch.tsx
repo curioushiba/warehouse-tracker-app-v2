@@ -1,5 +1,6 @@
 import React from 'react'
-import { View, Text, Switch as RNSwitch, StyleSheet } from 'react-native'
+import { View, Text, Switch as RNSwitch } from 'react-native'
+import { useTheme } from '@/theme'
 
 export interface SwitchProps {
   value: boolean
@@ -16,10 +17,24 @@ export function Switch({
   disabled = false,
   testID,
 }: SwitchProps) {
+  const { colors, spacing, typography } = useTheme()
+
   return (
-    <View style={styles.container}>
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    }}>
       {label ? (
-        <Text style={styles.label} testID={testID ? `${testID}-label` : 'switch-label'}>
+        <Text
+          style={{
+            ...typography.base,
+            color: colors.textPrimary,
+            flex: 1,
+            marginRight: spacing[3],
+          }}
+          testID={testID ? `${testID}-label` : 'switch-label'}
+        >
           {label}
         </Text>
       ) : null}
@@ -28,23 +43,9 @@ export function Switch({
         onValueChange={onValueChange}
         disabled={disabled}
         testID={testID}
-        trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
-        thumbColor={value ? '#01722f' : '#F3F4F6'}
+        trackColor={{ false: colors.switchTrackInactive, true: colors.switchTrackActive }}
+        thumbColor={colors.switchThumb}
       />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  label: {
-    fontSize: 14,
-    color: '#1F2937',
-    flex: 1,
-    marginRight: 12,
-  },
-})

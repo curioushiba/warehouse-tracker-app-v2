@@ -99,7 +99,63 @@ jest.mock('expo-sqlite', () => ({
   useSQLiteContext: jest.fn(() => ({})),
 }))
 
-import ProfileScreen from './profile'
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: { version: '1.0.0' },
+  },
+}))
+
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    fontFamily: require('@/theme/tokens').fontFamily,
+    isDark: false,
+  }),
+}))
+
+jest.mock('@/components/ui/SegmentedControl', () => ({
+  SegmentedControl: ({ options, value, onValueChange, testID }: any) => {
+    const { View, Text, Pressable } = require('react-native')
+    return (
+      <View testID={testID}>
+        {options.map((o: any) => (
+          <Pressable
+            key={o.value}
+            testID={`${testID}-${o.value}`}
+            onPress={() => onValueChange(o.value)}
+          >
+            <Text>{o.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    )
+  },
+}))
+
+jest.mock('@/components/ui/SectionHeader', () => ({
+  SectionHeader: ({ label, testID }: any) => {
+    const { Text } = require('react-native')
+    return <Text testID={testID}>{label}</Text>
+  },
+}))
+
+jest.mock('@/components/ui/AnimatedPressable', () => ({
+  AnimatedPressable: ({ children, onPress, testID, style }: any) => {
+    const { Pressable } = require('react-native')
+    return (
+      <Pressable onPress={onPress} testID={testID} style={style}>
+        {children}
+      </Pressable>
+    )
+  },
+}))
+
+import ProfileScreen from '@/app/(app)/(tabs)/profile'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSyncQueue } from '@/hooks/useSyncQueue'
 import { useSyncErrorCount } from '@/hooks/useSyncErrorCount'
@@ -177,19 +233,33 @@ describe('ProfileScreen', () => {
     expect(getByTestId('profile-avatar')).toBeTruthy()
   })
 
-  it('shows dark mode selector with 3 options', () => {
-    const { getByText } = render(<ProfileScreen />)
-    expect(getByText('Light')).toBeTruthy()
-    expect(getByText('Dark')).toBeTruthy()
-    expect(getByText('System')).toBeTruthy()
+  it('renders hero section with rounded bottom corners', () => {
+    const { getByTestId } = render(<ProfileScreen />)
+    expect(getByTestId('profile-hero')).toBeTruthy()
+  })
+
+  it('shows dark mode segmented control with 3 options', () => {
+    const { getByTestId } = render(<ProfileScreen />)
+    expect(getByTestId('dark-mode-control')).toBeTruthy()
+    expect(getByTestId('dark-mode-control-light')).toBeTruthy()
+    expect(getByTestId('dark-mode-control-system')).toBeTruthy()
+    expect(getByTestId('dark-mode-control-dark')).toBeTruthy()
   })
 
   it('changing dark mode calls updateSettings', () => {
     const { getByTestId } = render(<ProfileScreen />)
 
-    fireEvent.press(getByTestId('dark-mode-light'))
+    fireEvent.press(getByTestId('dark-mode-control-light'))
 
     expect(mockUpdateSettings).toHaveBeenCalledWith({ darkMode: 'light' })
+  })
+
+  it('shows section headers', () => {
+    const { getByTestId } = render(<ProfileScreen />)
+    expect(getByTestId('section-appearance')).toBeTruthy()
+    expect(getByTestId('section-sync')).toBeTruthy()
+    expect(getByTestId('section-domain')).toBeTruthy()
+    expect(getByTestId('section-account')).toBeTruthy()
   })
 
   it('shows queue count summary', () => {
@@ -286,5 +356,17 @@ describe('ProfileScreen', () => {
     await waitFor(() => {
       expect(mockSignOut).toHaveBeenCalled()
     })
+  })
+
+  it('shows app version in xs typography', () => {
+    const { getByTestId, getByText } = render(<ProfileScreen />)
+    expect(getByTestId('app-version')).toBeTruthy()
+    expect(getByText('PackTrack v1.0.0')).toBeTruthy()
+  })
+
+  it('shows sign out with LogOut icon in account section', () => {
+    const { getByTestId, getByText } = render(<ProfileScreen />)
+    expect(getByTestId('sign-out-button')).toBeTruthy()
+    expect(getByText('Sign Out')).toBeTruthy()
   })
 })

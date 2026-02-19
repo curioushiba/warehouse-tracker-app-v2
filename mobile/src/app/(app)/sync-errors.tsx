@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, FlatList } from 'react-native'
 import { useRouter } from 'expo-router'
+import { AlertTriangle, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react-native'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/theme'
 import { createClient } from '@/lib/supabase/client'
+import { ScreenHeader } from '@/components/layout/ScreenHeader'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 import { formatRelativeTime } from '@/lib/utils'
 import type { Json } from '@/lib/supabase/types'
 
@@ -36,9 +36,33 @@ function getTransactionSummary(data: Json): string {
   return 'Unknown transaction'
 }
 
+function humanizeError(message: string): string {
+  const lower = message.toLowerCase()
+  if (lower.includes('duplicate key') || lower.includes('already exists')) {
+    return 'This transaction was already processed'
+  }
+  if (lower.includes('network') || lower.includes('timeout') || lower.includes('fetch')) {
+    return 'Network connection failed'
+  }
+  if (lower.includes('not found')) {
+    return 'Item not found in database'
+  }
+  if (lower.includes('insufficient') || lower.includes('stock')) {
+    return 'Insufficient stock for this operation'
+  }
+  if (lower.includes('permission') || lower.includes('unauthorized') || lower.includes('forbidden')) {
+    return 'You do not have permission for this action'
+  }
+  if (lower.includes('inactive') || lower.includes('deactivated')) {
+    return 'Your account has been deactivated'
+  }
+  return message
+}
+
 export default function SyncErrorsScreen() {
   const router = useRouter()
   const { user } = useAuth()
+  const { colors, spacing, typography, radii } = useTheme()
 
   // Use ref to avoid re-creating fetchErrors callback on every render
   const userRef = useRef(user)
@@ -111,27 +135,60 @@ export default function SyncErrorsScreen() {
     setErrors((prev) => prev.filter((e) => e.id !== errorId))
   }, [])
 
+  const handleRetryAll = useCallback(async () => {
+    const supabase = createClient()
+    for (const err of errors) {
+      await supabase
+        .from('inv_sync_errors')
+        .update({ status: 'retrying' })
+        .eq('id', err.id)
+    }
+    setErrors([])
+  }, [errors])
+
   const renderItem = useCallback(
     ({ item }: { item: SyncError }) => (
       <Card variant="elevated" testID={`error-row-${item.id}`}>
-        <View style={styles.errorCard}>
-          <Text style={styles.transactionSummary}>
-            {getTransactionSummary(item.transaction_data)}
-          </Text>
+        <View
+          style={{
+            borderLeftWidth: 3,
+            borderLeftColor: colors.error,
+            paddingLeft: spacing[3],
+            gap: spacing[1.5],
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+            <AlertCircle size={20} color={colors.error} />
+            <Text
+              style={{
+                ...typography.base,
+                fontWeight: typography.weight.semibold,
+                color: colors.textPrimary,
+                flex: 1,
+              }}
+            >
+              {getTransactionSummary(item.transaction_data)}
+            </Text>
+          </View>
           <Text
-            style={styles.errorMessage}
+            style={{
+              ...typography.sm,
+              color: colors.error,
+              lineHeight: 18,
+            }}
             testID={`error-message-${item.id}`}
           >
-            {item.error_message}
+            {humanizeError(item.error_message)}
           </Text>
-          <Text style={styles.errorTime}>
+          <Text style={{ ...typography.sm, color: colors.textTertiary }}>
             {formatRelativeTime(item.created_at)}
           </Text>
-          <View style={styles.errorActions}>
+          <View style={{ flexDirection: 'row', gap: spacing[2], marginTop: spacing[2] }}>
             <Button
               label="Retry"
               variant="outline"
               size="sm"
+              leftIcon={<RefreshCw size={14} color={colors.textPrimary} />}
               onPress={() => handleRetry(item.id)}
               testID={`retry-button-${item.id}`}
             />
@@ -146,32 +203,74 @@ export default function SyncErrorsScreen() {
         </View>
       </Card>
     ),
-    [handleRetry, handleDismiss]
+    [handleRetry, handleDismiss, colors, spacing, typography]
   )
 
   if (isLoading) {
     return (
-      <View style={styles.centered} testID="sync-errors-loading">
+      <View
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing[6], backgroundColor: colors.bgPrimary }}
+        testID="sync-errors-loading"
+      >
         <Spinner size="large" />
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="back-button"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          activeOpacity={0.7}
+    <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
+      <ScreenHeader
+        title="Sync Errors"
+        onBack={() => router.back()}
+        rightContent={
+          errors.length > 0 ? (
+            <Badge label={String(errors.length)} colorScheme="error" variant="solid" testID="error-count-badge" />
+          ) : undefined
+        }
+        testID="screen-header"
+      />
+
+      {/* Error summary bar */}
+      {errors.length > 0 && (
+        <View
+          testID="error-summary-bar"
+          style={{
+            backgroundColor: colors.errorBg,
+            paddingHorizontal: spacing[3],
+            paddingVertical: spacing[2.5],
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
         >
-          <Text style={styles.backText}>{'< Back'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sync Errors</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+          <AlertTriangle size={20} color={colors.error} />
+          <Text
+            style={{
+              ...typography.sm,
+              color: colors.error,
+              fontWeight: typography.weight.medium,
+              marginLeft: spacing[2],
+              flex: 1,
+            }}
+          >
+            {errors.length} unresolved {errors.length === 1 ? 'error' : 'errors'}
+          </Text>
+          <AnimatedPressable
+            onPress={handleRetryAll}
+            hapticPattern="light"
+            testID="retry-all-button"
+          >
+            <Text
+              style={{
+                ...typography.sm,
+                color: colors.brandPrimary,
+                fontWeight: typography.weight.semibold,
+              }}
+            >
+              Retry All
+            </Text>
+          </AnimatedPressable>
+        </View>
+      )}
 
       <FlatList
         testID="sync-errors-list"
@@ -179,98 +278,19 @@ export default function SyncErrorsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={[
-          styles.listContent,
-          errors.length === 0 && styles.emptyContainer,
+          { padding: spacing[4], gap: spacing[3] },
+          errors.length === 0 && { flexGrow: 1, justifyContent: 'center' },
         ]}
         ListEmptyComponent={
-          <View style={styles.centered}>
-            <Text style={styles.emptyText}>No sync errors</Text>
-            <Text style={styles.emptySubtext}>
-              All transactions have been synced successfully.
-            </Text>
-          </View>
+          <EmptyState
+            icon={<CheckCircle size={64} color={colors.success} />}
+            title="All Clear!"
+            message="No sync errors"
+            action={{ label: 'Go Back', onPress: () => router.back() }}
+            testID="empty-state"
+          />
         }
       />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    paddingRight: 12,
-  },
-  backText: {
-    fontSize: 16,
-    color: '#01722f',
-    fontWeight: '600',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 60, // balance the back button width
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
-  emptyContainer: {
-    flexGrow: 1,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  errorCard: {
-    gap: 6,
-  },
-  transactionSummary: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  errorMessage: {
-    fontSize: 13,
-    color: '#EF4444',
-    lineHeight: 18,
-  },
-  errorTime: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  errorActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-})

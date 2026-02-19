@@ -1,7 +1,19 @@
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
 import React from 'react'
 import { render } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { Divider } from './Divider'
+import { lightColors } from '@/theme/tokens'
 
 describe('Divider', () => {
   it('renders horizontal divider by default (height=1, full width)', () => {
@@ -28,9 +40,9 @@ describe('Divider', () => {
     expect(style.backgroundColor).toBe('#FF0000')
   })
 
-  it('uses default color when not specified', () => {
+  it('uses theme borderSubtle color when not specified', () => {
     const { getByTestId } = render(<Divider testID="divider" />)
     const style = StyleSheet.flatten(getByTestId('divider').props.style)
-    expect(style.backgroundColor).toBe('#E5E7EB')
+    expect(style.backgroundColor).toBe(lightColors.borderSubtle)
   })
 })

@@ -1,9 +1,14 @@
-import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { View, Text } from 'react-native'
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated'
 import { useRouter, Redirect } from 'expo-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDomain } from '@/contexts/DomainContext'
+import { useTheme, CARD_PRESS } from '@/theme'
+import { getSelectedDomain } from '@/lib/storage/storage'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 import { Button } from '@/components/ui/Button'
+import { ChevronRight } from 'lucide-react-native'
 import type { DomainId } from '@/lib/domain-config'
 
 interface DomainOption {
@@ -11,17 +16,41 @@ interface DomainOption {
   displayName: string
   letter: string
   brandColor: string
+  description: string
 }
 
 const DOMAINS: DomainOption[] = [
-  { id: 'commissary', displayName: 'Commissary', letter: 'C', brandColor: '#E07A2F' },
-  { id: 'frozen-goods', displayName: 'Frozen Goods', letter: 'F', brandColor: '#2563EB' },
+  { id: 'commissary', displayName: 'Commissary', letter: 'C', brandColor: '#E07A2F', description: 'Fresh & dry goods' },
+  { id: 'frozen-goods', displayName: 'Frozen Goods', letter: 'F', brandColor: '#2563EB', description: 'Frozen inventory' },
 ]
+
+const DOMAIN_NAMES: Record<string, string> = {
+  commissary: 'Commissary',
+  'frozen-goods': 'Frozen Goods',
+}
+
+const DOMAIN_LETTERS: Record<string, { letter: string; color: string }> = {
+  commissary: { letter: 'C', color: '#E07A2F' },
+  'frozen-goods': { letter: 'F', color: '#2563EB' },
+}
 
 export default function DomainPickerScreen() {
   const { isAuthenticated, isLoading, signOut } = useAuth()
   const { domainId, setDomain } = useDomain()
   const router = useRouter()
+  const { colors, spacing, typography, shadows, radii, fontFamily } = useTheme()
+
+  const [lastDomain, setLastDomain] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    getSelectedDomain().then((saved) => {
+      if (!cancelled && saved) {
+        setLastDomain(saved)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
 
   if (!isAuthenticated && !isLoading) {
     return <Redirect href="/(auth)/login" />
@@ -32,45 +61,179 @@ export default function DomainPickerScreen() {
     router.replace('/(app)/(tabs)')
   }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Select Domain</Text>
-        <Text style={styles.subtitle}>Choose the inventory domain to manage</Text>
-      </View>
+  const handleQuickResume = () => {
+    if (lastDomain) {
+      handleSelectDomain(lastDomain as DomainId)
+    }
+  }
 
-      <View style={styles.cardContainer}>
-        {DOMAINS.map((domain) => {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.bgSecondary,
+        paddingHorizontal: spacing[6],
+        justifyContent: 'center',
+      }}
+    >
+      {/* Title */}
+      <Animated.View
+        entering={FadeInDown.duration(400)}
+        style={{ alignItems: 'center', marginBottom: spacing[10] }}
+      >
+        <Text
+          style={{
+            ...typography['3xl'],
+            fontFamily: fontFamily.heading,
+            fontWeight: typography.weight.bold,
+            color: colors.textPrimary,
+            marginBottom: spacing[2],
+          }}
+          testID="domain-picker-title"
+        >
+          Select Domain
+        </Text>
+        <Text
+          style={{
+            ...typography.lg,
+            fontFamily: fontFamily.body,
+            color: colors.textSecondary,
+          }}
+        >
+          Choose the inventory domain to manage
+        </Text>
+      </Animated.View>
+
+      {/* Quick resume row */}
+      {lastDomain && (
+        <Animated.View entering={FadeInUp.delay(100)} style={{ marginBottom: spacing[6] }}>
+          <AnimatedPressable
+            testID="quick-resume-button"
+            onPress={handleQuickResume}
+            scaleValue={CARD_PRESS.toValue}
+            hapticPattern="light"
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.surfacePrimary,
+              borderRadius: radii.xl,
+              padding: spacing[4],
+              ...shadows.sm,
+            }}
+          >
+            {/* Domain letter badge */}
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: DOMAIN_LETTERS[lastDomain]?.color ?? colors.brandPrimary,
+                marginRight: spacing[3],
+              }}
+            >
+              <Text
+                style={{
+                  ...typography.lg,
+                  fontWeight: typography.weight.bold,
+                  color: colors.textInverse,
+                }}
+              >
+                {DOMAIN_LETTERS[lastDomain]?.letter ?? '?'}
+              </Text>
+            </View>
+            <Text
+              style={{
+                flex: 1,
+                ...typography.base,
+                fontWeight: typography.weight.medium,
+                color: colors.textPrimary,
+              }}
+            >
+              Continue to {DOMAIN_NAMES[lastDomain] ?? lastDomain}
+            </Text>
+            <ChevronRight size={20} color={colors.textTertiary} />
+          </AnimatedPressable>
+        </Animated.View>
+      )}
+
+      {/* Side-by-side domain cards */}
+      <Animated.View
+        entering={FadeInUp.delay(200)}
+        style={{ flexDirection: 'row', gap: spacing[4] }}
+      >
+        {DOMAINS.map((domain, index) => {
           const isSelected = domainId === domain.id
           return (
-            <TouchableOpacity
+            <AnimatedPressable
               key={domain.id}
               testID={`domain-card-${domain.id}`}
-              style={[
-                styles.card,
-                {
-                  borderColor: domain.brandColor,
-                  borderWidth: isSelected ? 3 : 2,
-                },
-              ]}
               onPress={() => handleSelectDomain(domain.id)}
-              activeOpacity={0.7}
+              scaleValue={CARD_PRESS.toValue}
+              hapticPattern="light"
+              style={{
+                flex: 1,
+                aspectRatio: 1 / 1.2,
+                borderRadius: radii.xl,
+                padding: spacing[4],
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surfacePrimary,
+                borderColor: domain.brandColor,
+                borderWidth: isSelected ? 3 : 2,
+                ...shadows.md,
+              }}
             >
-              <View style={[styles.letterCircle, { backgroundColor: domain.brandColor }]}>
-                <Text style={styles.letterText}>{domain.letter}</Text>
+              {/* Large letter circle */}
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: spacing[3],
+                  backgroundColor: domain.brandColor,
+                }}
+              >
+                <Text
+                  style={{
+                    ...typography['2xl'],
+                    fontWeight: typography.weight.bold,
+                    color: colors.textInverse,
+                  }}
+                >
+                  {domain.letter}
+                </Text>
               </View>
-              <Text style={[styles.cardTitle, { color: domain.brandColor }]}>
+              <Text
+                style={{
+                  ...typography.lg,
+                  fontFamily: fontFamily.heading,
+                  fontWeight: typography.weight.semibold,
+                  color: domain.brandColor,
+                  marginBottom: spacing[1],
+                }}
+              >
                 {domain.displayName}
               </Text>
-              {isSelected && (
-                <Text style={styles.selectedLabel}>Last Selected</Text>
-              )}
-            </TouchableOpacity>
+              <Text
+                style={{
+                  ...typography.sm,
+                  color: colors.textTertiary,
+                  textAlign: 'center',
+                }}
+                testID={`domain-desc-${domain.id}`}
+              >
+                {domain.description}
+              </Text>
+            </AnimatedPressable>
           )
         })}
-      </View>
+      </Animated.View>
 
-      <View style={styles.footer}>
+      <View style={{ marginTop: spacing[10], alignItems: 'center' }}>
         <Button
           label="Sign Out"
           onPress={signOut}
@@ -82,67 +245,3 @@ export default function DomainPickerScreen() {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  cardContainer: {
-    gap: 16,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  letterCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  letterText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  selectedLabel: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#6B7280',
-    fontStyle: 'italic',
-  },
-  footer: {
-    marginTop: 40,
-    alignItems: 'center',
-  },
-})

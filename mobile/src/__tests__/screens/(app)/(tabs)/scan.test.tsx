@@ -15,6 +15,7 @@ jest.mock('expo-router', () => ({
 
 const mockAddItem = jest.fn(() => true)
 const mockHasItem = jest.fn(() => false)
+const mockIncrementItem = jest.fn()
 const mockSetTransactionType = jest.fn()
 
 const mockUseBatchScan = jest.fn(() => ({
@@ -24,7 +25,7 @@ const mockUseBatchScan = jest.fn(() => ({
   totalItems: 0,
   transactionType: 'in' as const,
   setTransactionType: mockSetTransactionType,
-  incrementItem: jest.fn(),
+  incrementItem: mockIncrementItem,
   updateQuantity: jest.fn(),
   removeItem: jest.fn(),
   removeItems: jest.fn(),
@@ -49,8 +50,10 @@ jest.mock('@/hooks/useScanFeedback', () => ({
 }))
 
 const mockGetCachedItemByBarcode = jest.fn()
+const mockGetAllCachedItems = jest.fn(() => [])
 jest.mock('@/lib/db/items-cache', () => ({
   getCachedItemByBarcode: (...args: any[]) => mockGetCachedItemByBarcode(...args),
+  getAllCachedItems: (...args: any[]) => mockGetAllCachedItems(...args),
 }))
 
 // Mock expo-sqlite for db usage in the screen
@@ -58,7 +61,45 @@ jest.mock('expo-sqlite', () => ({
   useSQLiteContext: jest.fn(() => ({})),
 }))
 
-import ScanScreen from './scan'
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+}))
+
+jest.mock('@/components/ui/SegmentedControl', () => ({
+  SegmentedControl: ({ options, value, onValueChange, testID }: any) => {
+    const { View, Text, Pressable } = require('react-native')
+    return (
+      <View testID={testID}>
+        {options.map((o: any) => (
+          <Pressable
+            key={o.value}
+            testID={`${testID}-${o.value}`}
+            onPress={() => onValueChange(o.value)}
+          >
+            <Text>{o.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    )
+  },
+}))
+
+import ScanScreen from '@/app/(app)/(tabs)/scan'
 
 // --- Test data ---
 
@@ -112,11 +153,33 @@ describe('ScanScreen', () => {
     mockAddItem.mockReturnValue(true)
     mockHasItem.mockReturnValue(false)
     mockGetCachedItemByBarcode.mockReturnValue(null)
+    mockGetAllCachedItems.mockReturnValue([])
+    // Reset to default empty batch (clearAllMocks does not reset mockReturnValue)
+    mockUseBatchScan.mockReturnValue({
+      items: [] as any[],
+      addItem: mockAddItem,
+      hasItem: mockHasItem,
+      totalItems: 0,
+      transactionType: 'in' as const,
+      setTransactionType: mockSetTransactionType,
+      incrementItem: mockIncrementItem,
+      updateQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      removeItems: jest.fn(),
+      clearBatch: jest.fn(),
+      totalUnits: 0,
+    })
   })
 
   it('renders scanner in scan mode (default)', () => {
     const { getByTestId } = render(<ScanScreen />)
     expect(getByTestId('barcode-scanner')).toBeTruthy()
+  })
+
+  it('renders segmented controls for type and mode', () => {
+    const { getByTestId } = render(<ScanScreen />)
+    expect(getByTestId('type-control')).toBeTruthy()
+    expect(getByTestId('mode-control')).toBeTruthy()
   })
 
   it('calls getCachedItemByBarcode when barcode scanned', () => {
@@ -157,14 +220,21 @@ describe('ScanScreen', () => {
     })
   })
 
-  it('shows duplicate alert when item already in batch', () => {
+  it('increments quantity and shows toast on duplicate scan', () => {
+    const Toast = require('react-native-toast-message').default
     mockGetCachedItemByBarcode.mockReturnValue(testCachedItem)
     mockAddItem.mockReturnValue(false)
     mockHasItem.mockReturnValue(true)
     const { getByTestId } = render(<ScanScreen />)
     const scanner = getByTestId('barcode-scanner-camera')
     fireEvent(scanner, 'onBarcodeScanned', { data: 'PT-00001' })
-    expect(mockTriggerDuplicateAlert).toHaveBeenCalled()
+    expect(mockIncrementItem).toHaveBeenCalledWith('item-1')
+    expect(Toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'success',
+        text1: 'Quantity updated',
+      })
+    )
   })
 
   it('shows "Item not found" toast for unknown barcode', () => {
@@ -196,15 +266,16 @@ describe('ScanScreen', () => {
       totalItems: 1,
       transactionType: 'in' as const,
       setTransactionType: mockSetTransactionType,
-      incrementItem: jest.fn(),
+      incrementItem: mockIncrementItem,
       updateQuantity: jest.fn(),
       removeItem: jest.fn(),
       removeItems: jest.fn(),
       clearBatch: jest.fn(),
       totalUnits: 2,
     })
-    const { getByText } = render(<ScanScreen />)
-    expect(getByText('1 item')).toBeTruthy()
+    const { getByTestId } = render(<ScanScreen />)
+    // Floating pill and mini-list both show "1 item", use testID
+    expect(getByTestId('batch-count-pill')).toBeTruthy()
   })
 
   it('Review Batch button navigates to batch-review', () => {
@@ -222,7 +293,7 @@ describe('ScanScreen', () => {
       totalItems: 1,
       transactionType: 'in' as const,
       setTransactionType: mockSetTransactionType,
-      incrementItem: jest.fn(),
+      incrementItem: mockIncrementItem,
       updateQuantity: jest.fn(),
       removeItem: jest.fn(),
       removeItems: jest.fn(),
@@ -234,22 +305,55 @@ describe('ScanScreen', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/batch-review')
   })
 
-  it('transaction type toggle between in/out', () => {
-    mockSearchParams = { type: 'in' }
-    const { getByText } = render(<ScanScreen />)
-    fireEvent.press(getByText('Out'))
+  it('transaction type toggle between in/out via SegmentedControl', () => {
+    const { getByTestId } = render(<ScanScreen />)
+    // Clear any calls from useEffect (params.type init)
+    mockSetTransactionType.mockClear()
+    fireEvent.press(getByTestId('type-control-out'))
     expect(mockSetTransactionType).toHaveBeenCalledWith('out')
   })
 
-  it('shows manual search tab when toggled', () => {
-    const { getByText, getByTestId } = render(<ScanScreen />)
-    fireEvent.press(getByText('Search'))
+  it('shows manual search tab when toggled via SegmentedControl', () => {
+    const { getByTestId } = render(<ScanScreen />)
+    fireEvent.press(getByTestId('mode-control-search'))
     expect(getByTestId('manual-search')).toBeTruthy()
   })
 
   it('manual search shows ItemSearchAutocomplete', () => {
-    const { getByText, getByTestId } = render(<ScanScreen />)
-    fireEvent.press(getByText('Search'))
+    const { getByTestId } = render(<ScanScreen />)
+    fireEvent.press(getByTestId('mode-control-search'))
     expect(getByTestId('item-search-autocomplete')).toBeTruthy()
+  })
+
+  it('disables type toggle when batch has items', () => {
+    mockUseBatchScan.mockReturnValue({
+      items: [
+        {
+          itemId: 'item-1',
+          item: testItem,
+          quantity: 1,
+          idempotencyKey: 'key-1',
+        },
+      ],
+      addItem: mockAddItem,
+      hasItem: mockHasItem,
+      totalItems: 1,
+      transactionType: 'in' as const,
+      setTransactionType: mockSetTransactionType,
+      incrementItem: mockIncrementItem,
+      updateQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      removeItems: jest.fn(),
+      clearBatch: jest.fn(),
+      totalUnits: 1,
+    })
+    const { getByText } = render(<ScanScreen />)
+    // The lock notice should appear
+    expect(getByText('Lock: items in batch')).toBeTruthy()
+  })
+
+  it('shows scan instruction text initially', () => {
+    const { getByText } = render(<ScanScreen />)
+    expect(getByText('Point camera at barcode')).toBeTruthy()
   })
 })

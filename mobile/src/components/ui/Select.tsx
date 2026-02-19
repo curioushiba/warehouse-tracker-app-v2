@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native'
+import { View, Text, Pressable, FlatList } from 'react-native'
 import { ChevronDown } from 'lucide-react-native'
+import { useTheme } from '@/theme'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 
 export interface SelectOption {
   label: string
@@ -24,6 +26,7 @@ export function Select({
   disabled = false,
   testID,
 }: SelectProps) {
+  const { colors, spacing, radii, shadows, typography, zIndex: themeZIndex } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
 
   const selectedOption = options.find((opt) => opt.value === value)
@@ -40,40 +43,73 @@ export function Select({
   }
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.trigger, disabled ? styles.triggerDisabled : null]}
+    <View style={{ width: '100%', position: 'relative' as const }}>
+      <AnimatedPressable
+        style={[
+          {
+            flexDirection: 'row' as const,
+            alignItems: 'center' as const,
+            justifyContent: 'space-between' as const,
+            borderWidth: 1,
+            borderColor: colors.borderPrimary,
+            borderRadius: radii.md,
+            backgroundColor: colors.surfacePrimary,
+            paddingHorizontal: spacing[3],
+            height: 44,
+          },
+          disabled ? { opacity: 0.5 } : null,
+        ]}
         onPress={handlePress}
         testID={testID}
-        activeOpacity={disabled ? 1 : 0.7}
+        disabled={disabled}
       >
-        <Text style={[styles.triggerText, !selectedOption ? styles.placeholderText : null]}>
+        <Text style={{
+          fontSize: typography.base.fontSize,
+          lineHeight: typography.base.lineHeight,
+          color: selectedOption ? colors.textPrimary : colors.textPlaceholder,
+          flex: 1,
+        }}>
           {selectedOption ? selectedOption.label : placeholder}
         </Text>
-        <ChevronDown size={16} color="#6B7280" />
-      </TouchableOpacity>
+        <ChevronDown size={16} color={colors.iconSecondary} />
+      </AnimatedPressable>
       {isOpen && !disabled ? (
-        <View style={styles.dropdown} testID={testID ? `${testID}-options` : 'select-options'}>
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: colors.borderPrimary,
+            borderRadius: radii.md,
+            backgroundColor: colors.surfaceElevated,
+            marginTop: 4,
+            maxHeight: 200,
+            zIndex: themeZIndex.dropdown,
+            ...shadows.md,
+          }}
+          testID={testID ? `${testID}-options` : 'select-options'}
+        >
           <FlatList
             data={options}
             keyExtractor={(item) => item.value}
             renderItem={({ item }) => (
-              <TouchableOpacity
+              <Pressable
                 style={[
-                  styles.option,
-                  item.value === value ? styles.optionSelected : null,
+                  {
+                    paddingHorizontal: spacing[3],
+                    paddingVertical: spacing[2.5],
+                  },
+                  item.value === value ? { backgroundColor: colors.brandSecondary } : null,
                 ]}
                 onPress={() => handleSelect(item.value)}
               >
                 <Text
                   style={[
-                    styles.optionText,
-                    item.value === value ? styles.optionTextSelected : null,
+                    { fontSize: typography.base.fontSize, lineHeight: typography.base.lineHeight, color: colors.textPrimary },
+                    item.value === value ? { color: colors.brandPrimary, fontWeight: typography.weight.semibold } : null,
                   ]}
                 >
                   {item.label}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           />
         </View>
@@ -81,60 +117,3 @@ export function Select({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    position: 'relative',
-  },
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  triggerDisabled: {
-    opacity: 0.5,
-  },
-  triggerText: {
-    fontSize: 14,
-    color: '#1F2937',
-    flex: 1,
-  },
-  placeholderText: {
-    color: '#9CA3AF',
-  },
-  dropdown: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    marginTop: 4,
-    maxHeight: 200,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  option: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  optionSelected: {
-    backgroundColor: '#F0FDF4',
-  },
-  optionText: {
-    fontSize: 14,
-    color: '#1F2937',
-  },
-  optionTextSelected: {
-    color: '#01722f',
-    fontWeight: '600',
-  },
-})

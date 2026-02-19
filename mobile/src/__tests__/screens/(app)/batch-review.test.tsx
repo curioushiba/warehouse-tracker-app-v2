@@ -50,6 +50,30 @@ jest.mock('@/contexts/DomainContext', () => ({
   })),
 }))
 
+jest.mock('@/theme', () => ({
+  useTheme: () => ({
+    colors: require('@/theme/tokens').lightColors,
+    spacing: require('@/theme/tokens').spacing,
+    typography: require('@/theme/tokens').typography,
+    shadows: require('@/theme/tokens').shadows,
+    radii: require('@/theme/tokens').radii,
+    isDark: false,
+  }),
+}))
+
+jest.mock('@/components/layout/ScreenHeader', () => ({
+  ScreenHeader: ({ title, onBack, rightContent, testID }: any) => {
+    const { View, Text, Pressable } = require('react-native')
+    return (
+      <View testID={testID}>
+        {onBack && <Pressable testID={`${testID}-back`} onPress={onBack} />}
+        <Text>{title}</Text>
+        {rightContent}
+      </View>
+    )
+  },
+}))
+
 const mockUpdateQuantity = jest.fn()
 const mockRemoveItem = jest.fn()
 const mockClearBatch = jest.fn()
@@ -136,7 +160,7 @@ jest.mock('@/hooks/useSyncQueue', () => ({
   useSyncQueue: (...args: any[]) => mockUseSyncQueue(...args),
 }))
 
-import BatchReviewScreen from './batch-review'
+import BatchReviewScreen from '@/app/(app)/batch-review'
 
 // --- Tests ---
 
@@ -157,6 +181,12 @@ describe('BatchReviewScreen', () => {
       setTransactionType: jest.fn(),
       hasItem: jest.fn(),
     })
+  })
+
+  it('renders ScreenHeader with title and item count', () => {
+    const { getByText } = render(<BatchReviewScreen />)
+    expect(getByText('Batch Review')).toBeTruthy()
+    expect(getByText('2 items')).toBeTruthy()
   })
 
   it('renders all batch items with quantities', () => {
@@ -185,14 +215,16 @@ describe('BatchReviewScreen', () => {
 
   it('shows confirm modal when Confirm pressed', () => {
     const { getByText, getByTestId } = render(<BatchReviewScreen />)
-    fireEvent.press(getByText('Confirm'))
+    fireEvent.press(getByText('Confirm Check In'))
     expect(getByTestId('confirm-modal')).toBeTruthy()
   })
 
   it('confirm modal shows transaction type and totals', () => {
-    const { getByText, getAllByText, getByTestId } = render(<BatchReviewScreen />)
-    fireEvent.press(getByText('Confirm'))
-    expect(getByText('CHECK IN')).toBeTruthy()
+    const { getByText, getAllByText } = render(<BatchReviewScreen />)
+    fireEvent.press(getByText('Confirm Check In'))
+    // "CHECK IN" appears in both banner and modal
+    const checkInTexts = getAllByText('CHECK IN')
+    expect(checkInTexts.length).toBeGreaterThanOrEqual(1)
     // "2 items" appears in both header and modal
     const itemTexts = getAllByText('2 items')
     expect(itemTexts.length).toBeGreaterThanOrEqual(2)
@@ -202,7 +234,7 @@ describe('BatchReviewScreen', () => {
   it('calls queueTransaction for each item on confirm', async () => {
     const { getByText, getByTestId } = render(<BatchReviewScreen />)
     // Open modal
-    fireEvent.press(getByText('Confirm'))
+    fireEvent.press(getByText('Confirm Check In'))
     // Confirm submission
     fireEvent.press(getByTestId('confirm-modal-confirm'))
     await waitFor(() => {
@@ -226,7 +258,7 @@ describe('BatchReviewScreen', () => {
 
   it('navigates home after successful submission', async () => {
     const { getByText, getByTestId } = render(<BatchReviewScreen />)
-    fireEvent.press(getByText('Confirm'))
+    fireEvent.press(getByText('Confirm Check In'))
     fireEvent.press(getByTestId('confirm-modal-confirm'))
     await waitFor(() => {
       expect(mockClearBatch).toHaveBeenCalled()
@@ -260,7 +292,32 @@ describe('BatchReviewScreen', () => {
 
   it('back button navigates back', () => {
     const { getByTestId } = render(<BatchReviewScreen />)
-    fireEvent.press(getByTestId('back-button'))
+    fireEvent.press(getByTestId('screen-header-back'))
     expect(mockRouter.back).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows transaction type banner', () => {
+    const { getByTestId } = render(<BatchReviewScreen />)
+    expect(getByTestId('type-banner')).toBeTruthy()
+  })
+
+  it('shows CHECK OUT label for out type', () => {
+    mockUseBatchScan.mockReturnValue({
+      items: defaultBatchItems,
+      transactionType: 'out' as const,
+      totalItems: 2,
+      totalUnits: 8,
+      updateQuantity: mockUpdateQuantity,
+      removeItem: mockRemoveItem,
+      clearBatch: mockClearBatch,
+      addItem: jest.fn(),
+      incrementItem: jest.fn(),
+      removeItems: jest.fn(),
+      setTransactionType: jest.fn(),
+      hasItem: jest.fn(),
+    })
+    const { getByText } = render(<BatchReviewScreen />)
+    expect(getByText('CHECK OUT')).toBeTruthy()
+    expect(getByText('Confirm Check Out')).toBeTruthy()
   })
 })

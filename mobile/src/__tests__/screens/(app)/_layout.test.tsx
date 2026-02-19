@@ -16,10 +16,18 @@ jest.mock('expo-router', () => ({
     return require('react').createElement(Text, { testID: 'redirect' }, `Redirect:${href}`)
   },
   Tabs: ({ children }: any) => children,
-  Stack: ({ children }: any) => {
-    const { View } = require('react-native')
-    return require('react').createElement(View, { testID: 'stack' }, children)
-  },
+  Stack: Object.assign(
+    ({ children }: any) => {
+      const { View } = require('react-native')
+      return require('react').createElement(View, { testID: 'stack' }, children)
+    },
+    {
+      Screen: ({ name }: any) => {
+        const { View } = require('react-native')
+        return require('react').createElement(View, { testID: `screen-${name}` })
+      },
+    }
+  ),
   Slot: () => {
     const { View } = require('react-native')
     return require('react').createElement(View, { testID: 'slot' })
@@ -85,7 +93,7 @@ jest.mock('@/contexts/BatchScanContext', () => ({
   },
 }))
 
-import AppLayout from './_layout'
+import AppLayout from '@/app/(app)/_layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDomain } from '@/contexts/DomainContext'
 
