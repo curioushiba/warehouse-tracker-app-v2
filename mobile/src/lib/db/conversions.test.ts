@@ -214,6 +214,56 @@ describe('conversions', () => {
       expect(cached.isArchived).toBe(true)
     })
 
+    it('sets domain when provided', () => {
+      const item: Item = {
+        id: 'item-dom',
+        sku: 'SKU-DOM',
+        name: 'Domain Item',
+        description: null,
+        category_id: null,
+        location_id: null,
+        unit: 'pcs',
+        current_stock: 0,
+        min_stock: 0,
+        max_stock: null,
+        barcode: null,
+        unit_price: null,
+        image_url: null,
+        version: 1,
+        is_archived: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-06-15T12:00:00Z',
+      }
+
+      const cached = itemToCachedItem(item, 'commissary')
+      expect(cached.domain).toBe('commissary')
+    })
+
+    it('leaves domain undefined when not provided', () => {
+      const item: Item = {
+        id: 'item-nodom',
+        sku: 'SKU-NODOM',
+        name: 'No Domain Item',
+        description: null,
+        category_id: null,
+        location_id: null,
+        unit: 'pcs',
+        current_stock: 0,
+        min_stock: 0,
+        max_stock: null,
+        barcode: null,
+        unit_price: null,
+        image_url: null,
+        version: 1,
+        is_archived: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-06-15T12:00:00Z',
+      }
+
+      const cached = itemToCachedItem(item)
+      expect(cached.domain).toBeUndefined()
+    })
+
     it('always sets isOfflineCreated to false', () => {
       const item: Item = {
         id: 'item-4',

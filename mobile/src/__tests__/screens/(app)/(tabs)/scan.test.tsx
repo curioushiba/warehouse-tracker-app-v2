@@ -50,10 +50,29 @@ jest.mock('@/hooks/useScanFeedback', () => ({
 }))
 
 const mockGetCachedItemByBarcode = jest.fn()
-const mockGetAllCachedItems = jest.fn(() => [])
+const mockGetCachedItem = jest.fn()
 jest.mock('@/lib/db/items-cache', () => ({
   getCachedItemByBarcode: (...args: any[]) => mockGetCachedItemByBarcode(...args),
-  getAllCachedItems: (...args: any[]) => mockGetAllCachedItems(...args),
+  getCachedItem: (...args: any[]) => mockGetCachedItem(...args),
+}))
+
+jest.mock('@/contexts/DomainContext', () => ({
+  useDomain: () => ({
+    domainId: 'commissary',
+    domainConfig: null,
+    setDomain: jest.fn(),
+    clearDomain: jest.fn(),
+  }),
+}))
+
+const mockUseItemCache = jest.fn(() => ({
+  items: [] as any[],
+  isLoading: false,
+  error: null,
+  refreshItems: jest.fn(),
+}))
+jest.mock('@/hooks/useItemCache', () => ({
+  useItemCache: (...args: any[]) => mockUseItemCache(...args),
 }))
 
 // Mock expo-sqlite for db usage in the screen
@@ -153,7 +172,13 @@ describe('ScanScreen', () => {
     mockAddItem.mockReturnValue(true)
     mockHasItem.mockReturnValue(false)
     mockGetCachedItemByBarcode.mockReturnValue(null)
-    mockGetAllCachedItems.mockReturnValue([])
+    mockGetCachedItem.mockReturnValue(null)
+    mockUseItemCache.mockReturnValue({
+      items: [] as any[],
+      isLoading: false,
+      error: null,
+      refreshItems: jest.fn(),
+    })
     // Reset to default empty batch (clearAllMocks does not reset mockReturnValue)
     mockUseBatchScan.mockReturnValue({
       items: [] as any[],
@@ -355,5 +380,52 @@ describe('ScanScreen', () => {
   it('shows scan instruction text initially', () => {
     const { getByText } = render(<ScanScreen />)
     expect(getByText('Point camera at barcode')).toBeTruthy()
+  })
+
+  it('passes domainId to useItemCache', () => {
+    render(<ScanScreen />)
+    expect(mockUseItemCache).toHaveBeenCalledWith(expect.anything(), 'commissary')
+  })
+
+  it('uses useItemCache items for autocomplete in search mode', () => {
+    mockUseItemCache.mockReturnValue({
+      items: [
+        {
+          id: 'item-cached-1',
+          sku: 'SKU-C1',
+          name: 'Cached Item',
+          barcode: 'BC-C1',
+          unit: 'pcs',
+          currentStock: 10,
+          minStock: 1,
+          version: 1,
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+      error: null,
+      refreshItems: jest.fn(),
+    })
+
+    const { getByTestId } = render(<ScanScreen />)
+    // Switch to search mode
+    fireEvent.press(getByTestId('mode-control-search'))
+    // The autocomplete should be rendered (with the cached items)
+    expect(getByTestId('item-search-autocomplete')).toBeTruthy()
+  })
+
+  it('handleManualSelect uses getCachedItem with selected.id', () => {
+    mockGetCachedItem.mockReturnValue(testCachedItem)
+
+    // We need to mock the ItemSearchAutocomplete to capture onSelect
+    const { getByTestId } = render(<ScanScreen />)
+    // Switch to search mode
+    fireEvent.press(getByTestId('mode-control-search'))
+
+    // Trigger the onSelect callback via the autocomplete
+    const autocomplete = getByTestId('item-search-autocomplete')
+    fireEvent(autocomplete, 'onSelect', { id: 'item-1', name: 'Test Item', sku: 'SKU-001' })
+
+    expect(mockGetCachedItem).toHaveBeenCalledWith(expect.anything(), 'item-1')
   })
 })

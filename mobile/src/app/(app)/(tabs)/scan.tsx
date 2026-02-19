@@ -15,7 +15,10 @@ import { ClipboardCheck } from 'lucide-react-native'
 import Toast from 'react-native-toast-message'
 import { useBatchScan, type BatchTransactionType } from '@/contexts/BatchScanContext'
 import { useScanFeedback } from '@/hooks/useScanFeedback'
-import { getCachedItemByBarcode, getAllCachedItems } from '@/lib/db/items-cache'
+import { useDomain } from '@/contexts/DomainContext'
+import { useItemCache } from '@/hooks/useItemCache'
+import { getCachedItemByBarcode, getCachedItem } from '@/lib/db/items-cache'
+import { cachedItemToItem } from '@/lib/db/conversions'
 import { useTheme } from '@/theme'
 import { BarcodeScanner } from '@/components/domain/BarcodeScanner'
 import { ScanSuccessOverlay } from '@/components/domain/ScanSuccessOverlay'
@@ -45,18 +48,18 @@ export default function ScanScreen() {
     items,
     addItem,
     incrementItem,
-    hasItem,
     totalItems,
     transactionType,
     setTransactionType,
   } = useBatchScan()
   const {
     triggerFeedback,
-    triggerDuplicateAlert,
     feedbackItem,
     isVisible: feedbackVisible,
   } = useScanFeedback()
   const { colors, spacing, typography, shadows, radii } = useTheme()
+  const { domainId } = useDomain()
+  const { items: cachedItems } = useItemCache(db, domainId)
 
   const [mode, setMode] = useState<ScanMode>('scan')
   const [showInstruction, setShowInstruction] = useState(true)
@@ -88,20 +91,16 @@ export default function ScanScreen() {
     }
   }, [mode])
 
-  // Load cached items for autocomplete
-  const autocompleteItems = useMemo<AutocompleteItem[]>(() => {
-    try {
-      const cached = getAllCachedItems(db)
-      return cached.map((item) => ({
-        id: item.id,
-        name: item.name,
-        sku: item.sku,
-        barcode: item.barcode,
-      }))
-    } catch {
-      return []
-    }
-  }, [db])
+  // Map cached items for autocomplete
+  const autocompleteItems = useMemo<AutocompleteItem[]>(
+    () => cachedItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      barcode: item.barcode,
+    })),
+    [cachedItems]
+  )
 
   // Set transaction type from URL params on mount
   useEffect(() => {
@@ -124,75 +123,28 @@ export default function ScanScreen() {
         return
       }
 
-      const itemForBatch = {
-        id: item.id,
-        sku: item.sku,
-        name: item.name,
-        description: item.description ?? null,
-        category_id: item.categoryId ?? null,
-        location_id: item.locationId ?? null,
-        unit: item.unit,
-        current_stock: item.currentStock,
-        min_stock: item.minStock,
-        max_stock: item.maxStock ?? null,
-        unit_price: item.unitPrice ?? null,
-        barcode: item.barcode ?? null,
-        image_url: item.imageUrl ?? null,
-        is_archived: item.isArchived ?? false,
-        version: item.version,
-        created_at: item.updatedAt,
-        updated_at: item.updatedAt,
-      }
-
-      const added = addItem(itemForBatch)
-      if (added) {
-        triggerFeedback({
-          itemName: item.name,
-          itemImageUrl: item.imageUrl ?? null,
-        })
-      } else {
+      const added = addItem(cachedItemToItem(item))
+      if (!added) {
         incrementItem(item.id)
-        triggerFeedback({
-          itemName: item.name,
-          itemImageUrl: item.imageUrl ?? null,
-        })
-        Toast.show({
-          type: 'success',
-          text1: 'Quantity updated',
-        })
+        Toast.show({ type: 'success', text1: 'Quantity updated' })
       }
+      triggerFeedback({
+        itemName: item.name,
+        itemImageUrl: item.imageUrl ?? null,
+      })
     },
     [addItem, incrementItem, triggerFeedback, db]
   )
 
   const handleManualSelect = useCallback(
     (selected: { id: string; name: string; sku: string }) => {
-      const item = getCachedItemByBarcode(db, selected.sku)
-      if (item) {
-        const itemForBatch = {
-          id: item.id,
-          sku: item.sku,
-          name: item.name,
-          description: item.description ?? null,
-          category_id: item.categoryId ?? null,
-          location_id: item.locationId ?? null,
-          unit: item.unit,
-          current_stock: item.currentStock,
-          min_stock: item.minStock,
-          max_stock: item.maxStock ?? null,
-          unit_price: item.unitPrice ?? null,
-          barcode: item.barcode ?? null,
-          image_url: item.imageUrl ?? null,
-          is_archived: item.isArchived ?? false,
-          version: item.version,
-          created_at: item.updatedAt,
-          updated_at: item.updatedAt,
-        }
-        const added = addItem(itemForBatch)
-        if (!added) {
-          incrementItem(item.id)
-          Toast.show({ type: 'success', text1: 'Quantity updated' })
-        }
+      const item = getCachedItem(db, selected.id)
+      if (!item) return
+
+      const added = addItem(cachedItemToItem(item))
+      if (!added) {
+        incrementItem(item.id)
+        Toast.show({ type: 'success', text1: 'Quantity updated' })
       }
     },
     [addItem, incrementItem, db]

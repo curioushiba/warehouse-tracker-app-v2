@@ -40,6 +40,7 @@ export interface CachedItem {
   isArchived?: boolean
   isOfflineCreated?: boolean
   updatedAt: string
+  domain?: string
 }
 
 // Shared status type for all item operations

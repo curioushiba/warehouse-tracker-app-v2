@@ -43,6 +43,7 @@ function rowToCachedItem(row: ItemRow): CachedItem {
     isArchived: row.is_archived === 1,
     isOfflineCreated: row.is_offline_created === 1,
     updatedAt: row.updated_at,
+    domain: row.domain ?? undefined,
   }
 }
 
@@ -100,8 +101,17 @@ export function getCachedItemByBarcode(db: Db, barcode: string): CachedItem | nu
   return row ? rowToCachedItem(row) : null
 }
 
-export function getAllCachedItems(db: Db): CachedItem[] {
-  const rows = db.getAllSync<ItemRow>('SELECT * FROM items_cache')
+export function getAllCachedItems(db: Db, domain?: string): CachedItem[] {
+  if (domain) {
+    const rows = db.getAllSync<ItemRow>(
+      'SELECT * FROM items_cache WHERE domain = ? AND is_archived = 0',
+      domain
+    )
+    return rows.map(rowToCachedItem)
+  }
+  const rows = db.getAllSync<ItemRow>(
+    'SELECT * FROM items_cache WHERE is_archived = 0'
+  )
   return rows.map(rowToCachedItem)
 }
 
@@ -153,16 +163,28 @@ export function updateCachedItem(db: Db, id: string, updates: Partial<CachedItem
   )
 }
 
-export function searchCachedItems(db: Db, query: string): CachedItem[] {
+export function searchCachedItems(db: Db, query: string, domain?: string): CachedItem[] {
   // Escape SQL LIKE special characters
   const escaped = query.replace(/[%_]/g, (ch) => `\\${ch}`)
   const pattern = `%${escaped}%`
 
+  if (domain) {
+    const rows = db.getAllSync<ItemRow>(
+      `SELECT * FROM items_cache
+       WHERE domain = ? AND is_archived = 0
+         AND (name LIKE ? ESCAPE '\\' OR sku LIKE ? ESCAPE '\\' OR barcode LIKE ? ESCAPE '\\')`,
+      domain,
+      pattern,
+      pattern,
+      pattern
+    )
+    return rows.map(rowToCachedItem)
+  }
+
   const rows = db.getAllSync<ItemRow>(
     `SELECT * FROM items_cache
-     WHERE name LIKE ? ESCAPE '\\'
-        OR sku LIKE ? ESCAPE '\\'
-        OR barcode LIKE ? ESCAPE '\\'`,
+     WHERE is_archived = 0
+       AND (name LIKE ? ESCAPE '\\' OR sku LIKE ? ESCAPE '\\' OR barcode LIKE ? ESCAPE '\\')`,
     pattern,
     pattern,
     pattern

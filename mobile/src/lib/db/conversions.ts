@@ -29,7 +29,7 @@ export function cachedItemToItem(cached: CachedItem): Item {
 /**
  * Convert an Item (snake_case) to a CachedItem (camelCase) for local storage.
  */
-export function itemToCachedItem(item: Item): CachedItem {
+export function itemToCachedItem(item: Item, domain?: string): CachedItem {
   return {
     id: item.id,
     sku: item.sku,
@@ -48,6 +48,7 @@ export function itemToCachedItem(item: Item): CachedItem {
     isArchived: item.is_archived,
     isOfflineCreated: false,
     updatedAt: item.updated_at,
+    domain,
   }
 }
 

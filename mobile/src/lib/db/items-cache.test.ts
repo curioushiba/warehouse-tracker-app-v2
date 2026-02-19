@@ -190,6 +190,22 @@ describe('items-cache', () => {
       const result = getCachedItem(db, 'nonexistent-id')
       expect(result).toBeNull()
     })
+
+    it('returns domain when stored with domain', () => {
+      cacheItems(db, [makeItem({ id: 'item-dom-get', name: 'Domain Item' })], 'commissary')
+
+      const result = getCachedItem(db, 'item-dom-get')
+      expect(result).not.toBeNull()
+      expect(result!.domain).toBe('commissary')
+    })
+
+    it('returns undefined domain when stored without domain', () => {
+      cacheItems(db, [makeItem({ id: 'item-nodom-get', name: 'No Domain' })])
+
+      const result = getCachedItem(db, 'item-nodom-get')
+      expect(result).not.toBeNull()
+      expect(result!.domain).toBeUndefined()
+    })
   })
 
   // ---- getCachedItemBySku ----
@@ -245,6 +261,37 @@ describe('items-cache', () => {
     it('returns an empty array when cache is empty', () => {
       const result = getAllCachedItems(db)
       expect(result).toEqual([])
+    })
+
+    it('returns only non-archived items when called without domain', () => {
+      cacheItems(db, [
+        makeItem({ id: 'item-active', sku: 'SKU-ACT', isArchived: false }),
+        makeItem({ id: 'item-archived', sku: 'SKU-ARC', isArchived: true }),
+      ])
+
+      const result = getAllCachedItems(db)
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('item-active')
+    })
+
+    it('returns only items matching domain when domain provided', () => {
+      cacheItems(db, [makeItem({ id: 'item-cm', sku: 'SKU-CM' })], 'commissary')
+      cacheItems(db, [makeItem({ id: 'item-fg', sku: 'SKU-FG' })], 'frozen-goods')
+
+      const result = getAllCachedItems(db, 'commissary')
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('item-cm')
+    })
+
+    it('excludes archived items when domain provided', () => {
+      cacheItems(db, [
+        makeItem({ id: 'item-cm-act', sku: 'SKU-CMA', isArchived: false }),
+        makeItem({ id: 'item-cm-arc', sku: 'SKU-CMR', isArchived: true }),
+      ], 'commissary')
+
+      const result = getAllCachedItems(db, 'commissary')
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('item-cm-act')
     })
 
     it('returns CachedItem objects with correct field mapping', () => {
@@ -419,6 +466,51 @@ describe('items-cache', () => {
       const results = searchCachedItems(db, 'jas')
       expect(results).toHaveLength(1)
       expect(results[0].name).toBe('Jasmine Rice')
+    })
+
+    it('filters by domain when provided', () => {
+      clearItemsCache(db)
+      cacheItems(db, [
+        makeItem({ id: 'item-cm-flour', sku: 'SKU-CMF', name: 'CM Flour' }),
+      ], 'commissary')
+      cacheItems(db, [
+        makeItem({ id: 'item-fg-flour', sku: 'SKU-FGF', name: 'FG Flour' }),
+      ], 'frozen-goods')
+
+      const results = searchCachedItems(db, 'flour', 'commissary')
+      expect(results).toHaveLength(1)
+      expect(results[0].id).toBe('item-cm-flour')
+    })
+
+    it('excludes archived items from search results', () => {
+      clearItemsCache(db)
+      cacheItems(db, [
+        makeItem({ id: 'item-active-flour', sku: 'SKU-AF', name: 'Active Flour', isArchived: false }),
+        makeItem({ id: 'item-archived-flour', sku: 'SKU-RF', name: 'Archived Flour', isArchived: true }),
+      ])
+
+      const results = searchCachedItems(db, 'flour')
+      expect(results).toHaveLength(1)
+      expect(results[0].id).toBe('item-active-flour')
+    })
+
+    it('returns from all domains when domain not provided and excludes archived', () => {
+      clearItemsCache(db)
+      cacheItems(db, [
+        makeItem({ id: 'item-cm-rice', sku: 'SKU-CMR', name: 'CM Rice' }),
+      ], 'commissary')
+      cacheItems(db, [
+        makeItem({ id: 'item-fg-rice', sku: 'SKU-FGR', name: 'FG Rice' }),
+      ], 'frozen-goods')
+      cacheItems(db, [
+        makeItem({ id: 'item-arc-rice', sku: 'SKU-AR', name: 'Archived Rice', isArchived: true }),
+      ], 'commissary')
+
+      const results = searchCachedItems(db, 'rice')
+      expect(results).toHaveLength(2)
+      const ids = results.map((r) => r.id)
+      expect(ids).toContain('item-cm-rice')
+      expect(ids).toContain('item-fg-rice')
     })
   })
 })
