@@ -11,7 +11,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { ClipboardCheck } from 'lucide-react-native'
+import { ClipboardCheck, RefreshCw } from 'lucide-react-native'
 import Toast from 'react-native-toast-message'
 import { useBatchScan, type BatchTransactionType } from '@/contexts/BatchScanContext'
 import { useScanFeedback } from '@/hooks/useScanFeedback'
@@ -24,6 +24,7 @@ import { BarcodeScanner } from '@/components/domain/BarcodeScanner'
 import { ScanSuccessOverlay } from '@/components/domain/ScanSuccessOverlay'
 import { BatchMiniList } from '@/components/domain/BatchMiniList'
 import { ItemSearchAutocomplete } from '@/components/domain/ItemSearchAutocomplete'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 import { Button } from '@/components/ui/Button'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import type { AutocompleteItem } from '@/components/domain/ItemSearchAutocomplete'
@@ -59,7 +60,7 @@ export default function ScanScreen() {
   } = useScanFeedback()
   const { colors, spacing, typography, shadows, radii } = useTheme()
   const { domainId } = useDomain()
-  const { items: cachedItems } = useItemCache(db, domainId)
+  const { items: cachedItems, error: itemCacheError, refreshItems } = useItemCache(db, domainId)
 
   const [mode, setMode] = useState<ScanMode>('scan')
   const [showInstruction, setShowInstruction] = useState(true)
@@ -254,6 +255,39 @@ export default function ScanScreen() {
             </View>
           ) : (
             <View style={{ flex: 1, padding: spacing[4] }} testID="manual-search">
+              {itemCacheError && (
+                <View
+                  testID="item-cache-error"
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: colors.errorBg,
+                    borderRadius: radii.md,
+                    padding: spacing[3],
+                    marginBottom: spacing[3],
+                    gap: spacing[2],
+                  }}
+                >
+                  <Text
+                    style={{
+                      ...typography.sm,
+                      color: colors.errorText,
+                      flex: 1,
+                    }}
+                  >
+                    {itemCacheError}
+                  </Text>
+                  <AnimatedPressable
+                    testID="item-cache-retry"
+                    onPress={refreshItems}
+                    style={{
+                      padding: spacing[2],
+                    }}
+                  >
+                    <RefreshCw size={16} color={colors.errorText} />
+                  </AnimatedPressable>
+                </View>
+              )}
               <ItemSearchAutocomplete
                 items={autocompleteItems}
                 onSelect={handleManualSelect}

@@ -81,7 +81,7 @@ describe('createItemCacheManager', () => {
     })
   })
 
-  it('falls back to cached items when fetch fails (offline graceful)', async () => {
+  it('falls back to cached items and propagates error when fetch fails', async () => {
     const cachedItems = [makeCachedItem({ id: 'item-cached', name: 'Cached Flour' })]
     mockFetchAndCacheItems.mockResolvedValue({ success: false, error: 'Network error' })
     mockGetAllCachedItems.mockReturnValue(cachedItems)
@@ -96,6 +96,46 @@ describe('createItemCacheManager', () => {
       isLoading: false,
       error: null,
     })
+    // Should also propagate the error
+    expect(setState).toHaveBeenCalledWith({ error: 'Network error' })
+  })
+
+  it('uses default error message when fetch fails without error string', async () => {
+    mockFetchAndCacheItems.mockResolvedValue({ success: false })
+    mockGetAllCachedItems.mockReturnValue([])
+
+    const manager = createItemCacheManager(mockDb, 'commissary' as DomainId, setState)
+    await manager.loadItems()
+
+    expect(setState).toHaveBeenCalledWith({ error: 'Failed to load items' })
+  })
+
+  it('clears error on successful refresh after previous failure', async () => {
+    // First: fail
+    mockFetchAndCacheItems.mockResolvedValue({ success: false, error: 'Network error' })
+    mockGetAllCachedItems.mockReturnValue([])
+
+    const manager = createItemCacheManager(mockDb, 'commissary' as DomainId, setState)
+    await manager.loadItems()
+
+    expect(setState).toHaveBeenCalledWith({ error: 'Network error' })
+
+    // Second: succeed
+    setState.mockClear()
+    const cachedItems = [makeCachedItem({ id: 'item-1', name: 'Flour' })]
+    mockFetchAndCacheItems.mockResolvedValue({ success: true, count: 1 })
+    mockGetAllCachedItems.mockReturnValue(cachedItems)
+
+    await manager.loadItems()
+
+    // refreshFromCache sets error: null on success path
+    expect(setState).toHaveBeenCalledWith({
+      items: cachedItems,
+      isLoading: false,
+      error: null,
+    })
+    // Should NOT have set an error
+    expect(setState).not.toHaveBeenCalledWith(expect.objectContaining({ error: expect.any(String) }))
   })
 
   it('does nothing when domainId is null', async () => {

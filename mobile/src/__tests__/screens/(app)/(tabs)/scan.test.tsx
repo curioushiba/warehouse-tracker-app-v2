@@ -91,6 +91,17 @@ jest.mock('@/theme', () => ({
   }),
 }))
 
+jest.mock('@/components/ui/AnimatedPressable', () => ({
+  AnimatedPressable: ({ children, onPress, testID, style }: any) => {
+    const { Pressable } = require('react-native')
+    return (
+      <Pressable onPress={onPress} testID={testID} style={style}>
+        {children}
+      </Pressable>
+    )
+  },
+}))
+
 jest.mock('react-native-toast-message', () => ({
   __esModule: true,
   default: {
@@ -385,6 +396,50 @@ describe('ScanScreen', () => {
   it('passes domainId to useItemCache', () => {
     render(<ScanScreen />)
     expect(mockUseItemCache).toHaveBeenCalledWith(expect.anything(), 'commissary')
+  })
+
+  it('shows error banner in search mode when useItemCache has an error', () => {
+    const mockRefresh = jest.fn()
+    mockUseItemCache.mockReturnValue({
+      items: [],
+      isLoading: false,
+      error: 'Network error',
+      refreshItems: mockRefresh,
+    })
+
+    const { getByTestId, getByText } = render(<ScanScreen />)
+    // Switch to search mode
+    fireEvent.press(getByTestId('mode-control-search'))
+    expect(getByTestId('item-cache-error')).toBeTruthy()
+    expect(getByText('Network error')).toBeTruthy()
+  })
+
+  it('retry button in error banner calls refreshItems', () => {
+    const mockRefresh = jest.fn()
+    mockUseItemCache.mockReturnValue({
+      items: [],
+      isLoading: false,
+      error: 'Network error',
+      refreshItems: mockRefresh,
+    })
+
+    const { getByTestId } = render(<ScanScreen />)
+    fireEvent.press(getByTestId('mode-control-search'))
+    fireEvent.press(getByTestId('item-cache-retry'))
+    expect(mockRefresh).toHaveBeenCalled()
+  })
+
+  it('does not show error banner when no error', () => {
+    mockUseItemCache.mockReturnValue({
+      items: [],
+      isLoading: false,
+      error: null,
+      refreshItems: jest.fn(),
+    })
+
+    const { getByTestId, queryByTestId } = render(<ScanScreen />)
+    fireEvent.press(getByTestId('mode-control-search'))
+    expect(queryByTestId('item-cache-error')).toBeNull()
   })
 
   it('uses useItemCache items for autocomplete in search mode', () => {

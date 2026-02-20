@@ -34,8 +34,11 @@ export function createItemCacheManager(
     if (!domainId) return
 
     setState({ isLoading: true })
-    await fetchAndCacheItems(db as never, domainId)
+    const result = await fetchAndCacheItems(db as never, domainId)
     refreshFromCache()
+    if (!result.success) {
+      setState({ error: result.error ?? 'Failed to load items' })
+    }
   }
 
   return { loadItems, refreshFromCache }
