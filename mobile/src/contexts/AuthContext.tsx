@@ -1,232 +1,189 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import type { Profile } from '@/lib/supabase/types'
-import { createClient } from '@/lib/supabase/client'
-import { clearSession, getSessionToken, setSessionToken } from '@/lib/storage/storage'
-import { clearQueue } from '@/lib/db/transaction-queue'
-import { clearItemEditQueue } from '@/lib/db/item-edit-queue'
-import { clearItemCreateQueue } from '@/lib/db/item-create-queue'
-import { clearItemArchiveQueue } from '@/lib/db/item-archive-queue'
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+import type { Profile } from '@/lib/types';
 
-// --- Types ---
-
-export interface AuthUser {
-  id: string
-  email: string
+export interface AuthContextType {
+  user: User | null;
+  profile: Profile | null;
+  loading: boolean;
+  error: string | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
-export interface AuthState {
-  user: AuthUser | null
-  profile: Profile | null
-  isLoading: boolean
-}
+const AuthContext = createContext<AuthContextType | null>(null);
 
-export interface AuthDerived {
-  isAuthenticated: boolean
-  isAdmin: boolean
-  isEmployee: boolean
-  isActive: boolean
-}
-
-export interface AuthManager {
-  signIn: (username: string, password: string) => Promise<{ error: string | null }>
-  signOut: (db?: unknown) => Promise<void>
-  refreshProfile: () => Promise<void>
-  restoreSession: () => Promise<void>
-}
-
-interface AuthContextValue extends AuthState, AuthDerived {
-  signIn: (username: string, password: string) => Promise<{ error: string | null }>
-  signOut: (db?: unknown) => Promise<void>
-  refreshProfile: () => Promise<void>
-}
-
-// --- Pure logic (testable) ---
-
-export function toEmployeeEmail(username: string): string {
-  return `${username.trim().toLowerCase()}@employee.internal`
-}
-
-export function deriveAuthState(user: AuthUser | null, profile: Profile | null): AuthDerived {
-  return {
-    isAuthenticated: user !== null,
-    isAdmin: profile?.role === 'admin',
-    isEmployee: profile?.role === 'employee',
-    isActive: profile?.is_active === true,
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
+  return context;
 }
 
-export function createAuthManager(
-  setState: (partial: Partial<AuthState>) => void,
-  getState: () => AuthState
-): AuthManager {
-  const supabase = createClient()
+async function fetchProfile(userId: string): Promise<Profile> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
 
-  async function fetchProfile(userId: string): Promise<Profile | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    if (error || !data) return null
-    return data as unknown as Profile
+  if (error) {
+    throw new Error('Failed to load user profile');
   }
 
-  async function signIn(username: string, password: string): Promise<{ error: string | null }> {
-    setState({ isLoading: true })
-    const email = toEmployeeEmail(username)
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error || !data.user) {
-      setState({ isLoading: false })
-      return { error: error?.message ?? 'Sign in failed' }
-    }
-    const profile = await fetchProfile(data.user.id)
+  return data as Profile;
+}
 
-    async function rejectAuth(error: string): Promise<{ error: string }> {
-      await supabase.auth.signOut()
-      setState({ user: null, profile: null, isLoading: false })
-      return { error }
-    }
+export default function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    if (!profile) return rejectAuth('Account not found. Please contact your administrator.')
-    if (profile.role !== 'employee') return rejectAuth('This login is for employees only.')
-    if (!profile.is_active) return rejectAuth('Your account has been deactivated. Please contact your administrator.')
-    setState({
-      user: { id: data.user.id, email: data.user.email! },
-      profile,
-      isLoading: false,
-    })
-    if (data.session?.access_token) {
-      void setSessionToken(data.session.access_token)
-    }
-    return { error: null }
-  }
+  const clearState = useCallback(() => {
+    setUser(null);
+    setProfile(null);
+    setError(null);
+  }, []);
 
-  async function signOut(db?: unknown) {
-    // Clear SQLite queues if db provided
-    if (db) {
+  const loadProfile = useCallback(
+    async (authUser: User) => {
       try {
-        clearQueue(db as never)
-        clearItemEditQueue(db as never)
-        clearItemCreateQueue(db as never)
-        clearItemArchiveQueue(db as never)
+        const userProfile = await fetchProfile(authUser.id);
+
+        if (!userProfile.is_active) {
+          await supabase.auth.signOut();
+          clearState();
+          setError('Account is deactivated');
+          return;
+        }
+
+        setUser(authUser);
+        setProfile(userProfile);
+        setError(null);
       } catch {
-        // Ignore errors during cleanup
+        await supabase.auth.signOut();
+        clearState();
+        setError('Failed to load user profile');
       }
-    }
-    await supabase.auth.signOut()
-    void clearSession()
-    setState({ user: null, profile: null, isLoading: false })
-  }
+    },
+    [clearState],
+  );
 
-  async function refreshProfile() {
-    const { user } = getState()
-    if (!user) return
-    const profile = await fetchProfile(user.id)
-    if (profile) {
-      setState({ profile })
-    }
-  }
-
-  async function restoreSession() {
-    setState({ isLoading: true })
-    const token = await getSessionToken()
-    if (!token) {
-      setState({ isLoading: false })
-      return
-    }
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const profile = await fetchProfile(user.id)
-        setState({
-          user: { id: user.id, email: user.email! },
-          profile,
-          isLoading: false,
-        })
-      } else {
-        void clearSession()
-        setState({ user: null, profile: null, isLoading: false })
-      }
-    } catch {
-      void clearSession()
-      setState({ user: null, profile: null, isLoading: false })
-    }
-  }
-
-  return { signIn, signOut, refreshProfile, restoreSession }
-}
-
-// --- React context ---
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
-
-const SAFETY_TIMEOUT_MS = 10_000
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setAuthState] = useState<AuthState>({
-    user: null,
-    profile: null,
-    isLoading: true,
-  })
-
-  const stateRef = useRef(state)
-  stateRef.current = state
-
-  const managerRef = useRef<AuthManager | null>(null)
-  if (!managerRef.current) {
-    managerRef.current = createAuthManager(
-      (partial) => setAuthState(prev => ({ ...prev, ...partial })),
-      () => stateRef.current
-    )
-  }
-
-  // Restore session on mount with safety timeout
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setAuthState(prev => prev.isLoading ? { ...prev, isLoading: false } : prev)
-    }, SAFETY_TIMEOUT_MS)
+    let mounted = true;
 
-    managerRef.current!.restoreSession().finally(() => clearTimeout(timeout))
+    async function initSession() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-    return () => clearTimeout(timeout)
-  }, [])
+        if (!mounted) return;
 
-  const derived = useMemo(() => deriveAuthState(state.user, state.profile), [state.user, state.profile])
+        if (session?.user) {
+          await loadProfile(session.user);
+        }
+      } catch {
+        if (mounted) {
+          setError('Failed to restore session');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        clearState();
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        await loadProfile(session.user);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadProfile, clearState]);
 
   const signIn = useCallback(
-    (username: string, password: string) => managerRef.current!.signIn(username, password),
-    []
-  )
+    async (email: string, password: string) => {
+      setLoading(true);
+      setError(null);
 
-  const signOut = useCallback(
-    (db?: unknown) => managerRef.current!.signOut(db),
-    []
-  )
+      try {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-  const refreshProfile = useCallback(
-    () => managerRef.current!.refreshProfile(),
-    []
-  )
+        if (authError) {
+          throw authError;
+        }
+        // Profile loading is handled by onAuthStateChange listener
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Sign in failed';
+        setError(message);
+        setLoading(false);
+        throw err;
+      }
+    },
+    [],
+  );
 
-  const value = useMemo<AuthContextValue>(() => ({
-    ...state,
-    ...derived,
-    signIn,
-    signOut,
-    refreshProfile,
-  }), [state, derived, signIn, signOut, refreshProfile])
+  const signOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+      clearState();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Sign out failed';
+      setError(message);
+      throw err;
+    }
+  }, [clearState]);
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      profile,
+      loading,
+      error,
+      signIn,
+      signOut,
+    }),
+    [user, profile, loading, error, signIn, signOut],
+  );
 
   return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 }

@@ -1,53 +1,43 @@
-import React from 'react'
-import { View, Text } from 'react-native'
-import { ArrowLeft } from 'lucide-react-native'
-import { useTheme } from '@/theme'
-import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
+import React from 'react';
+import { View, Text } from 'react-native';
+import { useTheme } from '@/theme/ThemeContext';
 
-interface ScreenHeaderProps {
-  title: string
-  onBack?: () => void
-  rightContent?: React.ReactNode
-  testID?: string
+export interface ScreenHeaderProps {
+  title: string;
+  subtitle?: string;
+  rightAction?: React.ReactNode;
 }
 
-export function ScreenHeader({ title, onBack, rightContent, testID }: ScreenHeaderProps) {
-  const { colors, spacing, typography } = useTheme()
+export function ScreenHeader({ title, subtitle, rightAction }: ScreenHeaderProps) {
+  const { colors, spacing, typePresets } = useTheme();
 
   return (
     <View
-      testID={testID}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.surfacePrimary,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderSubtle,
+        justifyContent: 'space-between',
         paddingHorizontal: spacing[4],
         paddingVertical: spacing[3],
       }}
     >
-      {onBack && (
-        <AnimatedPressable
-          onPress={onBack}
-          testID={testID ? `${testID}-back` : undefined}
-          style={{ marginRight: spacing[2] }}
-        >
-          <ArrowLeft size={24} color={colors.iconBrand} />
-        </AnimatedPressable>
-      )}
-      <Text
-        testID={testID ? `${testID}-title` : undefined}
-        style={{
-          ...typography.xl,
-          fontWeight: typography.weight.bold,
-          color: colors.textPrimary,
-          flex: 1,
-        }}
-      >
-        {title}
-      </Text>
-      {rightContent}
+      <View style={{ flex: 1 }}>
+        <Text style={{ ...typePresets.heading, color: colors.text }}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text
+            style={{
+              ...typePresets.bodySmall,
+              color: colors.textSecondary,
+              marginTop: spacing[1],
+            }}
+          >
+            {subtitle}
+          </Text>
+        )}
+      </View>
+      {rightAction && <View style={{ marginLeft: spacing[3] }}>{rightAction}</View>}
     </View>
-  )
+  );
 }

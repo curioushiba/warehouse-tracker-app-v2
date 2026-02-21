@@ -20,12 +20,6 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/admin/notifications": { title: "Notifications", subtitle: "Alerts and updates" },
   "/admin/help": { title: "Help & Support", subtitle: "Documentation and resources" },
   "/admin/sync-errors": { title: "Sync Errors", subtitle: "Failed offline transactions" },
-  "/admin/frozengoods/items": { title: "Frozen Goods", subtitle: "Manage frozen inventory items" },
-  "/admin/frozengoods/items/new": { title: "New Frozen Good", subtitle: "Add a new frozen goods item" },
-  "/admin/frozengoods/transactions": { title: "Frozen Goods Transactions", subtitle: "View frozen goods movements" },
-  "/admin/commissary/items": { title: "Commissary", subtitle: "Manage commissary items" },
-  "/admin/commissary/items/new": { title: "New Commissary Item", subtitle: "Add a new commissary item" },
-  "/admin/commissary/transactions": { title: "Commissary Transactions", subtitle: "View commissary movements" },
 };
 
 export default function AdminLayoutWrapper({

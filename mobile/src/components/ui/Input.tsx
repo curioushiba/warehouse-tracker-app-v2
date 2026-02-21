@@ -1,129 +1,109 @@
-import React, { useState, forwardRef } from 'react'
-import { View, TextInput, Text, type TextInputProps } from 'react-native'
-import { useTheme } from '@/theme'
-
-export type InputSize = 'sm' | 'md' | 'lg'
-
-const SIZE_HEIGHTS: Record<InputSize, number> = {
-  sm: 36,
-  md: 44,
-  lg: 52,
-}
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  type TextInputProps,
+  type ViewStyle,
+} from 'react-native';
+import { useTheme } from '@/theme/ThemeContext';
 
 export interface InputProps {
-  placeholder?: string
-  onChangeText: (text: string) => void
-  value: string
-  error?: string
-  label?: string
-  leftIcon?: React.ReactNode
-  rightIcon?: React.ReactNode
-  disabled?: boolean
-  secureTextEntry?: boolean
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
-  returnKeyType?: TextInputProps['returnKeyType']
-  onSubmitEditing?: TextInputProps['onSubmitEditing']
-  size?: InputSize
-  testID?: string
+  label?: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  error?: string;
+  icon?: React.ReactNode;
+  keyboardType?: TextInputProps['keyboardType'];
+  secureTextEntry?: boolean;
+  multiline?: boolean;
+  disabled?: boolean;
 }
 
-export const Input = forwardRef<TextInput, InputProps>(function Input(
-  {
-    placeholder,
-    onChangeText,
-    value,
-    error,
-    label,
-    leftIcon,
-    rightIcon,
-    disabled = false,
-    secureTextEntry = false,
-    autoCapitalize,
-    returnKeyType,
-    onSubmitEditing,
-    size = 'md',
-    testID,
-  },
-  ref
-) {
-  const { colors, spacing, radii, typography } = useTheme()
-  const [isFocused, setIsFocused] = useState(false)
+export function Input({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  error,
+  icon,
+  keyboardType,
+  secureTextEntry,
+  multiline,
+  disabled,
+}: InputProps) {
+  const { colors, spacing, radii, typePresets, fontFamily } = useTheme();
+  const [focused, setFocused] = useState(false);
+
+  const handleFocus = useCallback(() => setFocused(true), []);
+  const handleBlur = useCallback(() => setFocused(false), []);
 
   const borderColor = error
     ? colors.error
-    : isFocused
-      ? colors.borderFocus
-      : colors.borderPrimary
+    : focused
+      ? colors.borderAccent
+      : colors.border;
 
-  const height = SIZE_HEIGHTS[size]
+  const inputContainerStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor,
+    borderRadius: radii.md,
+    backgroundColor: disabled ? colors.surfaceSecondary : colors.surface,
+    paddingHorizontal: spacing[3],
+    minHeight: multiline ? 100 : 44,
+  };
 
   return (
-    <View style={{ width: '100%' }}>
-      {label ? (
+    <View style={{ gap: spacing[1] }}>
+      {label && (
         <Text
           style={{
-            fontSize: typography.base.fontSize,
-            lineHeight: typography.base.lineHeight,
-            fontWeight: typography.weight.medium,
-            color: colors.textPrimary,
+            ...typePresets.label,
+            color: colors.text,
             marginBottom: spacing[1],
           }}
-          testID={testID ? `${testID}-label` : 'input-label'}
         >
           {label}
         </Text>
-      ) : null}
-      <View
-        testID={testID ? `${testID}-wrapper` : 'input-wrapper'}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderWidth: 1,
-          borderColor,
-          borderRadius: radii.lg,
-          backgroundColor: colors.surfacePrimary,
-          paddingHorizontal: spacing[3],
-          height,
-        }}
-      >
-        {leftIcon && <View style={{ marginRight: spacing[2] }}>{leftIcon}</View>}
+      )}
+      <View style={inputContainerStyle}>
+        {icon && <View style={{ marginRight: spacing[2] }}>{icon}</View>}
         <TextInput
-          ref={ref}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textTertiary}
+          keyboardType={keyboardType}
+          secureTextEntry={secureTextEntry}
+          multiline={multiline}
+          editable={!disabled}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          textAlignVertical={multiline ? 'top' : 'center'}
           style={{
             flex: 1,
-            fontSize: typography.base.fontSize,
-            lineHeight: typography.base.lineHeight,
-            color: colors.textPrimary,
-            padding: 0,
+            color: colors.text,
+            fontFamily: fontFamily.body,
+            fontSize: typePresets.body.fontSize,
+            lineHeight: typePresets.body.lineHeight,
+            paddingVertical: spacing[2],
           }}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textPlaceholder}
-          onChangeText={onChangeText}
-          value={value}
-          editable={!disabled}
-          secureTextEntry={secureTextEntry}
-          autoCapitalize={autoCapitalize}
-          returnKeyType={returnKeyType}
-          onSubmitEditing={onSubmitEditing}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          testID={testID}
         />
-        {rightIcon && <View style={{ marginLeft: spacing[2] }}>{rightIcon}</View>}
       </View>
-      {error ? (
+      {error && (
         <Text
           style={{
-            color: colors.errorText,
-            fontSize: typography.sm.fontSize,
-            lineHeight: typography.sm.lineHeight,
+            ...typePresets.caption,
+            color: colors.error,
             marginTop: spacing[1],
           }}
-          testID={testID ? `${testID}-error` : 'input-error'}
         >
           {error}
         </Text>
-      ) : null}
+      )}
     </View>
-  )
-})
+  );
+}

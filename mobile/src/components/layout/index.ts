@@ -1,5 +1,2 @@
-export { MobileHeader } from './MobileHeader'
-export type { MobileHeaderProps } from './MobileHeader'
-
-export { TabBar } from './TabBar'
-export type { TabBarProps, TabItem } from './TabBar'
+export { ScreenHeader, type ScreenHeaderProps } from './ScreenHeader';
+export { SectionHeader, type SectionHeaderProps } from './SectionHeader';

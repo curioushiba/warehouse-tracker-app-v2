@@ -1,68 +1,43 @@
-import React from 'react'
-import { View, type ViewStyle } from 'react-native'
-import type { CardVariant } from '@/types'
-import { useTheme, CARD_PRESS } from '@/theme'
-import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
+import React from 'react';
+import { View, type ViewStyle } from 'react-native';
+import { useTheme } from '@/theme/ThemeContext';
+
+export type CardVariant = 'default' | 'elevated' | 'outlined';
 
 export interface CardProps {
-  children: React.ReactNode
-  variant?: CardVariant
-  compact?: boolean
-  noPadding?: boolean
-  onPress?: () => void
-  testID?: string
+  children: React.ReactNode;
+  style?: ViewStyle;
+  variant?: CardVariant;
 }
 
-export function Card({
-  children,
-  variant = 'elevated',
-  compact = false,
-  noPadding = false,
-  onPress,
-  testID,
-}: CardProps) {
-  const { colors, shadows, radii, spacing } = useTheme()
+export function Card({ children, style, variant = 'default' }: CardProps) {
+  const { colors, radii, spacing, shadows } = useTheme();
+
+  const baseStyle: ViewStyle = {
+    borderRadius: radii.lg,
+    padding: spacing[4],
+  };
 
   const variantStyles: Record<CardVariant, ViewStyle> = {
+    default: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
     elevated: {
-      backgroundColor: colors.surfaceElevated,
+      backgroundColor: colors.surface,
       ...shadows.md,
     },
-    outline: {
-      backgroundColor: colors.surfacePrimary,
-      borderWidth: 1,
-      borderColor: colors.borderSubtle,
+    outlined: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.border,
     },
-    filled: {
-      backgroundColor: colors.surfaceSecondary,
-    },
-    unstyled: {},
-  }
-
-  const padding = noPadding ? 0 : compact ? spacing[3] : spacing[4]
-
-  const cardStyle: ViewStyle = {
-    borderRadius: radii.lg,
-    padding,
-    ...variantStyles[variant],
-  }
-
-  if (onPress) {
-    return (
-      <AnimatedPressable
-        style={cardStyle}
-        onPress={onPress}
-        scaleValue={CARD_PRESS.toValue}
-        testID={testID}
-      >
-        {children}
-      </AnimatedPressable>
-    )
-  }
+  };
 
   return (
-    <View style={cardStyle} testID={testID}>
+    <View style={[baseStyle, variantStyles[variant], style]}>
       {children}
     </View>
-  )
+  );
 }

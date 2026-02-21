@@ -1,61 +1,55 @@
-import React from 'react'
-import { View, Text } from 'react-native'
-import { useTheme } from '@/theme'
-import { Button } from '@/components/ui/Button'
+import React from 'react';
+import { View, Text } from 'react-native';
+import { useTheme } from '@/theme/ThemeContext';
+import { Button } from './Button';
 
-interface EmptyStateProps {
-  icon: React.ReactNode
-  title: string
-  message: string
-  action?: { label: string; onPress: () => void }
-  testID?: string
+export interface EmptyStateProps {
+  icon: React.ReactNode;
+  title: string;
+  message: string;
+  action?: { label: string; onPress: () => void };
 }
 
-export function EmptyState({ icon, title, message, action, testID }: EmptyStateProps) {
-  const { colors, spacing, typography } = useTheme()
+export function EmptyState({ icon, title, message, action }: EmptyStateProps) {
+  const { colors, spacing, typePresets } = useTheme();
 
   return (
     <View
-      testID={testID}
       style={{
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: spacing[6],
+        padding: spacing[8],
       }}
     >
       <View style={{ marginBottom: spacing[4] }}>{icon}</View>
       <Text
-        testID={testID ? `${testID}-title` : undefined}
         style={{
-          ...typography.xl,
-          fontWeight: typography.weight.semibold,
-          color: colors.textSecondary,
+          ...typePresets.title,
+          color: colors.text,
+          textAlign: 'center',
           marginBottom: spacing[2],
         }}
       >
         {title}
       </Text>
       <Text
-        testID={testID ? `${testID}-message` : undefined}
         style={{
-          ...typography.base,
-          color: colors.textTertiary,
+          ...typePresets.body,
+          color: colors.textSecondary,
           textAlign: 'center',
+          marginBottom: spacing[6],
         }}
       >
         {message}
       </Text>
       {action && (
-        <View style={{ marginTop: spacing[4] }}>
-          <Button
-            label={action.label}
-            onPress={action.onPress}
-            variant="primary"
-            size="md"
-            testID={testID ? `${testID}-action` : undefined}
-          />
-        </View>
+        <Button
+          variant="primary"
+          title={action.label}
+          onPress={action.onPress}
+        />
       )}
     </View>
-  )
+  );
 }

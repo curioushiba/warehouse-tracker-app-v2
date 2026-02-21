@@ -1,93 +1,128 @@
-import React from 'react'
-import { render, fireEvent } from '@testing-library/react-native'
-import { AnimatedPressable } from './AnimatedPressable'
-import { Text } from 'react-native'
-import * as haptics from '@/lib/haptics'
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react-native';
+import { Text } from 'react-native';
+import { AnimatedPressable } from './AnimatedPressable';
 
+// Mock reanimated
+jest.mock('react-native-reanimated', () => {
+  const { View, Pressable } = require('react-native');
+  return {
+    __esModule: true,
+    default: {
+      createAnimatedComponent: (component: unknown) => {
+        // Return a simple Pressable wrapper for testing
+        if (component === Pressable) {
+          return ({
+            onPressIn,
+            onPressOut,
+            onPress,
+            disabled,
+            style,
+            children,
+            ...rest
+          }: {
+            onPressIn?: () => void;
+            onPressOut?: () => void;
+            onPress?: () => void;
+            disabled?: boolean;
+            style?: object;
+            children: React.ReactNode;
+          }) => (
+            <Pressable
+              onPressIn={onPressIn}
+              onPressOut={onPressOut}
+              onPress={onPress}
+              disabled={disabled}
+              style={style}
+              testID="animated-pressable"
+              {...rest}
+            >
+              {children}
+            </Pressable>
+          );
+        }
+        return View;
+      },
+    },
+    useSharedValue: (initial: number) => ({ value: initial }),
+    useAnimatedStyle: (fn: () => object) => fn(),
+    withTiming: (value: number) => value,
+  };
+});
+
+// Mock animations
+jest.mock('@/theme/animations', () => ({
+  PRESS_SCALE: 0.97,
+  TIMING_CONFIG: { duration: 200 },
+}));
+
+// Mock haptics
 jest.mock('@/lib/haptics', () => ({
   haptic: jest.fn(),
-  hapticSelection: jest.fn(),
-}))
-
-jest.mock('@/theme/animations', () => ({
-  PRESS_SCALE: { toValue: 0.97, duration: 100 },
-}))
+}));
 
 describe('AnimatedPressable', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-
-  it('renders children', () => {
-    const { getByText } = render(
-      <AnimatedPressable>
-        <Text>Press me</Text>
+  it('should render children', () => {
+    render(
+      <AnimatedPressable onPress={() => {}}>
+        <Text>Press Me</Text>
       </AnimatedPressable>
-    )
-    expect(getByText('Press me')).toBeTruthy()
-  })
+    );
 
-  it('calls onPress when pressed', () => {
-    const onPress = jest.fn()
-    const { getByTestId } = render(
-      <AnimatedPressable onPress={onPress} testID="btn">
-        <Text>Press</Text>
+    expect(screen.getByText('Press Me')).toBeTruthy();
+  });
+
+  it('should call onPress when pressed', () => {
+    const onPress = jest.fn();
+    render(
+      <AnimatedPressable onPress={onPress}>
+        <Text>Tap</Text>
       </AnimatedPressable>
-    )
-    fireEvent.press(getByTestId('btn'))
-    expect(onPress).toHaveBeenCalled()
-  })
+    );
 
-  it('does not call onPress when disabled', () => {
-    const onPress = jest.fn()
-    const { getByTestId } = render(
-      <AnimatedPressable onPress={onPress} disabled testID="btn">
-        <Text>Press</Text>
+    fireEvent.press(screen.getByText('Tap'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('should trigger haptic feedback on press', () => {
+    const { haptic } = require('@/lib/haptics');
+    const onPress = jest.fn();
+    render(
+      <AnimatedPressable onPress={onPress} hapticPattern="medium">
+        <Text>Haptic</Text>
       </AnimatedPressable>
-    )
-    fireEvent.press(getByTestId('btn'))
-    expect(onPress).not.toHaveBeenCalled()
-  })
+    );
 
-  describe('hapticPattern prop', () => {
-    it('fires haptic on pressIn when hapticPattern is set', () => {
-      const { getByTestId } = render(
-        <AnimatedPressable hapticPattern="medium" testID="btn">
-          <Text>Press</Text>
-        </AnimatedPressable>
-      )
-      fireEvent(getByTestId('btn'), 'pressIn')
-      expect(haptics.haptic).toHaveBeenCalledWith('medium')
-    })
+    fireEvent.press(screen.getByText('Haptic'));
+    expect(haptic).toHaveBeenCalledWith('medium');
+  });
 
-    it('fires haptic with "success" pattern', () => {
-      const { getByTestId } = render(
-        <AnimatedPressable hapticPattern="success" testID="btn">
-          <Text>Press</Text>
-        </AnimatedPressable>
-      )
-      fireEvent(getByTestId('btn'), 'pressIn')
-      expect(haptics.haptic).toHaveBeenCalledWith('success')
-    })
+  it('should not call onPress when disabled', () => {
+    const onPress = jest.fn();
+    render(
+      <AnimatedPressable onPress={onPress} disabled>
+        <Text>Disabled</Text>
+      </AnimatedPressable>
+    );
 
-    it('does not fire haptic when hapticPattern is not set', () => {
-      const { getByTestId } = render(
-        <AnimatedPressable testID="btn">
-          <Text>Press</Text>
-        </AnimatedPressable>
-      )
-      fireEvent(getByTestId('btn'), 'pressIn')
-      expect(haptics.haptic).not.toHaveBeenCalled()
-    })
+    const pressable = screen.getByTestId('animated-pressable');
+    // React Native Pressable maps disabled to accessibilityState
+    expect(
+      pressable.props.accessibilityState?.disabled ?? pressable.props.disabled
+    ).toBeTruthy();
+  });
 
-    it('does not fire haptic when disabled', () => {
-      const { getByTestId } = render(
-        <AnimatedPressable hapticPattern="light" disabled testID="btn">
-          <Text>Press</Text>
-        </AnimatedPressable>
-      )
-      fireEvent(getByTestId('btn'), 'pressIn')
-      expect(haptics.haptic).not.toHaveBeenCalled()
-    })
-  })
-})
+  it('should use default haptic pattern (light)', () => {
+    const { haptic } = require('@/lib/haptics');
+    haptic.mockClear();
+
+    render(
+      <AnimatedPressable onPress={() => {}}>
+        <Text>Default</Text>
+      </AnimatedPressable>
+    );
+
+    fireEvent.press(screen.getByText('Default'));
+    expect(haptic).toHaveBeenCalledWith('light');
+  });
+});

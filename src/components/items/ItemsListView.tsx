@@ -108,7 +108,7 @@ function getPageNumbers(current: number, total: number): (number | "ellipsis")[]
 export interface ItemsListViewProps {
   /** Pre-set category filter (hides category dropdown when set) */
   lockedCategoryId?: string;
-  /** Base path for links (e.g. "/admin/items" or "/admin/frozengoods/items") */
+  /** Base path for links (e.g. "/admin/items") */
   basePath: string;
   /** Label for the section (used in exports, empty states) */
   sectionLabel: string;

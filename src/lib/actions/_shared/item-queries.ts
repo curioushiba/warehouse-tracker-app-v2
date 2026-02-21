@@ -8,36 +8,17 @@ import { type ActionResult, type PaginatedResult, success, failure, paginatedSuc
 // ---------------------------------------------------------------------------
 
 export interface DomainConfig {
-  itemsTable: 'inv_items' | 'fg_items' | 'cm_items'
-  transactionsTable: 'inv_transactions' | 'fg_transactions' | 'cm_transactions'
-  submitRpc: 'submit_transaction' | 'submit_fg_transaction' | 'submit_cm_transaction'
+  itemsTable: 'inv_items'
+  transactionsTable: 'inv_transactions'
+  submitRpc: 'submit_transaction'
   revalidatePaths: string[]
 }
-
-// SAFETY NOTE: All queries use `.from(domain.itemsTable as 'inv_items')` to satisfy
-// Supabase's typed client. This works because fg_items and inv_items share identical
-// Row/Insert/Update shapes. If schemas ever diverge, these casts will silently hide
-// type mismatches — at that point, use a generic/union approach instead.
 
 export const INV_DOMAIN: DomainConfig = {
   itemsTable: 'inv_items',
   transactionsTable: 'inv_transactions',
   submitRpc: 'submit_transaction',
   revalidatePaths: ['/items', '/admin/items'],
-}
-
-export const FG_DOMAIN: DomainConfig = {
-  itemsTable: 'fg_items',
-  transactionsTable: 'fg_transactions',
-  submitRpc: 'submit_fg_transaction',
-  revalidatePaths: ['/admin/frozengoods/items'],
-}
-
-export const CM_DOMAIN: DomainConfig = {
-  itemsTable: 'cm_items',
-  transactionsTable: 'cm_transactions',
-  submitRpc: 'submit_cm_transaction',
-  revalidatePaths: ['/admin/commissary/items'],
 }
 
 // ---------------------------------------------------------------------------

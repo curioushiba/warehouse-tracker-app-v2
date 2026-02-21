@@ -1,30 +1,30 @@
-import * as Haptics from 'expo-haptics'
+import * as Haptics from 'expo-haptics';
 
-export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error'
+export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';
 
-export function haptic(pattern: HapticPattern): void {
+export function haptic(pattern: HapticPattern = 'light'): void {
   switch (pattern) {
     case 'light':
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-      break
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      break;
     case 'medium':
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {})
-      break
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      break;
     case 'heavy':
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {})
-      break
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      break;
     case 'success':
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
-      break
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      break;
     case 'warning':
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
-      break
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      break;
     case 'error':
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
-      break
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      break;
   }
 }
 
 export function hapticSelection(): void {
-  Haptics.selectionAsync().catch(() => {})
+  void Haptics.selectionAsync();
 }

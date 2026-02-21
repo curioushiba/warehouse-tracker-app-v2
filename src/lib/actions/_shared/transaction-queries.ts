@@ -30,7 +30,7 @@ const DEFAULT_ADMIN_PAGE_SIZE = 25
 /**
  * Get transactions with server-side pagination, filtering, and search.
  * Optimized for admin list views with large datasets.
- * Accepts a DomainConfig so the same logic works for inv, fg, and cm domains.
+ * Accepts a DomainConfig so the same logic works for the inv domain.
  */
 export async function getTransactionsWithDetailsPaginatedImpl(
   domain: DomainConfig,
@@ -153,7 +153,7 @@ const DEFAULT_EMPLOYEE_PAGE_SIZE = 20
  * Returns transactions for a specific user with item name/sku/unit joined,
  * avoiding the need to fetch all items separately.
  *
- * Accepts a DomainConfig so the same logic works for both inv and fg domains.
+ * Accepts a DomainConfig so the same logic works for the inv domain.
  */
 export async function getEmployeeTransactionsWithItemsImpl(
   domain: DomainConfig,
@@ -162,8 +162,8 @@ export async function getEmployeeTransactionsWithItemsImpl(
 ): Promise<ActionResult<EmployeeTransactionWithItem[]>> {
   const supabase = await createClient()
 
-  // PostgREST resolves `item:<table>(...)` via the FK: fg_transactions.item_id -> fg_items.id
-  // (or inv_transactions.item_id -> inv_items.id). If FK or table names change, update this.
+  // PostgREST resolves `item:<table>(...)` via the FK: inv_transactions.item_id -> inv_items.id.
+  // If FK or table names change, update this.
   const selectWithItem = `*, item:${domain.itemsTable}(name, sku, unit)`
 
   let query = supabase
@@ -198,7 +198,7 @@ export async function getEmployeeTransactionsWithItemsImpl(
  * Paginated employee transactions with item details.
  * Returns data, hasMore flag, and total count for efficient pagination.
  *
- * Accepts a DomainConfig so the same logic works for both inv and fg domains.
+ * Accepts a DomainConfig so the same logic works for the inv domain.
  */
 export async function getEmployeeTransactionsWithItemsPaginatedImpl(
   domain: DomainConfig,

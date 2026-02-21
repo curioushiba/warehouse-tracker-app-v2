@@ -1,66 +1,47 @@
-import React, { useEffect } from 'react'
-import { Stack, Redirect } from 'expo-router'
-import { SQLiteProvider } from 'expo-sqlite'
-import * as BackgroundFetch from 'expo-background-fetch'
-import * as TaskManager from 'expo-task-manager'
-import { useAuth } from '@/contexts/AuthContext'
-import { useDomain } from '@/contexts/DomainContext'
-import { BatchScanProvider } from '@/contexts/BatchScanContext'
-import { useDeviceType } from '@/hooks/useDeviceType'
-import { BACKGROUND_SYNC_TASK } from '@/lib/sync/backgroundTask'
-import { BACKGROUND_FETCH_INTERVAL } from '@/lib/constants'
-import { runMigrations } from '@/lib/db'
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Redirect, Stack } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/theme/ThemeContext';
 
 export default function AppLayout() {
-  const { isAuthenticated, isLoading } = useAuth()
-  const { domainId } = useDomain()
-  const _deviceType = useDeviceType() // TODO: use for tablet sidebar layout
+  const { user, loading } = useAuth();
+  const { colors } = useTheme();
 
-  // Register/unregister background sync task
-  useEffect(() => {
-    async function registerBackgroundFetch() {
-      try {
-        await BackgroundFetch.registerTaskAsync(BACKGROUND_SYNC_TASK, {
-          minimumInterval: BACKGROUND_FETCH_INTERVAL,
-          stopOnTerminate: false,
-          startOnBoot: true,
-        })
-      } catch {
-        // Background fetch not available (e.g. simulator)
-      }
-    }
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
-    registerBackgroundFetch()
-
-    return () => {
-      BackgroundFetch.unregisterTaskAsync(BACKGROUND_SYNC_TASK).catch(() => { })
-    }
-  }, [])
-
-  if (isLoading) return null
-  if (!isAuthenticated) return <Redirect href="/(auth)/login" />
-  if (!domainId) return <Redirect href="/domain-picker" />
+  if (!user) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
-    <SQLiteProvider databaseName="packtrack.db" onInit={async (db) => {
-      try {
-        runMigrations(db)
-      } catch (e) {
-        console.error('SQLite migration failed:', e)
-        throw e
-      }
-    }}>
-      <BatchScanProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            animationDuration: 250,
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-        </Stack>
-      </BatchScanProvider>
-    </SQLiteProvider>
-  )
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen
+        name="batch-review"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="transaction/[id]"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="sync-errors"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+    </Stack>
+  );
 }

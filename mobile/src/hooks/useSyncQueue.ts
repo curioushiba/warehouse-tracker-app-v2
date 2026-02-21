@@ -1,253 +1,178 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { randomUUID } from 'expo-crypto'
-import { createClient } from '@/lib/supabase/client'
-import { DOMAIN_CONFIGS, type DomainId } from '@/lib/domain-config'
-import {
-  addToQueue,
-  getQueuedTransactions,
-  getQueueCount,
-  removeFromQueue,
-  incrementRetryCount,
-} from '@/lib/db/transaction-queue'
-import { MAX_RETRY_COUNT, SYNC_INTERVAL_MS, TRANSACTION_TIMEOUT_MS } from '@/lib/constants'
-import type { QueuedTransaction } from '@/types/offline'
-
-// --- Types ---
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import type { AppStateStatus } from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { getPendingCount, getSyncMetadata } from '@/lib/db/operations';
+import { processQueue, refreshItemCache } from '@/lib/sync/sync';
+import { checkOnlineStatus } from '@/lib/sync/online-status';
 
 export interface SyncQueueState {
-  queueCount: number
-  isSyncing: boolean
-  lastSyncTime: Date | null
-  lastError: string | null
+  pendingCount: number;
+  isSyncing: boolean;
+  lastSyncTime: string | null;
+  error: string | null;
 }
 
-export interface SyncQueueManager {
-  queueTransaction: (params: QueueTransactionParams) => string
-  syncQueue: () => Promise<void>
-  refreshCount: () => void
+export interface SyncQueueActions {
+  syncNow: () => Promise<void>;
+  refreshCache: () => Promise<void>;
 }
 
-export interface QueueTransactionParams {
-  transactionType: 'in' | 'out' | 'adjustment'
-  itemId: string
-  quantity: number
-  notes?: string
-  sourceLocationId?: string
-  destinationLocationId?: string
-}
+export type UseSyncQueueReturn = SyncQueueState & SyncQueueActions;
 
-export interface UseSyncQueueReturn extends SyncQueueState {
-  queueTransaction: (params: QueueTransactionParams) => string
-  syncQueue: () => Promise<void>
-}
+/**
+ * Core sync-queue manager extracted as a pure-logic factory for testability.
+ * The React hook `useSyncQueue` is a thin wrapper around this.
+ */
+export function createSyncQueueManager(deps: {
+  getDb: () => import('expo-sqlite').SQLiteDatabase;
+  getSupabase: () => import('@supabase/supabase-js').SupabaseClient;
+  getUserId: () => string | undefined;
+  checkOnline: () => Promise<boolean>;
+  onStateChange: (patch: Partial<SyncQueueState>) => void;
+  getState: () => SyncQueueState;
+}) {
+  const { getDb, getSupabase, getUserId, checkOnline, onStateChange, getState } = deps;
 
-// --- Pure logic (testable) ---
-
-export function createSyncQueueManager(
-  db: unknown,
-  userId: string | null,
-  domainId: DomainId | null,
-  isOnline: boolean,
-  setState: (partial: Partial<SyncQueueState>) => void,
-  getState: () => SyncQueueState
-): SyncQueueManager {
-  const supabase = createClient()
-  let syncLock = false
-
-  function refreshCount() {
+  function refreshCount(): void {
     try {
-      const count = getQueueCount(db as never)
-      setState({ queueCount: count })
+      const count = getPendingCount(getDb());
+      onStateChange({ pendingCount: count });
     } catch {
-      // Ignore errors
+      // DB may not be ready yet
     }
   }
 
-  function queueTransaction(params: QueueTransactionParams): string {
-    if (!userId) throw new Error('User not authenticated')
-    if (!domainId) throw new Error('No domain selected')
-
-    const id = randomUUID()
-    const idempotencyKey = randomUUID()
-    const now = new Date().toISOString()
-
-    addToQueue(db as never, {
-      id,
-      transactionType: params.transactionType,
-      itemId: params.itemId,
-      quantity: params.quantity,
-      notes: params.notes ?? '',
-      sourceLocationId: params.sourceLocationId ?? '',
-      destinationLocationId: params.destinationLocationId ?? '',
-      deviceTimestamp: now,
-      idempotencyKey,
-      userId,
-      retryCount: 0,
-      lastError: null,
-      createdAt: now,
-      domain: domainId,
-    })
-
-    refreshCount()
-
-    // Trigger immediate sync if online
-    if (isOnline) {
-      syncQueue().catch(() => {})
+  function readLastSyncTime(): void {
+    try {
+      const time = getSyncMetadata(getDb(), 'last_sync_time');
+      onStateChange({ lastSyncTime: time });
+    } catch {
+      // DB may not be ready yet
     }
-
-    return id
   }
 
-  async function syncQueue(): Promise<void> {
-    if (syncLock) return
-    if (!isOnline || !userId) return
+  async function syncNow(): Promise<void> {
+    const userId = getUserId();
+    if (!userId) return;
 
-    syncLock = true
-    setState({ isSyncing: true })
+    const state = getState();
+    if (state.isSyncing) return;
+
+    const online = await checkOnline();
+    if (!online) {
+      onStateChange({ error: 'Device is offline' });
+      return;
+    }
+
+    onStateChange({ isSyncing: true, error: null });
 
     try {
-      const transactions = getQueuedTransactions(db as never)
-      if (transactions.length === 0) {
-        setState({ isSyncing: false, lastSyncTime: new Date() })
-        return
-      }
+      const result = await processQueue(getDb(), getSupabase(), userId);
+      const now = new Date().toISOString();
 
-      for (const tx of transactions) {
-        await processTransaction(tx)
-      }
-
-      refreshCount()
-      setState({ isSyncing: false, lastSyncTime: new Date(), lastError: null })
-    } catch (err) {
-      setState({
-        isSyncing: false,
-        lastError: err instanceof Error ? err.message : 'Sync failed',
-      })
-    } finally {
-      syncLock = false
-    }
-  }
-
-  async function processTransaction(tx: QueuedTransaction): Promise<void> {
-    const domain = tx.domain as DomainId
-    const config = DOMAIN_CONFIGS[domain]
-    if (!config) return
-
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), TRANSACTION_TIMEOUT_MS)
-
-      const { error } = await supabase.rpc(config.rpcSubmitTransaction, {
-        p_id: tx.id,
-        p_item_id: tx.itemId,
-        p_transaction_type: tx.transactionType,
-        p_quantity: tx.quantity,
-        p_notes: tx.notes,
-        p_idempotency_key: tx.idempotencyKey,
-        p_device_timestamp: tx.deviceTimestamp,
-      }, { signal: controller.signal })
-
-      clearTimeout(timeout)
-
-      if (error) {
-        await handleTransactionError(tx, error.message)
-      } else {
-        removeFromQueue(db as never, tx.id)
-      }
-    } catch (err) {
-      await handleTransactionError(
-        tx,
-        err instanceof Error ? err.message : 'Unknown error'
-      )
-    }
-  }
-
-  async function handleTransactionError(tx: QueuedTransaction, errorMsg: string): Promise<void> {
-    const newRetryCount = tx.retryCount + 1
-    if (newRetryCount >= MAX_RETRY_COUNT) {
-      // Move to sync_errors table
       try {
-        await supabase.from('inv_sync_errors').insert({
-          transaction_data: tx,
-          error_message: errorMsg,
-          user_id: userId,
-        })
+        const { setSyncMetadata: setMeta } = await import('@/lib/db/operations');
+        setMeta(getDb(), 'last_sync_time', now);
       } catch {
-        // Ignore insert error
+        // Non-critical
       }
-      removeFromQueue(db as never, tx.id)
-    } else {
-      incrementRetryCount(db as never, tx.id, errorMsg)
+
+      const errorMsg =
+        result.failed > 0
+          ? `${result.failed} transaction(s) failed to sync`
+          : null;
+
+      onStateChange({
+        isSyncing: false,
+        lastSyncTime: now,
+        error: errorMsg,
+        pendingCount: getPendingCount(getDb()),
+      });
+    } catch (err) {
+      onStateChange({
+        isSyncing: false,
+        error: err instanceof Error ? err.message : 'Sync failed',
+      });
     }
   }
 
-  return { queueTransaction, syncQueue, refreshCount }
+  async function refreshCache(): Promise<void> {
+    const online = await checkOnline();
+    if (!online) {
+      onStateChange({ error: 'Device is offline' });
+      return;
+    }
+
+    try {
+      await refreshItemCache(getDb(), getSupabase());
+      onStateChange({ error: null });
+    } catch (err) {
+      onStateChange({
+        error: err instanceof Error ? err.message : 'Cache refresh failed',
+      });
+    }
+  }
+
+  return { refreshCount, readLastSyncTime, syncNow, refreshCache };
 }
 
-// --- React hook ---
+/**
+ * React hook that manages offline transaction queue sync.
+ *
+ * - Automatically syncs when the app returns to the foreground.
+ * - Exposes `syncNow` for manual trigger and `refreshCache` for item cache updates.
+ * - Tracks pending count, syncing state, last sync time, and errors.
+ */
+export function useSyncQueue(): UseSyncQueueReturn {
+  const db = useSQLiteContext();
+  const { user } = useAuth();
 
-export function useSyncQueue(
-  db: unknown,
-  userId: string | null,
-  domainId: DomainId | null,
-  isOnline: boolean
-): UseSyncQueueReturn {
-  const [state, setSyncState] = useState<SyncQueueState>({
-    queueCount: 0,
+  const [state, setState] = useState<SyncQueueState>({
+    pendingCount: 0,
     isSyncing: false,
     lastSyncTime: null,
-    lastError: null,
-  })
+    error: null,
+  });
 
-  const stateRef = useRef(state)
-  stateRef.current = state
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
-  const managerRef = useRef<SyncQueueManager | null>(null)
+  const manager = useRef(
+    createSyncQueueManager({
+      getDb: () => db,
+      getSupabase: () => supabase,
+      getUserId: () => user?.id,
+      checkOnline: checkOnlineStatus,
+      onStateChange: (patch) =>
+        setState((prev) => ({ ...prev, ...patch })),
+      getState: () => stateRef.current,
+    }),
+  ).current;
 
-  // Recreate manager when dependencies change
+  // Load initial state
   useEffect(() => {
-    managerRef.current = createSyncQueueManager(
-      db,
-      userId,
-      domainId,
-      isOnline,
-      (partial) => setSyncState(prev => ({ ...prev, ...partial })),
-      () => stateRef.current
-    )
-    managerRef.current.refreshCount()
-  }, [db, userId, domainId, isOnline])
+    manager.refreshCount();
+    manager.readLastSyncTime();
+  }, [manager]);
 
-  // Periodic sync
+  // Auto-sync when app comes to foreground
   useEffect(() => {
-    if (!isOnline || !userId || state.queueCount === 0) return
-    const interval = setInterval(() => {
-      managerRef.current?.syncQueue()
-    }, SYNC_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [isOnline, userId, state.queueCount])
-
-  // Sync on reconnect
-  const wasOfflineRef = useRef(!isOnline)
-  useEffect(() => {
-    if (isOnline && wasOfflineRef.current && state.queueCount > 0) {
-      managerRef.current?.syncQueue()
+    function handleAppStateChange(nextState: AppStateStatus): void {
+      if (nextState === 'active' && user?.id) {
+        manager.refreshCount();
+        void manager.syncNow();
+      }
     }
-    wasOfflineRef.current = !isOnline
-  }, [isOnline, state.queueCount])
 
-  const queueTransaction = useCallback(
-    (params: QueueTransactionParams) => managerRef.current!.queueTransaction(params),
-    []
-  )
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [manager, user?.id]);
 
-  const syncQueue = useCallback(
-    () => managerRef.current!.syncQueue(),
-    []
-  )
+  const syncNow = useCallback(() => manager.syncNow(), [manager]);
+  const refreshCache = useCallback(() => manager.refreshCache(), [manager]);
 
-  return {
-    ...state,
-    queueTransaction,
-    syncQueue,
-  }
+  return { ...state, syncNow, refreshCache };
 }

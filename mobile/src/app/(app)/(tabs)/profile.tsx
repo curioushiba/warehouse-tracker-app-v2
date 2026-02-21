@@ -1,333 +1,374 @@
-import React, { useState, useMemo } from 'react'
+import React, { useCallback } from 'react';
+import { View, Text, ScrollView, Switch, Alert } from 'react-native';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  View,
-  Text,
-  ScrollView,
-} from 'react-native'
-import { useRouter } from 'expo-router'
-import { useSQLiteContext } from 'expo-sqlite'
-import { ChevronRight, LogOut } from 'lucide-react-native'
-import Constants from 'expo-constants'
-import { useAuth } from '@/contexts/AuthContext'
-import { useDomain } from '@/contexts/DomainContext'
-import { useSettings } from '@/contexts/SettingsContext'
-import { useSyncQueue } from '@/hooks/useSyncQueue'
-import { useSyncErrorCount } from '@/hooks/useSyncErrorCount'
-import { useTheme } from '@/theme'
-import { getDisplayName } from '@/lib/display-name'
-import { getAllQueueCounts } from '@/lib/db/queue-counts'
-import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Modal } from '@/components/ui/Modal'
-import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import { SectionHeader } from '@/components/ui/SectionHeader'
-import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
-import type { ThemeMode } from '@/lib/storage/storage'
+  UserCircle,
+  RefreshCw,
+  Settings,
+  LogOut,
+  Moon,
+  Sun,
+  Monitor,
+  Bell,
+  DollarSign,
+  AlertCircle,
+  ChevronRight,
+} from 'lucide-react-native';
+import { useTheme } from '@/theme/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useSyncQueue } from '@/hooks/useSyncQueue';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { SectionHeader } from '@/components/layout/SectionHeader';
+import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { haptic } from '@/lib/haptics';
 
-const DARK_MODE_OPTIONS = [
-  { label: 'Light', value: 'light' },
-  { label: 'System', value: 'system' },
-  { label: 'Dark', value: 'dark' },
-]
+type DarkMode = 'light' | 'dark' | 'system';
+
+const DARK_MODE_OPTIONS: { value: DarkMode; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+];
+
+const CURRENCY_OPTIONS = ['PHP', 'USD', 'EUR', 'GBP', 'JPY'];
 
 export default function ProfileScreen() {
-  const router = useRouter()
-  const db = useSQLiteContext()
-  const { user, profile, signOut } = useAuth()
-  const { domainId, domainConfig, clearDomain } = useDomain()
-  const { settings, updateSettings } = useSettings()
-  const { queueCount } = useSyncQueue(
-    db,
-    user?.id ?? null,
-    domainId ?? null,
-    true // assume online for display
-  )
-  const { count: failedSyncCount } = useSyncErrorCount()
-  const { colors, spacing, typography, radii, shadows, fontFamily } = useTheme()
+  const { colors, spacing, typePresets, radii, shadows } = useTheme();
+  const { user, profile, signOut } = useAuth();
+  const { settings, updateSetting } = useSettings();
+  const { pendingCount, isSyncing, lastSyncTime, syncNow, refreshCache } =
+    useSyncQueue();
 
-  const [showSignOutModal, setShowSignOutModal] = useState(false)
+  const handleSignOut = useCallback(() => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          haptic('medium');
+          try {
+            await signOut();
+            router.replace('/(auth)/login');
+          } catch {
+            // Error handled by context
+          }
+        },
+      },
+    ]);
+  }, [signOut]);
 
-  const displayName = getDisplayName(profile)
-  const roleBadge = profile?.role === 'admin' ? 'Admin' : 'Employee'
-  const roleBadgeColor = profile?.role === 'admin' ? 'info' : 'primary'
+  const handleDarkModeChange = useCallback(
+    (mode: DarkMode) => {
+      haptic('light');
+      updateSetting('darkMode', mode);
+    },
+    [updateSetting],
+  );
 
-  // Queue counts summary
-  const queueCounts = useMemo(() => {
-    try {
-      return getAllQueueCounts(db as never)
-    } catch {
-      return { creates: 0, edits: 0, archives: 0, images: 0, transactions: 0 }
-    }
-  }, [db])
+  const handleCurrencyChange = useCallback(() => {
+    const currentIndex = CURRENCY_OPTIONS.indexOf(settings.currency);
+    const nextIndex = (currentIndex + 1) % CURRENCY_OPTIONS.length;
+    haptic('light');
+    updateSetting('currency', CURRENCY_OPTIONS[nextIndex]);
+  }, [settings.currency, updateSetting]);
 
-  const totalQueueCount =
-    queueCounts.creates +
-    queueCounts.edits +
-    queueCounts.archives +
-    queueCounts.images +
-    queueCounts.transactions
-
-  const handleSwitchDomain = () => {
-    clearDomain()
-    router.replace('/domain-picker')
-  }
-
-  const handleSignOutPress = () => {
-    if (queueCount > 0) {
-      setShowSignOutModal(true)
-    } else {
-      signOut(db)
-    }
-  }
-
-  const handleConfirmSignOut = () => {
-    setShowSignOutModal(false)
-    signOut(db)
-  }
-
-  const appVersion = Constants.expoConfig?.version
+  const displayName =
+    profile?.name ??
+    ([profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+    (profile?.username ?? 'User'));
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bgPrimary }}
-      contentContainerStyle={{ paddingBottom: spacing[6] }}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
     >
-      {/* Hero Section */}
-      <View
-        style={{
-          alignItems: 'center',
-          paddingVertical: spacing[6],
-          paddingHorizontal: spacing[6],
-          gap: spacing[2],
-          backgroundColor: colors.surfacePrimary,
-          borderBottomLeftRadius: radii.xl,
-          borderBottomRightRadius: radii.xl,
-          ...shadows.sm,
-        }}
-        testID="profile-hero"
+      <ScreenHeader title="Profile" />
+
+      <ScrollView
+        contentContainerStyle={{ padding: spacing[4], gap: spacing[4] }}
       >
-        <Avatar
-          name={displayName}
-          size="xl"
-          testID="profile-avatar"
-        />
-        <Text
-          style={{
-            ...typography['2xl'],
-            fontWeight: typography.weight.bold,
-            fontFamily: fontFamily.heading,
-            color: colors.textPrimary,
-            marginTop: spacing[2],
-          }}
-        >
-          {displayName}
-        </Text>
-        <Badge
-          label={roleBadge}
-          colorScheme={roleBadgeColor as any}
-          variant="subtle"
-          testID="role-badge"
-        />
-        {user?.email && (
-          <Text style={{ ...typography.base, color: colors.textSecondary }}>
-            {user.email}
-          </Text>
-        )}
-      </View>
-
-      {/* Content sections */}
-      <View style={{ paddingHorizontal: spacing[4] }}>
-        {/* APPEARANCE section */}
-        <SectionHeader label="APPEARANCE" testID="section-appearance" />
-        <SegmentedControl
-          options={DARK_MODE_OPTIONS}
-          value={settings.darkMode}
-          onValueChange={(v) => updateSettings({ darkMode: v as ThemeMode })}
-          fullWidth
-          testID="dark-mode-control"
-        />
-
-        {/* SYNC & DATA section */}
-        <SectionHeader label="SYNC & DATA" testID="section-sync" />
-        <Card variant="elevated" testID="queue-status-card">
+        {/* Profile Card */}
+        <Card variant="elevated">
           <View
             style={{
               flexDirection: 'row',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              paddingVertical: spacing[2.5],
-              borderBottomWidth: 1,
-              borderBottomColor: colors.bgTertiary,
+              gap: spacing[4],
             }}
           >
-            <Text style={{ ...typography.base, color: colors.textSecondary }}>Pending Items</Text>
-            <Text
+            <View
               style={{
-                ...typography.lg,
-                fontWeight: typography.weight.semibold,
-                color: colors.textPrimary,
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: colors.primaryLight,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {totalQueueCount}
-            </Text>
-          </View>
-
-          <AnimatedPressable
-            onPress={() => router.push('/sync-errors')}
-            testID="failed-sync-link"
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: spacing[2.5],
-            }}
-          >
-            <Text style={{ ...typography.base, color: colors.textSecondary }}>Failed Syncs</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1.5] }}>
+              <UserCircle size={36} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  ...typography.lg,
-                  fontWeight: typography.weight.semibold,
-                  color: failedSyncCount > 0 ? colors.error : colors.textPrimary,
+                  ...typePresets.title,
+                  color: colors.text,
                 }}
               >
-                {failedSyncCount}
+                {displayName}
               </Text>
-              <ChevronRight size={16} color={colors.textTertiary} />
-            </View>
-          </AnimatedPressable>
-        </Card>
-
-        {/* CURRENT DOMAIN section */}
-        {domainConfig && (
-          <>
-            <SectionHeader label="CURRENT DOMAIN" testID="section-domain" />
-            <Card variant="elevated" testID="domain-card">
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: radii.md,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: domainConfig.brandColor,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: colors.textInverse,
-                        ...typography.xl,
-                        fontWeight: typography.weight.bold,
-                      }}
-                    >
-                      {domainConfig.letter}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      ...typography.lg,
-                      fontWeight: typography.weight.semibold,
-                      color: colors.textPrimary,
-                    }}
-                  >
-                    {domainConfig.displayName}
-                  </Text>
-                </View>
-                <Button
-                  label="Switch"
-                  variant="ghost"
-                  size="sm"
-                  onPress={handleSwitchDomain}
-                  testID="switch-domain-button"
+              <Text
+                style={{
+                  ...typePresets.bodySmall,
+                  color: colors.textSecondary,
+                  marginTop: spacing[1],
+                }}
+              >
+                {user?.email ?? ''}
+              </Text>
+              <View style={{ marginTop: spacing[2] }}>
+                <Badge
+                  label={profile?.role ?? 'employee'}
+                  variant={profile?.role === 'admin' ? 'info' : 'default'}
                 />
               </View>
-            </Card>
-          </>
-        )}
+            </View>
+          </View>
+        </Card>
 
-        {/* ACCOUNT section */}
-        <SectionHeader label="ACCOUNT" testID="section-account" />
-        <AnimatedPressable
-          onPress={handleSignOutPress}
-          hapticPattern="heavy"
-          testID="sign-out-button"
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: colors.surfacePrimary,
-            paddingHorizontal: spacing[4],
-            paddingVertical: spacing[3],
-            borderRadius: radii.lg,
-          }}
-        >
-          <LogOut size={20} color={colors.error} />
-          <Text
-            style={{
-              ...typography.base,
-              fontWeight: typography.weight.semibold,
-              color: colors.error,
-              flex: 1,
-              marginLeft: spacing[3],
-            }}
-          >
-            Sign Out
-          </Text>
-          <ChevronRight size={16} color={colors.textTertiary} />
-        </AnimatedPressable>
-      </View>
+        {/* Sync Section */}
+        <View>
+          <SectionHeader title="Sync" />
+          <Card>
+            <View style={{ gap: spacing[3] }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <SyncStatusIndicator
+                  pendingCount={pendingCount}
+                  isSyncing={isSyncing}
+                  lastSyncTime={lastSyncTime}
+                />
+              </View>
 
-      {/* Version footer */}
-      {appVersion && (
-        <Text
-          testID="app-version"
-          style={{
-            ...typography.xs,
-            color: colors.textTertiary,
-            textAlign: 'center',
-            padding: spacing[4],
-          }}
-        >
-          PackTrack v{appVersion}
-        </Text>
-      )}
+              <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title="Sync Now"
+                    onPress={syncNow}
+                    variant="primary"
+                    loading={isSyncing}
+                    icon={<RefreshCw size={18} color={colors.textInverse} />}
+                    size="sm"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title="Refresh Cache"
+                    onPress={refreshCache}
+                    variant="secondary"
+                    size="sm"
+                  />
+                </View>
+              </View>
 
-      {/* Sign Out Warning Modal */}
-      <Modal
-        isOpen={showSignOutModal}
-        onClose={() => setShowSignOutModal(false)}
-        title="Unsaved Changes"
-        testID="sign-out-modal"
-      >
-        <Text
-          style={{
-            ...typography.base,
-            color: colors.textPrimary,
-            lineHeight: 20,
-            marginBottom: spacing[4],
-          }}
-        >
-          You have {queueCount} pending transaction{queueCount !== 1 ? 's' : ''} that
-          haven't been synced. Signing out will lose these changes.
-        </Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[3] }}>
-          <Button
-            label="Cancel"
-            variant="outline"
-            onPress={() => setShowSignOutModal(false)}
-            testID="cancel-sign-out"
-          />
-          <Button
-            label="Sign Out Anyway"
-            variant="danger"
-            onPress={handleConfirmSignOut}
-            testID="confirm-sign-out"
-          />
+              {profile?.role === 'admin' && (
+                <AnimatedPressable
+                  onPress={() => router.push('/(app)/sync-errors')}
+                  hapticPattern="light"
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: spacing[2],
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing[2],
+                    }}
+                  >
+                    <AlertCircle size={18} color={colors.warning} />
+                    <Text
+                      style={{
+                        ...typePresets.bodySmall,
+                        color: colors.text,
+                      }}
+                    >
+                      Sync Errors
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.textTertiary} />
+                </AnimatedPressable>
+              )}
+            </View>
+          </Card>
         </View>
-      </Modal>
-    </ScrollView>
-  )
+
+        {/* Settings Section */}
+        <View>
+          <SectionHeader title="Settings" />
+          <Card>
+            <View style={{ gap: spacing[4] }}>
+              {/* Currency */}
+              <AnimatedPressable
+                onPress={handleCurrencyChange}
+                hapticPattern="light"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing[3],
+                  }}
+                >
+                  <DollarSign size={20} color={colors.iconSecondary} />
+                  <Text style={{ ...typePresets.body, color: colors.text }}>
+                    Currency
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    ...typePresets.bodySmall,
+                    color: colors.primary,
+                    fontWeight: '600',
+                  }}
+                >
+                  {settings.currency}
+                </Text>
+              </AnimatedPressable>
+
+              {/* Dark Mode */}
+              <View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing[3],
+                    marginBottom: spacing[2],
+                  }}
+                >
+                  <Moon size={20} color={colors.iconSecondary} />
+                  <Text style={{ ...typePresets.body, color: colors.text }}>
+                    Appearance
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: spacing[2],
+                  }}
+                >
+                  {DARK_MODE_OPTIONS.map((option) => {
+                    const isActive = settings.darkMode === option.value;
+                    const IconComp = option.icon;
+                    return (
+                      <AnimatedPressable
+                        key={option.value}
+                        onPress={() => handleDarkModeChange(option.value)}
+                        hapticPattern="light"
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: spacing[1],
+                          paddingVertical: spacing[2],
+                          borderRadius: radii.md,
+                          backgroundColor: isActive
+                            ? colors.primaryLight
+                            : colors.surfaceSecondary,
+                          borderWidth: isActive ? 1 : 0,
+                          borderColor: colors.primary,
+                        }}
+                      >
+                        <IconComp
+                          size={16}
+                          color={
+                            isActive ? colors.primary : colors.textSecondary
+                          }
+                        />
+                        <Text
+                          style={{
+                            ...typePresets.caption,
+                            color: isActive
+                              ? colors.primary
+                              : colors.textSecondary,
+                            fontWeight: isActive ? '600' : 'normal',
+                          }}
+                        >
+                          {option.label}
+                        </Text>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Notifications */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing[3],
+                  }}
+                >
+                  <Bell size={20} color={colors.iconSecondary} />
+                  <Text style={{ ...typePresets.body, color: colors.text }}>
+                    Notifications
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.notifications}
+                  onValueChange={(value) => {
+                    haptic('light');
+                    updateSetting('notifications', value);
+                  }}
+                  trackColor={{
+                    false: colors.surfaceTertiary,
+                    true: colors.primary,
+                  }}
+                  thumbColor={colors.surface}
+                />
+              </View>
+            </View>
+          </Card>
+        </View>
+
+        {/* Sign Out */}
+        <Button
+          title="Sign Out"
+          onPress={handleSignOut}
+          variant="danger"
+          icon={<LogOut size={18} color={colors.textInverse} />}
+          size="lg"
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
 }

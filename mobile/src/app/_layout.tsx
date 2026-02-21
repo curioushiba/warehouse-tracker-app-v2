@@ -1,56 +1,30 @@
-import React from 'react'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { Stack } from 'expo-router'
-import { useFonts } from 'expo-font'
-import * as SplashScreen from 'expo-splash-screen'
-import { AuthProvider } from '@/contexts/AuthContext'
-import { DomainProvider } from '@/contexts/DomainContext'
-import { SettingsProvider } from '@/contexts/SettingsContext'
-import { ThemeProvider } from '@/theme/ThemeContext'
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Slot } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SQLiteProvider } from 'expo-sqlite';
+import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
+import { ThemeProvider } from '@/theme/ThemeContext';
+import AuthProvider from '@/contexts/AuthContext';
+import { runMigrations } from '@/lib/db/migrations';
 
-SplashScreen.preventAutoHideAsync()
+function ThemeWrapper({ children }: { children: React.ReactNode }) {
+  const { settings } = useSettings();
+  return <ThemeProvider darkMode={settings.darkMode}>{children}</ThemeProvider>;
+}
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Outfit: require('../../assets/fonts/Outfit-Regular.ttf'),
-    'Outfit-Medium': require('../../assets/fonts/Outfit-Medium.ttf'),
-    'Outfit-SemiBold': require('../../assets/fonts/Outfit-SemiBold.ttf'),
-    'Outfit-Bold': require('../../assets/fonts/Outfit-Bold.ttf'),
-    WorkSans: require('../../assets/fonts/WorkSans-Regular.ttf'),
-    'WorkSans-Medium': require('../../assets/fonts/WorkSans-Medium.ttf'),
-    'WorkSans-SemiBold': require('../../assets/fonts/WorkSans-SemiBold.ttf'),
-    'WorkSans-Bold': require('../../assets/fonts/WorkSans-Bold.ttf'),
-  })
-
-  React.useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync()
-    }
-  }, [fontsLoaded, fontError])
-
-  if (!fontsLoaded && !fontError) return null
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <DomainProvider>
-          <SettingsProvider>
-            <ThemeProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  animation: 'fade',
-                  animationDuration: 250,
-                }}
-              >
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="domain-picker" />
-                <Stack.Screen name="(app)" />
-              </Stack>
-            </ThemeProvider>
-          </SettingsProvider>
-        </DomainProvider>
-      </AuthProvider>
+      <SQLiteProvider databaseName="packtrack.db" onInit={async (db) => { runMigrations(db); }}>
+        <SettingsProvider>
+          <ThemeWrapper>
+            <AuthProvider>
+              <Slot />
+            </AuthProvider>
+          </ThemeWrapper>
+        </SettingsProvider>
+      </SQLiteProvider>
     </GestureHandlerRootView>
-  )
+  );
 }

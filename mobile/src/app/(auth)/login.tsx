@@ -1,248 +1,130 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { View, Text, KeyboardAvoidingView, Platform, StatusBar, TextInput } from 'react-native'
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated'
-import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter, Redirect } from 'expo-router'
-import { useAuth } from '@/contexts/AuthContext'
-import { useTheme } from '@/theme'
-import { getString, setString } from '@/lib/storage/storage'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
-import { Package, User, Lock, Eye, EyeOff } from 'lucide-react-native'
-import Toast from 'react-native-toast-message'
-
-const REMEMBERED_USERNAME_KEY = 'remembered-username'
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Package, Mail, Lock } from 'lucide-react-native';
+import { useTheme } from '@/theme/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 
 export default function LoginScreen() {
-  const { isAuthenticated, isLoading: authLoading, signIn } = useAuth()
-  const router = useRouter()
-  const { colors, spacing, typography, radii, isDark, fontFamily } = useTheme()
-
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
-  const [usernameLoaded, setUsernameLoaded] = useState(false)
-
-  const usernameRef = useRef<TextInput>(null)
-  const passwordRef = useRef<TextInput>(null)
-
-  const isFormValid = username.trim().length > 0 && password.trim().length > 0
-  const usernameError = hasAttemptedSubmit && username.trim().length === 0 ? 'Username is required' : undefined
-  const passwordError = hasAttemptedSubmit && password.trim().length === 0 ? 'Password is required' : undefined
-
-  // Load remembered username on mount
-  useEffect(() => {
-    let cancelled = false
-    getString(REMEMBERED_USERNAME_KEY).then((saved) => {
-      if (cancelled) return
-      if (saved) {
-        setUsername(saved)
-      }
-      setUsernameLoaded(true)
-    })
-    return () => { cancelled = true }
-  }, [])
-
-  // Auto-focus after username is loaded
-  useEffect(() => {
-    if (!usernameLoaded) return
-    if (username.trim().length > 0) {
-      passwordRef.current?.focus()
-    } else {
-      usernameRef.current?.focus()
-    }
-  }, [usernameLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { colors, spacing, typePresets } = useTheme();
+  const { signIn, loading, error } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSignIn = useCallback(async () => {
-    setHasAttemptedSubmit(true)
-    if (!isFormValid || isSubmitting) return
+    setLocalError(null);
 
-    setIsSubmitting(true)
-    try {
-      const result = await signIn(username.trim(), password)
-      if (result.error) {
-        Toast.show({
-          type: 'error',
-          text1: result.error,
-        })
-      } else {
-        // Remember username on successful login
-        void setString(REMEMBERED_USERNAME_KEY, username.trim())
-        router.replace('/domain-picker')
-      }
-    } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Something went wrong. Please check your connection and try again.',
-      })
-    } finally {
-      setIsSubmitting(false)
+    if (!email.trim()) {
+      setLocalError('Email is required');
+      return;
     }
-  }, [username, password, isFormValid, isSubmitting, signIn, router])
+    if (!password) {
+      setLocalError('Password is required');
+      return;
+    }
 
-  if (isAuthenticated && !authLoading) {
-    return <Redirect href="/domain-picker" />
-  }
+    try {
+      await signIn(email.trim(), password);
+      router.replace('/(app)/(tabs)');
+    } catch {
+      // Error is handled by AuthContext and displayed below
+    }
+  }, [email, password, signIn]);
+
+  const displayError = localError ?? error;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bgSecondary }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-
-      {/* Top gradient */}
-      <LinearGradient
-        colors={[`${colors.brandPrimary}0D`, 'transparent']}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 200,
-        }}
-        testID="login-gradient"
-      />
-
-      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing[6] }}>
-        {/* Logo + branding */}
-        <Animated.View
-          entering={FadeInDown.duration(400)}
-          style={{ alignItems: 'center', marginBottom: spacing[6] }}
-        >
-          <Package size={56} color={colors.brandPrimary} style={{ marginBottom: spacing[4] }} />
-          <Text
-            style={{
-              ...typography['4xl'],
-              fontFamily: fontFamily.heading,
-              fontWeight: typography.weight.bold,
-              color: colors.brandPrimary,
-              marginBottom: spacing[2],
-            }}
-            testID="login-title"
-          >
-            PackTrack
-          </Text>
-          <Text
-            style={{
-              ...typography.base,
-              fontFamily: fontFamily.body,
-              color: colors.textTertiary,
-            }}
-            testID="login-subtitle"
-          >
-            Warehouse Inventory
-          </Text>
-        </Animated.View>
-
-        {/* Divider */}
-        <View
-          style={{
-            width: 48,
-            height: 1,
-            backgroundColor: colors.borderSubtle,
-            alignSelf: 'center',
-            marginVertical: spacing[6],
-          }}
-          testID="login-divider"
-        />
-
-        {/* Inputs */}
-        <Animated.View entering={FadeInUp.delay(200)} style={{ width: '100%' }}>
-          <Text
-            style={{
-              ...typography.sm,
-              color: colors.textSecondary,
-              marginBottom: spacing[1],
-            }}
-          >
-            Username
-          </Text>
-          <Input
-            ref={usernameRef}
-            placeholder="Enter your username"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            returnKeyType="next"
-            onSubmitEditing={() => passwordRef.current?.focus()}
-            error={usernameError}
-            size="lg"
-            leftIcon={<User size={18} color={colors.textTertiary} />}
-            testID="username-input"
-          />
-
-          <View style={{ height: spacing[4] }} />
-
-          <Text
-            style={{
-              ...typography.sm,
-              color: colors.textSecondary,
-              marginBottom: spacing[1],
-            }}
-          >
-            Password
-          </Text>
-          <Input
-            ref={passwordRef}
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            returnKeyType="done"
-            onSubmitEditing={handleSignIn}
-            error={passwordError}
-            size="lg"
-            leftIcon={<Lock size={18} color={colors.textTertiary} />}
-            rightIcon={
-              <AnimatedPressable
-                onPress={() => setShowPassword(prev => !prev)}
-                testID="password-toggle"
-                scaleValue={0.9}
-              >
-                {showPassword ? (
-                  <EyeOff size={20} color={colors.textSecondary} />
-                ) : (
-                  <Eye size={20} color={colors.textSecondary} />
-                )}
-              </AnimatedPressable>
-            }
-            testID="password-input"
-          />
-        </Animated.View>
-
-        {/* Sign in button */}
-        <Animated.View entering={FadeInUp.delay(400)} style={{ marginTop: spacing[6] }}>
-          <Button
-            label="Sign In"
-            onPress={handleSignIn}
-            disabled={isSubmitting}
-            isLoading={isSubmitting}
-            loadingText="Signing in..."
-            size="lg"
-            testID="sign-in-button"
-          />
-        </Animated.View>
-      </View>
-
-      {/* Version number */}
-      <Text
-        style={{
-          ...typography.xs,
-          color: colors.textTertiary,
-          textAlign: 'center',
-          position: 'absolute',
-          bottom: spacing[8],
-          left: 0,
-          right: 0,
-        }}
-        testID="login-version"
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        v1.0.0
-      </Text>
-    </KeyboardAvoidingView>
-  )
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            padding: spacing[6],
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ alignItems: 'center', marginBottom: spacing[12] }}>
+            <View
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 20,
+                backgroundColor: colors.primaryLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: spacing[4],
+              }}
+            >
+              <Package size={40} color={colors.primary} />
+            </View>
+            <Text style={{ ...typePresets.display, color: colors.text }}>
+              PackTrack
+            </Text>
+            <Text
+              style={{
+                ...typePresets.body,
+                color: colors.textSecondary,
+                marginTop: spacing[1],
+              }}
+            >
+              Inventory Management
+            </Text>
+          </View>
+
+          <View style={{ gap: spacing[4] }}>
+            <Input
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your email"
+              keyboardType="email-address"
+              icon={<Mail size={20} color={colors.iconSecondary} />}
+            />
+
+            <Input
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              secureTextEntry
+              icon={<Lock size={20} color={colors.iconSecondary} />}
+            />
+
+            {displayError && (
+              <Text
+                style={{
+                  ...typePresets.bodySmall,
+                  color: colors.error,
+                  textAlign: 'center',
+                }}
+              >
+                {displayError}
+              </Text>
+            )}
+
+            <Button
+              title="Sign In"
+              onPress={handleSignIn}
+              loading={loading}
+              size="lg"
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }

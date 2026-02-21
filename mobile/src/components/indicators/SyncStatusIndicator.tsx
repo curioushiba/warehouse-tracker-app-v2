@@ -1,92 +1,76 @@
-import React, { useEffect } from 'react'
-import { View, Text } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated'
-import { useTheme } from '@/theme'
-import type { SyncStatus } from '@/types'
+import React from 'react';
+import { View, Text } from 'react-native';
+import { useTheme } from '@/theme/ThemeContext';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 export interface SyncStatusIndicatorProps {
-  status: SyncStatus
-  pendingCount?: number
-  testID?: string
+  pendingCount: number;
+  isSyncing: boolean;
+  lastSyncTime: string | null;
 }
 
 export function SyncStatusIndicator({
-  status,
   pendingCount,
-  testID,
+  isSyncing,
+  lastSyncTime,
 }: SyncStatusIndicatorProps) {
-  const { colors, spacing, typography } = useTheme()
+  const { colors, spacing, radii, typePresets } = useTheme();
 
-  const dotOpacity = useSharedValue(1)
-
-  useEffect(() => {
-    if (status === 'syncing') {
-      dotOpacity.value = withRepeat(
-        withTiming(0.3, { duration: 800 }),
-        -1,
-        true
-      )
-    } else {
-      dotOpacity.value = withTiming(1, { duration: 200 })
-    }
-  }, [status, dotOpacity])
-
-  const animatedDotStyle = useAnimatedStyle(() => ({
-    opacity: dotOpacity.value,
-  }))
-
-  const statusColorMap: Record<SyncStatus, string> = {
-    synced: colors.success,
-    syncing: colors.info,
-    pending: colors.warning,
-    offline: colors.error,
-    error: colors.error,
+  if (isSyncing) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+        <LoadingSpinner size="sm" />
+        <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
+          Syncing...
+        </Text>
+      </View>
+    );
   }
 
-  const statusLabelMap: Record<SyncStatus, string> = {
-    synced: 'Synced',
-    syncing: 'Syncing...',
-    pending: 'pending',
-    offline: 'Offline',
-    error: 'Error',
+  if (pendingCount > 0) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+        <View
+          style={{
+            backgroundColor: colors.warning,
+            borderRadius: radii.full,
+            minWidth: 20,
+            height: 20,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: spacing[1],
+          }}
+        >
+          <Text
+            style={{
+              ...typePresets.caption,
+              color: colors.textInverse,
+              fontWeight: '700',
+            }}
+          >
+            {pendingCount}
+          </Text>
+        </View>
+        <Text style={{ ...typePresets.caption, color: colors.warning }}>
+          pending
+        </Text>
+      </View>
+    );
   }
-
-  const color = statusColorMap[status]
-
-  const label =
-    status === 'pending' && pendingCount != null
-      ? `${pendingCount} ${statusLabelMap[status]}`
-      : statusLabelMap[status]
 
   return (
-    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1.5] }}>
-      <Animated.View
-        testID={testID ? `${testID}-dot` : undefined}
-        style={[
-          {
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: color,
-          },
-          animatedDotStyle,
-        ]}
-      />
-      <Text
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+      <View
         style={{
-          fontSize: typography.sm.fontSize,
-          lineHeight: typography.sm.lineHeight,
-          fontWeight: typography.weight.medium,
-          color,
+          width: 8,
+          height: 8,
+          borderRadius: radii.full,
+          backgroundColor: colors.success,
         }}
-      >
-        {label}
+      />
+      <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
+        {lastSyncTime ? `Synced ${lastSyncTime}` : 'Up to date'}
       </Text>
     </View>
-  )
+  );
 }

@@ -1,314 +1,282 @@
-import React, { useEffect } from 'react'
-import { View, Text, ScrollView } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter, useLocalSearchParams } from 'expo-router'
-import { useSQLiteContext } from 'expo-sqlite'
-import Animated, { SlideInDown } from 'react-native-reanimated'
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, FlatList, RefreshControl } from 'react-native';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSQLiteContext } from 'expo-sqlite';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
-  ArrowRight,
-  RefreshCw,
-  AlertTriangle,
   Package,
-} from 'lucide-react-native'
-import Toast from 'react-native-toast-message'
-import { useAuth } from '@/contexts/AuthContext'
-import { useDomain } from '@/contexts/DomainContext'
-import { useBatchScan } from '@/contexts/BatchScanContext'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { useSyncQueue } from '@/hooks/useSyncQueue'
-import { useSyncErrorCount } from '@/hooks/useSyncErrorCount'
-import { useTheme } from '@/theme'
-import { getDisplayName } from '@/lib/display-name'
-import { MobileHeader } from '@/components/layout/MobileHeader'
-import { Button } from '@/components/ui/Button'
-import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
-import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator'
-import { SectionHeader } from '@/components/ui/SectionHeader'
-import { StatCard } from '@/components/ui/StatCard'
-import type { SyncStatus } from '@/types'
+  ChevronRight,
+  AlertCircle,
+} from 'lucide-react-native';
+import { useTheme } from '@/theme/ThemeContext';
+import { useSyncQueue } from '@/hooks/useSyncQueue';
+import { getAllCachedItems, getPendingTransactions, getCachedItem } from '@/lib/db/operations';
+import type { PendingTransaction, CachedItem } from '@/lib/db/types';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { SectionHeader } from '@/components/layout/SectionHeader';
+import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { haptic } from '@/lib/haptics';
 
 export default function HomeScreen() {
-  const router = useRouter()
-  const params = useLocalSearchParams<{ batchSuccess?: string }>()
-  const db = useSQLiteContext()
-  const { user, profile } = useAuth()
-  const { domainId, domainConfig } = useDomain()
-  const { isOnline } = useOnlineStatus()
-  const { queueCount, isSyncing, syncQueue } = useSyncQueue(
-    db,
-    user?.id ?? null,
-    domainId,
-    isOnline
-  )
-  const { count: syncErrorCount } = useSyncErrorCount()
-  const { items: batchItems } = useBatchScan()
-  const { colors, spacing, typography, shadows, radii, fontFamily } = useTheme()
+  const db = useSQLiteContext();
+  const { colors, spacing, typePresets, radii, shadows } = useTheme();
+  const { pendingCount, isSyncing, lastSyncTime, syncNow } = useSyncQueue();
+  const [cachedItemCount, setCachedItemCount] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<PendingTransaction[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const displayName = getDisplayName(profile)
-
-  // Show batch success toast from URL params
-  useEffect(() => {
-    if (params.batchSuccess) {
-      Toast.show({
-        type: 'success',
-        text1: `${params.batchSuccess} items submitted successfully`,
-      })
+  const loadData = useCallback(() => {
+    try {
+      const items = getAllCachedItems(db);
+      setCachedItemCount(items.length);
+      const txs = getPendingTransactions(db);
+      setRecentTransactions(txs.slice(-5).reverse());
+    } catch {
+      // DB may not be ready
     }
-  }, [params.batchSuccess])
+  }, [db]);
 
-  // Derive sync status for header indicator
-  const syncStatus: SyncStatus = !isOnline
-    ? 'offline'
-    : isSyncing
-      ? 'syncing'
-      : queueCount > 0
-        ? 'pending'
-        : 'synced'
+  useEffect(() => {
+    loadData();
+  }, [loadData, pendingCount]);
 
-  const handleCheckIn = () => {
-    router.push({ pathname: '/scan', params: { type: 'in' } })
-  }
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await syncNow();
+    loadData();
+    setRefreshing(false);
+  }, [syncNow, loadData]);
 
-  const handleCheckOut = () => {
-    router.push({ pathname: '/scan', params: { type: 'out' } })
-  }
+  const navigateToScan = useCallback(
+    (type: 'in' | 'out') => {
+      haptic('medium');
+      router.push({ pathname: '/(app)/(tabs)/scan', params: { type } });
+    },
+    [],
+  );
 
-  const handleFailedSyncPress = () => {
-    router.push('/sync-errors')
-  }
+  const getItemName = useCallback(
+    (itemId: string): string => {
+      const item = getCachedItem(db, itemId);
+      return item?.name ?? 'Unknown Item';
+    },
+    [db],
+  );
 
-  const handleSync = () => {
-    syncQueue()
-  }
+  const renderTransaction = useCallback(
+    ({ item }: { item: PendingTransaction }) => {
+      const isIn = item.transaction_type === 'in' || item.transaction_type === 'check_in';
+      const Icon = isIn ? ArrowDownToLine : ArrowUpFromLine;
+      const iconColor = isIn ? colors.success : colors.error;
 
-  const showSyncSection = queueCount > 0 || !isOnline
-
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
+      return (
+        <Card style={{ marginHorizontal: spacing[4], marginBottom: spacing[2] }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radii.md,
+                backgroundColor: isIn ? colors.successBackground : colors.errorBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon size={20} color={iconColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{ ...typePresets.bodySmall, color: colors.text, fontWeight: '600' }}
+                numberOfLines={1}
+              >
+                {getItemName(item.item_id)}
+              </Text>
+              <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
+                {isIn ? 'Stock In' : 'Stock Out'} x{item.quantity}
+              </Text>
+            </View>
+            <Badge
+              label={item.status}
+              variant={
+                item.status === 'failed'
+                  ? 'error'
+                  : item.status === 'syncing'
+                    ? 'info'
+                    : 'default'
+              }
+            />
+          </View>
+        </Card>
+      );
+    },
+    [colors, spacing, radii, typePresets, getItemName],
+  );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['top']}>
-      <MobileHeader
-        title={domainConfig?.displayName ?? 'PackTrack'}
-        domainLetter={domainConfig?.letter}
-        domainColor={domainConfig?.brandColor}
-        syncStatus={syncStatus}
-        pendingCount={queueCount}
-        isOnline={isOnline}
-        failedSyncCount={syncErrorCount}
-        onFailedSyncPress={handleFailedSyncPress}
-        testID="header"
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <ScreenHeader
+        title="PackTrack"
+        rightAction={
+          <SyncStatusIndicator
+            pendingCount={pendingCount}
+            isSyncing={isSyncing}
+            lastSyncTime={lastSyncTime}
+          />
+        }
       />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: spacing[4], paddingTop: spacing[6], paddingBottom: spacing[8] }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Greeting */}
-        <Text
-          style={{
-            ...typography.xl,
-            fontWeight: typography.weight.bold,
-            fontFamily: fontFamily.heading,
-            color: colors.textPrimary,
-          }}
-          testID="greeting-name"
-        >
-          Hello, {displayName}
-        </Text>
-        <Text
-          style={{
-            ...typography.sm,
-            fontFamily: fontFamily.body,
-            color: colors.textTertiary,
-            marginBottom: spacing[6],
-          }}
-          testID="greeting-date"
-        >
-          {today}
-        </Text>
-
-        {/* Resume batch banner */}
-        {batchItems.length > 0 && (
-          <Animated.View entering={SlideInDown.springify()} testID="resume-batch-animated">
-            <AnimatedPressable
-              hapticPattern="light"
-              onPress={() => router.push('/scan')}
-              testID="resume-batch-banner"
+      <FlatList
+        data={recentTransactions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderTransaction}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+        ListHeaderComponent={
+          <View>
+            {/* Quick Actions */}
+            <View
               style={{
-                backgroundColor: colors.warningBg,
-                borderRadius: radii.lg,
-                padding: spacing[4],
-                marginBottom: spacing[4],
-                borderWidth: 1,
-                borderColor: colors.warning,
                 flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: spacing[3],
+                paddingHorizontal: spacing[4],
+                marginBottom: spacing[4],
               }}
             >
-              <Text
+              <AnimatedPressable
+                onPress={() => navigateToScan('in')}
+                hapticPattern="medium"
                 style={{
-                  ...typography.base,
-                  fontWeight: typography.weight.semibold,
-                  color: colors.warningText,
                   flex: 1,
+                  backgroundColor: colors.successBackground,
+                  borderRadius: radii.lg,
+                  padding: spacing[4],
+                  alignItems: 'center',
+                  gap: spacing[2],
+                  ...shadows.sm,
                 }}
               >
-                You have {batchItems.length} item{batchItems.length !== 1 ? 's' : ''} in your batch — Tap to continue
-              </Text>
-              <ArrowRight size={20} color={colors.warningText} />
-            </AnimatedPressable>
-          </Animated.View>
-        )}
+                <ArrowDownToLine size={28} color={colors.success} />
+                <Text style={{ ...typePresets.label, color: colors.success }}>
+                  Stock In
+                </Text>
+              </AnimatedPressable>
 
-        {/* Quick Actions */}
-        <SectionHeader label="QUICK ACTIONS" testID="section-quick-actions" />
-        <View style={{ flexDirection: 'row', gap: spacing[3], marginBottom: spacing[4] }}>
-          <AnimatedPressable
-            hapticPattern="light"
-            onPress={handleCheckIn}
-            testID="check-in-card"
-            style={{
-              flex: 1,
-              height: 100,
-              backgroundColor: colors.successBg,
-              borderRadius: radii.lg,
-              borderWidth: 1,
-              borderColor: colors.checkIn,
-              padding: spacing[4],
-              justifyContent: 'center',
-            }}
-          >
-            <ArrowDownToLine size={24} color={colors.checkIn} />
-            <Text
+              <AnimatedPressable
+                onPress={() => navigateToScan('out')}
+                hapticPattern="medium"
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.errorBackground,
+                  borderRadius: radii.lg,
+                  padding: spacing[4],
+                  alignItems: 'center',
+                  gap: spacing[2],
+                  ...shadows.sm,
+                }}
+              >
+                <ArrowUpFromLine size={28} color={colors.error} />
+                <Text style={{ ...typePresets.label, color: colors.error }}>
+                  Stock Out
+                </Text>
+              </AnimatedPressable>
+            </View>
+
+            {/* Summary Stats */}
+            <View
               style={{
-                ...typography.lg,
-                fontWeight: typography.weight.bold,
-                color: colors.textPrimary,
-                marginTop: spacing[2],
+                flexDirection: 'row',
+                gap: spacing[3],
+                paddingHorizontal: spacing[4],
+                marginBottom: spacing[4],
               }}
             >
-              Check In
-            </Text>
-            <Text
-              style={{
-                ...typography.xs,
-                color: colors.textSecondary,
-              }}
-            >
-              Receive stock
-            </Text>
-          </AnimatedPressable>
+              <Card variant="elevated" style={{ flex: 1 }}>
+                <View style={{ alignItems: 'center', gap: spacing[1] }}>
+                  <Package size={24} color={colors.primary} />
+                  <Text style={{ ...typePresets.heading, color: colors.text }}>
+                    {cachedItemCount}
+                  </Text>
+                  <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
+                    Cached Items
+                  </Text>
+                </View>
+              </Card>
 
-          <AnimatedPressable
-            hapticPattern="light"
-            onPress={handleCheckOut}
-            testID="check-out-card"
-            style={{
-              flex: 1,
-              height: 100,
-              backgroundColor: colors.errorBg,
-              borderRadius: radii.lg,
-              borderWidth: 1,
-              borderColor: colors.checkOut,
-              padding: spacing[4],
-              justifyContent: 'center',
-            }}
-          >
-            <ArrowUpFromLine size={24} color={colors.checkOut} />
-            <Text
-              style={{
-                ...typography.lg,
-                fontWeight: typography.weight.bold,
-                color: colors.textPrimary,
-                marginTop: spacing[2],
-              }}
-            >
-              Check Out
-            </Text>
-            <Text
-              style={{
-                ...typography.xs,
-                color: colors.textSecondary,
-              }}
-            >
-              Dispatch stock
-            </Text>
-          </AnimatedPressable>
-        </View>
+              <AnimatedPressable
+                onPress={() => {
+                  if (pendingCount > 0) {
+                    router.push('/(app)/batch-review');
+                  }
+                }}
+                style={{ flex: 1 }}
+              >
+                <Card variant="elevated" style={{ flex: 1 }}>
+                  <View style={{ alignItems: 'center', gap: spacing[1] }}>
+                    <AlertCircle
+                      size={24}
+                      color={pendingCount > 0 ? colors.warning : colors.success}
+                    />
+                    <Text style={{ ...typePresets.heading, color: colors.text }}>
+                      {pendingCount}
+                    </Text>
+                    <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
+                      Pending Sync
+                    </Text>
+                  </View>
+                </Card>
+              </AnimatedPressable>
+            </View>
 
-        {/* Stats Row */}
-        <SectionHeader label="TODAY'S SUMMARY" testID="section-todays-summary" />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: spacing[4] }}
-          contentContainerStyle={{ gap: spacing[3] }}
-        >
-          <StatCard
-            value={queueCount}
-            label="Pending"
-            icon={<RefreshCw size={20} color={colors.warningText} />}
-            iconBgColor={colors.warningBg}
-            testID="stat-pending"
-          />
-          <StatCard
-            value={syncErrorCount}
-            label="Errors"
-            icon={<AlertTriangle size={20} color={colors.errorText} />}
-            iconBgColor={colors.errorBg}
-            onPress={handleFailedSyncPress}
-            testID="stat-errors"
-          />
-          <StatCard
-            value={batchItems.length}
-            label="In Batch"
-            icon={<Package size={20} color={colors.brandPrimary} />}
-            iconBgColor={colors.brandSecondary}
-            testID="stat-batch"
-          />
-        </ScrollView>
-
-        {/* Sync Status */}
-        {showSyncSection && (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: colors.surfacePrimary,
-              borderRadius: radii.lg,
-              padding: spacing[4],
-              borderWidth: 1,
-              borderColor: colors.borderSubtle,
-            }}
-          >
-            <SyncStatusIndicator
-              status={syncStatus}
-              pendingCount={queueCount}
-              testID="sync-indicator"
-            />
-            {queueCount > 0 && (
-              <Button
-                label="Sync Now"
-                onPress={handleSync}
-                variant="outline"
-                size="sm"
-                isLoading={isSyncing}
-                loadingText="Syncing..."
-                testID="manual-sync-button"
+            {/* Recent Transactions Header */}
+            {recentTransactions.length > 0 && (
+              <SectionHeader
+                title="Recent Transactions"
+                action={
+                  pendingCount > 0
+                    ? { label: 'View All', onPress: () => router.push('/(app)/batch-review') }
+                    : undefined
+                }
               />
             )}
           </View>
-        )}
-      </ScrollView>
+        }
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', padding: spacing[8] }}>
+            <Package size={48} color={colors.textTertiary} />
+            <Text
+              style={{
+                ...typePresets.body,
+                color: colors.textSecondary,
+                marginTop: spacing[3],
+                textAlign: 'center',
+              }}
+            >
+              No recent transactions
+            </Text>
+            <Text
+              style={{
+                ...typePresets.bodySmall,
+                color: colors.textTertiary,
+                marginTop: spacing[1],
+                textAlign: 'center',
+              }}
+            >
+              Scan an item to get started
+            </Text>
+          </View>
+        }
+        contentContainerStyle={{ paddingBottom: spacing[4] }}
+      />
     </SafeAreaView>
-  )
+  );
 }

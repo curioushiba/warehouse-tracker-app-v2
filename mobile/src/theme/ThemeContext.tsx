@@ -1,51 +1,65 @@
-import React, { createContext, useContext, useMemo } from 'react'
-import { Appearance } from 'react-native'
-import { useSettings } from '@/contexts/SettingsContext'
+// ---------------------------------------------------------------------------
+// Theme provider & hook
+// ---------------------------------------------------------------------------
+
+import React, { createContext, useContext, useMemo } from 'react';
+import { useColorScheme } from 'react-native';
+
 import {
+  type SemanticColors,
+  type ShadowScale,
   lightColors,
   darkColors,
   spacing,
-  typography,
+  radii,
   typePresets,
   fontFamily,
   getShadows,
-  radii,
   zIndex,
   touchTarget,
-  type SemanticColors,
-  type ShadowScale,
-} from './tokens'
+} from './tokens';
+
+// -- Types ------------------------------------------------------------------
+
+export type DarkModePreference = 'light' | 'dark' | 'system';
 
 export interface ThemeValue {
-  colors: SemanticColors
-  spacing: typeof spacing
-  typography: typeof typography
-  typePresets: typeof typePresets
-  fontFamily: typeof fontFamily
-  shadows: ShadowScale
-  radii: typeof radii
-  zIndex: typeof zIndex
-  touchTarget: typeof touchTarget
-  isDark: boolean
+  colors: SemanticColors;
+  spacing: typeof spacing;
+  typography: typeof typePresets;
+  typePresets: typeof typePresets;
+  fontFamily: typeof fontFamily;
+  shadows: ShadowScale;
+  radii: typeof radii;
+  zIndex: typeof zIndex;
+  touchTarget: typeof touchTarget;
+  isDark: boolean;
 }
 
-const ThemeContext = createContext<ThemeValue | undefined>(undefined)
+// -- Context ----------------------------------------------------------------
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { settings } = useSettings()
+const ThemeContext = createContext<ThemeValue | null>(null);
 
-  const theme = useMemo<ThemeValue>(() => {
-    let isDark: boolean
-    if (settings.darkMode === 'system') {
-      isDark = Appearance.getColorScheme() === 'dark'
-    } else {
-      isDark = settings.darkMode === 'dark'
-    }
+// -- Provider ---------------------------------------------------------------
 
+interface ThemeProviderProps {
+  darkMode: DarkModePreference;
+  children: React.ReactNode;
+}
+
+export function ThemeProvider({ darkMode, children }: ThemeProviderProps) {
+  const systemScheme = useColorScheme();
+
+  const isDark =
+    darkMode === 'dark' ||
+    (darkMode === 'system' && systemScheme === 'dark');
+
+  const value = useMemo<ThemeValue>(() => {
+    const colors = isDark ? darkColors : lightColors;
     return {
-      colors: isDark ? darkColors : lightColors,
+      colors,
       spacing,
-      typography,
+      typography: typePresets,
       typePresets,
       fontFamily,
       shadows: getShadows(isDark),
@@ -53,20 +67,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       zIndex,
       touchTarget,
       isDark,
-    }
-  }, [settings.darkMode])
+    };
+  }, [isDark]);
 
   return (
-    <ThemeContext.Provider value={theme}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
-  )
+  );
 }
 
+// -- Hook -------------------------------------------------------------------
+
 export function useTheme(): ThemeValue {
-  const context = useContext(ThemeContext)
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider')
+  const ctx = useContext(ThemeContext);
+  if (!ctx) {
+    throw new Error('useTheme must be used within a ThemeProvider');
   }
-  return context
+  return ctx;
 }

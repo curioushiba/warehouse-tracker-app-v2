@@ -1,21 +1,36 @@
-// Design tokens for PackTrack mobile app
-// Single source of truth for colors, spacing, typography, shadows, and radii
+// ---------------------------------------------------------------------------
+// Design tokens for PackTrack mobile
+// ---------------------------------------------------------------------------
 
-// --- Raw Color Palette ---
+// -- Font families (loaded via expo-font / useFonts in root layout) ---------
+
+export const fontFamily = {
+  heading: 'Outfit',
+  headingMedium: 'Outfit-Medium',
+  headingSemiBold: 'Outfit-SemiBold',
+  headingBold: 'Outfit-Bold',
+  body: 'WorkSans',
+  bodyMedium: 'WorkSans-Medium',
+  bodySemiBold: 'WorkSans-SemiBold',
+  bodyBold: 'WorkSans-Bold',
+} as const;
+
+// -- Color palette ----------------------------------------------------------
 
 export const palette = {
   // Brand
-  green50: '#DCFCE7',
-  green100: '#BBF7D0',
-  green500: '#16A34A',
-  green600: '#15803D',
-  green700: '#01722f',
-  green800: '#166534',
-  green900: '#052e16',
-  greenDark: '#4db576', // lighter green for dark backgrounds
+  blue50: '#EFF6FF',
+  blue100: '#DBEAFE',
+  blue200: '#BFDBFE',
+  blue300: '#93C5FD',
+  blue400: '#60A5FA',
+  blue500: '#3B82F6',
+  blue600: '#2563EB',
+  blue700: '#1D4ED8',
+  blue800: '#1E40AF',
+  blue900: '#1E3A8A',
 
-  // Neutrals (Tailwind gray scale)
-  white: '#FFFFFF',
+  // Neutral
   gray50: '#F9FAFB',
   gray100: '#F3F4F6',
   gray200: '#E5E7EB',
@@ -27,380 +42,160 @@ export const palette = {
   gray800: '#1F2937',
   gray900: '#111827',
   gray950: '#030712',
-  black: '#000000',
 
-  // Status
-  red50: '#FEE2E2',
-  red300: '#FCA5A5',
+  // Semantic
+  green50: '#F0FDF4',
+  green500: '#22C55E',
+  green600: '#16A34A',
+  green700: '#15803D',
+
+  yellow50: '#FFFBEB',
+  yellow500: '#F59E0B',
+  yellow600: '#D97706',
+  yellow700: '#B45309',
+
+  red50: '#FEF2F2',
   red500: '#EF4444',
-  red600: '#dc2626',
+  red600: '#DC2626',
   red700: '#B91C1C',
-  red900: '#450a0a',
 
-  yellow50: '#FEF9C3',
-  yellow200: '#FDE68A',
-  yellow500: '#EAB308',
-  yellow700: '#A16207',
-  yellow900: '#422006',
+  // Base
+  white: '#FFFFFF',
+  black: '#000000',
+} as const;
 
-  blue50: '#DBEAFE',
-  blue300: '#93C5FD',
-  blue500: '#3B82F6',
-  blue600: '#2563EB',
-  blue700: '#1D4ED8',
-  blue900: '#172554',
-
-  indigo50: '#E0E7FF',
-  indigo300: '#A5B4FC',
-  indigo500: '#6366F1',
-  indigo900: '#312e81',
-
-  // Domain brand colors
-  commissaryOrange: '#E07A2F',
-  frozenBlue: '#2563EB',
-
-  // CTA
-  ctaYellow: '#ffcc00',
-  ctaText: '#1a1a1a',
-
-  // Overlays
-  overlay: 'rgba(0,0,0,0.5)',
-  overlayDark: 'rgba(0,0,0,0.7)',
-  overlayHeavy: 'rgba(0,0,0,0.8)',
-  overlayLight: 'rgba(255,255,255,0.3)',
-} as const
-
-// --- Semantic Color Tokens ---
+// -- Semantic colors --------------------------------------------------------
 
 export interface SemanticColors {
-  // Backgrounds
-  bgPrimary: string
-  bgSecondary: string
-  bgTertiary: string
-  bgInverse: string
+  // Brand
+  primary: string;
+  primaryLight: string;
+  secondary: string;
+  accent: string;
 
-  // Surfaces (cards, modals)
-  surfacePrimary: string
-  surfaceSecondary: string
-  surfaceElevated: string
-  surfaceTertiary: string
-  surfacePressed: string
+  // Surfaces
+  background: string;
+  surface: string;
+  surfaceSecondary: string;
+  surfaceTertiary: string;
+  surfacePressed: string;
 
   // Text
-  textPrimary: string
-  textSecondary: string
-  textTertiary: string
-  textInverse: string
-  textDisabled: string
-  textPlaceholder: string
-
-  // Brand
-  brandPrimary: string
-  brandSecondary: string
-  brandText: string
-
-  // Status
-  success: string
-  successBg: string
-  successText: string
-  error: string
-  errorBg: string
-  errorText: string
-  warning: string
-  warningBg: string
-  warningText: string
-  info: string
-  infoBg: string
-  infoText: string
-
-  // Transaction types
-  checkIn: string
-  checkOut: string
-  adjustment: string
-
-  // Interactive
-  ctaBg: string
-  ctaText: string
-  dangerBg: string
-  dangerText: string
+  text: string;
+  textSecondary: string;
+  textTertiary: string;
+  textInverse: string;
 
   // Borders
-  borderPrimary: string
-  borderSubtle: string
-  borderFocus: string
-  borderAccent: string
+  border: string;
+  borderAccent: string;
+  borderSubtle: string;
 
-  // Badge schemes (solid)
-  badgePrimaryBg: string
-  badgePrimaryText: string
-  badgeSecondaryBg: string
-  badgeSecondaryText: string
-  badgeSuccessBg: string
-  badgeSuccessText: string
-  badgeWarningBg: string
-  badgeWarningText: string
-  badgeErrorBg: string
-  badgeErrorText: string
-  badgeInfoBg: string
-  badgeInfoText: string
-  badgeNeutralBg: string
-  badgeNeutralText: string
+  // Status
+  success: string;
+  successBackground: string;
+  warning: string;
+  warningBackground: string;
+  error: string;
+  errorBackground: string;
+  info: string;
+  infoBackground: string;
 
-  // Badge schemes (subtle)
-  badgePrimarySubtleBg: string
-  badgePrimarySubtleText: string
-  badgeSecondarySubtleBg: string
-  badgeSecondarySubtleText: string
-  badgeSuccessSubtleBg: string
-  badgeSuccessSubtleText: string
-  badgeWarningSubtleBg: string
-  badgeWarningSubtleText: string
-  badgeErrorSubtleBg: string
-  badgeErrorSubtleText: string
-  badgeInfoSubtleBg: string
-  badgeInfoSubtleText: string
-  badgeNeutralSubtleBg: string
-  badgeNeutralSubtleText: string
+  // Overlays
+  overlay: string;
+  overlayHeavy: string;
+  overlaySubtle: string;
 
-  // Overlay
-  overlay: string
-  overlayHeavy: string
-  overlaySubtle: string
-
-  // Switch
-  switchTrackActive: string
-  switchTrackInactive: string
-  switchThumb: string
-
-  // Icon
-  iconPrimary: string
-  iconSecondary: string
-  iconInverse: string
-  iconBrand: string
+  // Icons
+  iconPrimary: string;
+  iconSecondary: string;
+  iconBrand: string;
 }
 
 export const lightColors: SemanticColors = {
-  // Backgrounds
-  bgPrimary: palette.gray50,
-  bgSecondary: palette.white,
-  bgTertiary: palette.gray100,
-  bgInverse: palette.gray800,
+  primary: palette.blue600,
+  primaryLight: palette.blue50,
+  secondary: palette.gray600,
+  accent: palette.blue500,
 
-  // Surfaces
-  surfacePrimary: palette.white,
-  surfaceSecondary: palette.gray50,
-  surfaceElevated: palette.white,
-  surfaceTertiary: palette.gray100,
+  background: palette.gray50,
+  surface: palette.white,
+  surfaceSecondary: palette.gray100,
+  surfaceTertiary: palette.gray200,
   surfacePressed: palette.gray200,
 
-  // Text
-  textPrimary: palette.gray800,
-  textSecondary: palette.gray500,
+  text: palette.gray900,
+  textSecondary: palette.gray600,
   textTertiary: palette.gray400,
   textInverse: palette.white,
-  textDisabled: palette.gray300,
-  textPlaceholder: palette.gray400,
 
-  // Brand
-  brandPrimary: palette.green700,
-  brandSecondary: palette.green50,
-  brandText: palette.white,
+  border: palette.gray200,
+  borderAccent: palette.blue600,
+  borderSubtle: palette.gray100,
 
-  // Status
   success: palette.green500,
-  successBg: palette.green50,
-  successText: palette.green500,
-  error: palette.red500,
-  errorBg: palette.red50,
-  errorText: palette.red500,
+  successBackground: palette.green50,
   warning: palette.yellow500,
-  warningBg: palette.yellow50,
-  warningText: palette.yellow700,
+  warningBackground: palette.yellow50,
+  error: palette.red500,
+  errorBackground: palette.red50,
   info: palette.blue500,
-  infoBg: palette.blue50,
-  infoText: palette.blue500,
+  infoBackground: palette.blue50,
 
-  // Transaction types
-  checkIn: palette.green500,
-  checkOut: palette.red600,
-  adjustment: palette.blue500,
+  overlay: 'rgba(0, 0, 0, 0.4)',
+  overlayHeavy: 'rgba(0, 0, 0, 0.6)',
+  overlaySubtle: 'rgba(0, 0, 0, 0.2)',
 
-  // Interactive
-  ctaBg: palette.ctaYellow,
-  ctaText: palette.ctaText,
-  dangerBg: palette.red500,
-  dangerText: palette.white,
-
-  // Borders
-  borderPrimary: palette.gray300,
-  borderSubtle: palette.gray200,
-  borderFocus: palette.green700,
-  borderAccent: palette.green700,
-
-  // Badge solid
-  badgePrimaryBg: palette.green700,
-  badgePrimaryText: palette.white,
-  badgeSecondaryBg: palette.indigo500,
-  badgeSecondaryText: palette.white,
-  badgeSuccessBg: palette.green500,
-  badgeSuccessText: palette.white,
-  badgeWarningBg: palette.yellow500,
-  badgeWarningText: palette.gray800,
-  badgeErrorBg: palette.red500,
-  badgeErrorText: palette.white,
-  badgeInfoBg: palette.blue500,
-  badgeInfoText: palette.white,
-  badgeNeutralBg: palette.gray500,
-  badgeNeutralText: palette.white,
-
-  // Badge subtle
-  badgePrimarySubtleBg: palette.green50,
-  badgePrimarySubtleText: palette.green700,
-  badgeSecondarySubtleBg: palette.indigo50,
-  badgeSecondarySubtleText: palette.indigo500,
-  badgeSuccessSubtleBg: palette.green50,
-  badgeSuccessSubtleText: palette.green500,
-  badgeWarningSubtleBg: palette.yellow50,
-  badgeWarningSubtleText: palette.yellow700,
-  badgeErrorSubtleBg: palette.red50,
-  badgeErrorSubtleText: palette.red500,
-  badgeInfoSubtleBg: palette.blue50,
-  badgeInfoSubtleText: palette.blue500,
-  badgeNeutralSubtleBg: palette.gray100,
-  badgeNeutralSubtleText: palette.gray500,
-
-  // Overlay
-  overlay: palette.overlay,
-  overlayHeavy: palette.overlayHeavy,
-  overlaySubtle: 'rgba(0,0,0,0.1)',
-
-  // Switch
-  switchTrackActive: palette.green500,
-  switchTrackInactive: palette.gray300,
-  switchThumb: palette.white,
-
-  // Icon
   iconPrimary: palette.gray700,
   iconSecondary: palette.gray400,
-  iconInverse: palette.white,
-  iconBrand: palette.green700,
-}
+  iconBrand: palette.blue600,
+};
 
 export const darkColors: SemanticColors = {
-  // Backgrounds
-  bgPrimary: palette.gray950,
-  bgSecondary: palette.gray900,
-  bgTertiary: palette.gray800,
-  bgInverse: palette.gray100,
+  primary: palette.blue500,
+  primaryLight: palette.blue900,
+  secondary: palette.gray400,
+  accent: palette.blue400,
 
-  // Surfaces
-  surfacePrimary: palette.gray900,
+  background: palette.gray950,
+  surface: palette.gray900,
   surfaceSecondary: palette.gray800,
-  surfaceElevated: palette.gray800,
   surfaceTertiary: palette.gray700,
   surfacePressed: palette.gray700,
 
-  // Text
-  textPrimary: palette.gray50,
+  text: palette.gray50,
   textSecondary: palette.gray400,
   textTertiary: palette.gray500,
   textInverse: palette.gray900,
-  textDisabled: palette.gray600,
-  textPlaceholder: palette.gray500,
 
-  // Brand
-  brandPrimary: palette.greenDark,
-  brandSecondary: palette.green800,
-  brandText: palette.white,
+  border: palette.gray700,
+  borderAccent: palette.blue500,
+  borderSubtle: palette.gray800,
 
-  // Status (vivid in dark mode)
   success: palette.green500,
-  successBg: palette.green900,
-  successText: palette.green100,
-  error: palette.red500,
-  errorBg: palette.red900,
-  errorText: palette.red300,
+  successBackground: 'rgba(34, 197, 94, 0.15)',
   warning: palette.yellow500,
-  warningBg: palette.yellow900,
-  warningText: palette.yellow200,
-  info: palette.blue500,
-  infoBg: palette.blue900,
-  infoText: palette.blue300,
+  warningBackground: 'rgba(245, 158, 11, 0.15)',
+  error: palette.red500,
+  errorBackground: 'rgba(239, 68, 68, 0.15)',
+  info: palette.blue400,
+  infoBackground: 'rgba(59, 130, 246, 0.15)',
 
-  // Transaction types
-  checkIn: palette.green500,
-  checkOut: palette.red500,
-  adjustment: palette.blue500,
+  overlay: 'rgba(0, 0, 0, 0.6)',
+  overlayHeavy: 'rgba(0, 0, 0, 0.8)',
+  overlaySubtle: 'rgba(0, 0, 0, 0.4)',
 
-  // Interactive
-  ctaBg: palette.ctaYellow,
-  ctaText: palette.ctaText,
-  dangerBg: palette.red500,
-  dangerText: palette.white,
-
-  // Borders
-  borderPrimary: palette.gray600,
-  borderSubtle: palette.gray700,
-  borderFocus: palette.greenDark,
-  borderAccent: palette.greenDark,
-
-  // Badge solid
-  badgePrimaryBg: palette.greenDark,
-  badgePrimaryText: palette.white,
-  badgeSecondaryBg: palette.indigo500,
-  badgeSecondaryText: palette.white,
-  badgeSuccessBg: palette.green500,
-  badgeSuccessText: palette.white,
-  badgeWarningBg: palette.yellow500,
-  badgeWarningText: palette.gray800,
-  badgeErrorBg: palette.red500,
-  badgeErrorText: palette.white,
-  badgeInfoBg: palette.blue500,
-  badgeInfoText: palette.white,
-  badgeNeutralBg: palette.gray500,
-  badgeNeutralText: palette.white,
-
-  // Badge subtle
-  badgePrimarySubtleBg: palette.green800,
-  badgePrimarySubtleText: palette.green100,
-  badgeSecondarySubtleBg: palette.indigo900,
-  badgeSecondarySubtleText: palette.indigo300,
-  badgeSuccessSubtleBg: palette.green900,
-  badgeSuccessSubtleText: palette.green100,
-  badgeWarningSubtleBg: palette.yellow900,
-  badgeWarningSubtleText: palette.yellow200,
-  badgeErrorSubtleBg: palette.red900,
-  badgeErrorSubtleText: palette.red300,
-  badgeInfoSubtleBg: palette.blue900,
-  badgeInfoSubtleText: palette.blue300,
-  badgeNeutralSubtleBg: palette.gray800,
-  badgeNeutralSubtleText: palette.gray400,
-
-  // Overlay
-  overlay: palette.overlayDark,
-  overlayHeavy: palette.overlayHeavy,
-  overlaySubtle: palette.overlayLight,
-
-  // Switch
-  switchTrackActive: palette.greenDark,
-  switchTrackInactive: palette.gray600,
-  switchThumb: palette.white,
-
-  // Icon
   iconPrimary: palette.gray200,
   iconSecondary: palette.gray500,
-  iconInverse: palette.gray900,
-  iconBrand: palette.greenDark,
-}
+  iconBrand: palette.blue400,
+};
 
-// --- Spacing Scale (4px base) ---
+// -- Spacing ----------------------------------------------------------------
 
 export const spacing = {
-  0.5: 2,
+  0: 0,
   1: 4,
-  1.5: 6,
   2: 8,
-  2.5: 10,
   3: 12,
   4: 16,
   5: 20,
@@ -409,164 +204,141 @@ export const spacing = {
   10: 40,
   12: 48,
   16: 64,
-} as const
+} as const;
 
-// --- Typography Scale ---
+// -- Border radii -----------------------------------------------------------
 
-export const fontFamily = {
-  heading: 'Outfit',
-  body: 'WorkSans',
-} as const
+export const radii = {
+  none: 0,
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  full: 9999,
+} as const;
 
-export const typography = {
-  xs: { fontSize: 11, lineHeight: 16 },
-  sm: { fontSize: 12, lineHeight: 16 },
-  base: { fontSize: 14, lineHeight: 20 },
-  md: { fontSize: 15, lineHeight: 22 },
-  lg: { fontSize: 16, lineHeight: 24 },
-  xl: { fontSize: 18, lineHeight: 28 },
-  '2xl': { fontSize: 20, lineHeight: 28 },
-  '3xl': { fontSize: 24, lineHeight: 32 },
-  '4xl': { fontSize: 30, lineHeight: 36 },
+// -- Typography presets -----------------------------------------------------
 
-  weight: {
-    normal: '400' as const,
-    medium: '500' as const,
-    semibold: '600' as const,
-    bold: '700' as const,
-  },
-} as const
-
-// Typography presets combining size + font family
-export const typePresets = {
-  h1: { ...typography['3xl'], fontFamily: fontFamily.heading, fontWeight: typography.weight.bold },
-  h2: { ...typography['2xl'], fontFamily: fontFamily.heading, fontWeight: typography.weight.bold },
-  h3: { ...typography.xl, fontFamily: fontFamily.heading, fontWeight: typography.weight.bold },
-  body: { ...typography.base, fontFamily: fontFamily.body, fontWeight: typography.weight.normal },
-  label: { ...typography.sm, fontFamily: fontFamily.body, fontWeight: typography.weight.medium },
-  caption: { ...typography.xs, fontFamily: fontFamily.body, fontWeight: typography.weight.normal },
-} as const
-
-// --- Shadow Tokens ---
-
-export interface ShadowToken {
-  shadowColor: string
-  shadowOffset: { width: number; height: number }
-  shadowOpacity: number
-  shadowRadius: number
-  elevation: number
+export interface TypePreset {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  fontWeight: 'normal' | '500' | '600' | '700';
 }
 
-export type ShadowScale = Record<'none' | 'sm' | 'md' | 'lg' | 'xl', ShadowToken>
+export const typePresets = {
+  display: {
+    fontFamily: fontFamily.headingBold,
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700' as const,
+  },
+  heading: {
+    fontFamily: fontFamily.headingSemiBold,
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '600' as const,
+  },
+  title: {
+    fontFamily: fontFamily.headingSemiBold,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '600' as const,
+  },
+  body: {
+    fontFamily: fontFamily.body,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: 'normal' as const,
+  },
+  bodySmall: {
+    fontFamily: fontFamily.body,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: 'normal' as const,
+  },
+  caption: {
+    fontFamily: fontFamily.body,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 'normal' as const,
+  },
+  label: {
+    fontFamily: fontFamily.bodySemiBold,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600' as const,
+  },
+} as const satisfies Record<string, TypePreset>;
+
+// -- Shadows ----------------------------------------------------------------
+
+export interface ShadowValue {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number;
+}
+
+export type ShadowScale = Record<'none' | 'sm' | 'md' | 'lg' | 'xl', ShadowValue>;
 
 export function getShadows(isDark: boolean): ShadowScale {
-  if (isDark) {
-    return {
-      none: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        elevation: 0,
-      },
-      sm: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.3,
-        shadowRadius: 3,
-        elevation: 2,
-      },
-      md: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
-        elevation: 4,
-      },
-      lg: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-        elevation: 8,
-      },
-      xl: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.6,
-        shadowRadius: 14,
-        elevation: 12,
-      },
-    }
-  }
+  const color = isDark ? palette.black : palette.gray900;
+  const base = isDark ? 0.4 : 0.1;
 
   return {
     none: {
-      shadowColor: '#000000',
+      shadowColor: 'transparent',
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0,
       shadowRadius: 0,
       elevation: 0,
     },
     sm: {
-      shadowColor: '#000000',
+      shadowColor: color,
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
+      shadowOpacity: base,
+      shadowRadius: 2,
       elevation: 1,
     },
     md: {
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.1,
-      shadowRadius: 6,
+      shadowColor: color,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: base * 1.2,
+      shadowRadius: 4,
       elevation: 3,
     },
     lg: {
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.15,
-      shadowRadius: 10,
+      shadowColor: color,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: base * 1.5,
+      shadowRadius: 8,
       elevation: 6,
     },
     xl: {
-      shadowColor: '#000000',
+      shadowColor: color,
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.2,
-      shadowRadius: 14,
+      shadowOpacity: base * 2,
+      shadowRadius: 16,
       elevation: 10,
     },
-  }
+  };
 }
 
-// Static shadows export for backward compatibility
-export const shadows = getShadows(false)
-
-// --- Border Radius Tokens ---
-
-export const radii = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  full: 9999,
-  button: 22.5,
-} as const
-
-// --- Z-Index Scale ---
+// -- Z-index ----------------------------------------------------------------
 
 export const zIndex = {
   base: 0,
   dropdown: 10,
   sticky: 20,
-  overlay: 30,
-  modal: 40,
-  toast: 50,
-} as const
+  modal: 30,
+  toast: 40,
+} as const;
 
-// --- Touch Target Constants ---
+// -- Touch targets ----------------------------------------------------------
 
 export const touchTarget = {
-  minimum: 44,
-  preferred: 48,
-} as const
+  minHeight: 44,
+  minWidth: 44,
+} as const;

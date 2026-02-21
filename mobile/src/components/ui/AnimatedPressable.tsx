@@ -1,62 +1,63 @@
-import React, { useCallback } from 'react'
-import { type ViewStyle } from 'react-native'
+import React, { useCallback } from 'react';
+import { Pressable, type PressableProps, type ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-} from 'react-native-reanimated'
-import { Pressable } from 'react-native'
-import { PRESS_SCALE } from '@/theme/animations'
-import { haptic, type HapticPattern } from '@/lib/haptics'
+} from 'react-native-reanimated';
+import { PRESS_SCALE, TIMING_CONFIG } from '@/theme/animations';
+import { haptic, type HapticPattern } from '@/lib/haptics';
 
-const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable)
+const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable);
 
-export interface AnimatedPressableProps {
-  onPress?: () => void
-  style?: ViewStyle | ViewStyle[]
-  disabled?: boolean
-  scaleValue?: number
-  hapticPattern?: HapticPattern
-  children: React.ReactNode
-  testID?: string
+export interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
+  hapticPattern?: HapticPattern;
+  scaleValue?: number;
+  style?: ViewStyle;
+  children: React.ReactNode;
 }
 
 export function AnimatedPressable({
   onPress,
+  hapticPattern = 'light',
+  scaleValue = PRESS_SCALE,
+  disabled,
   style,
-  disabled = false,
-  scaleValue = PRESS_SCALE.toValue,
-  hapticPattern,
   children,
-  testID,
+  ...rest
 }: AnimatedPressableProps) {
-  const scale = useSharedValue(1)
+  const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-  }))
+  }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(scaleValue, { duration: PRESS_SCALE.duration })
-    if (hapticPattern) {
-      haptic(hapticPattern)
-    }
-  }, [scale, scaleValue, hapticPattern])
+    scale.value = withTiming(scaleValue, TIMING_CONFIG);
+  }, [scale, scaleValue]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: PRESS_SCALE.duration })
-  }, [scale])
+    scale.value = withTiming(1, TIMING_CONFIG);
+  }, [scale]);
+
+  const handlePress = useCallback(
+    (e: Parameters<NonNullable<PressableProps['onPress']>>[0]) => {
+      haptic(hapticPattern);
+      onPress?.(e);
+    },
+    [hapticPattern, onPress],
+  );
 
   return (
     <AnimatedPressableBase
-      onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      onPress={handlePress}
       disabled={disabled}
       style={[animatedStyle, style]}
-      testID={testID}
+      {...rest}
     >
       {children}
     </AnimatedPressableBase>
-  )
+  );
 }

@@ -1,232 +1,256 @@
-import React, { useState, useCallback } from 'react'
-import { View, Text, FlatList } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { useSQLiteContext } from 'expo-sqlite'
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react-native'
-import { useAuth } from '@/contexts/AuthContext'
-import { useDomain } from '@/contexts/DomainContext'
-import { useBatchScan } from '@/contexts/BatchScanContext'
-import { useSyncQueue } from '@/hooks/useSyncQueue'
-import { useTheme } from '@/theme'
-import { ScreenHeader } from '@/components/layout/ScreenHeader'
-import { BatchItemRow } from '@/components/domain/BatchItemRow'
-import { BatchConfirmModal } from '@/components/domain/BatchConfirmModal'
-import { Button } from '@/components/ui/Button'
-import { clampQuantity } from '@/lib/constants'
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, FlatList, Alert } from 'react-native';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSQLiteContext } from 'expo-sqlite';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Trash2,
+  RefreshCw,
+  ClipboardList,
+  ChevronLeft,
+} from 'lucide-react-native';
+import { useTheme } from '@/theme/ThemeContext';
+import { useSyncQueue } from '@/hooks/useSyncQueue';
+import {
+  getPendingTransactions,
+  getCachedItem,
+  removeTransaction,
+} from '@/lib/db/operations';
+import type { PendingTransaction } from '@/lib/db/types';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { haptic } from '@/lib/haptics';
 
 export default function BatchReviewScreen() {
-  const router = useRouter()
-  const db = useSQLiteContext()
-  const { user } = useAuth()
-  const { domainId } = useDomain()
-  const {
-    items,
-    transactionType,
-    totalItems,
-    totalUnits,
-    updateQuantity,
-    removeItem,
-    clearBatch,
-  } = useBatchScan()
-  const { queueTransaction } = useSyncQueue(
-    db,
-    user?.id ?? null,
-    domainId,
-    true
-  )
-  const { colors, spacing, typography } = useTheme()
+  const db = useSQLiteContext();
+  const { colors, spacing, typePresets, radii } = useTheme();
+  const { pendingCount, isSyncing, syncNow } = useSyncQueue();
+  const [transactions, setTransactions] = useState<PendingTransaction[]>([]);
 
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const isCheckIn = transactionType === 'in'
-  const typeBannerColor = isCheckIn ? colors.checkIn : colors.checkOut
-  const typeLabel = isCheckIn ? 'CHECK IN' : 'CHECK OUT'
-  const confirmLabel = isCheckIn ? 'Confirm Check In' : 'Confirm Check Out'
-
-  const handleQuantityChange = useCallback(
-    (itemId: string, newQuantity: number) => {
-      const clamped = clampQuantity(newQuantity)
-      if (clamped < 1) return
-      updateQuantity(itemId, clamped)
-    },
-    [updateQuantity]
-  )
-
-  const handleRemove = useCallback(
-    (itemId: string) => {
-      removeItem(itemId)
-    },
-    [removeItem]
-  )
-
-  const handleConfirm = useCallback(async () => {
-    setIsSubmitting(true)
+  const loadTransactions = useCallback(() => {
     try {
-      for (const batchItem of items) {
-        queueTransaction({
-          transactionType: transactionType,
-          itemId: batchItem.itemId,
-          quantity: batchItem.quantity,
-        })
-      }
-      clearBatch()
-      setIsModalOpen(false)
-      router.replace({
-        pathname: '/',
-        params: { batchSuccess: String(items.length) },
-      })
+      const txs = getPendingTransactions(db);
+      setTransactions(txs);
     } catch {
-      // Error handling - stay on page
-    } finally {
-      setIsSubmitting(false)
+      // DB may not be ready
     }
-  }, [items, transactionType, queueTransaction, clearBatch, router])
+  }, [db]);
 
-  const TypeIcon = isCheckIn ? ArrowDownToLine : ArrowUpFromLine
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions, pendingCount]);
 
-  if (items.length === 0) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['top']}>
-        <ScreenHeader
-          title="Batch Review"
-          onBack={() => router.back()}
-          testID="screen-header"
-        />
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[4], padding: spacing[6] }}>
-          <Text
-            style={{
-              ...typography.lg,
-              color: colors.textSecondary,
-              fontWeight: typography.weight.medium,
-            }}
-          >
-            No items in batch
-          </Text>
-          <Button
-            label="Go to Scanner"
-            onPress={() => router.back()}
-            variant="primary"
-            size="md"
-          />
-        </View>
-      </SafeAreaView>
-    )
-  }
+  const handleDelete = useCallback(
+    (tx: PendingTransaction) => {
+      const itemName = getCachedItem(db, tx.item_id)?.name ?? 'Unknown Item';
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['top']}>
-      <ScreenHeader
-        title="Batch Review"
-        onBack={() => router.back()}
-        rightContent={
-          <Text
-            style={{
-              ...typography.base,
-              color: colors.textSecondary,
-              fontWeight: typography.weight.medium,
-            }}
-          >
-            {totalItems} {totalItems === 1 ? 'item' : 'items'}
-          </Text>
-        }
-        testID="screen-header"
-      />
+      Alert.alert(
+        'Delete Transaction',
+        `Remove ${tx.transaction_type === 'in' || tx.transaction_type === 'check_in' ? 'Stock In' : 'Stock Out'} x${tx.quantity} for "${itemName}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              haptic('warning');
+              removeTransaction(db, tx.id);
+              loadTransactions();
+            },
+          },
+        ],
+      );
+    },
+    [db, loadTransactions],
+  );
 
-      {/* Transaction type banner */}
-      <View
-        testID="type-banner"
-        style={{
-          backgroundColor: typeBannerColor,
-          paddingVertical: spacing[2],
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          gap: spacing[2],
-        }}
-      >
-        <TypeIcon size={18} color={colors.textInverse} />
-        <Text
+  const handleSyncAll = useCallback(async () => {
+    haptic('medium');
+    await syncNow();
+    loadTransactions();
+  }, [syncNow, loadTransactions]);
+
+  const getItemName = useCallback(
+    (itemId: string): string => {
+      const item = getCachedItem(db, itemId);
+      return item?.name ?? 'Unknown Item';
+    },
+    [db],
+  );
+
+  const formatTime = (isoString: string): string =>
+    new Date(isoString).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const renderItem = useCallback(
+    ({ item }: { item: PendingTransaction }) => {
+      const isIn =
+        item.transaction_type === 'in' ||
+        item.transaction_type === 'check_in';
+      const Icon = isIn ? ArrowDownToLine : ArrowUpFromLine;
+      const iconColor = isIn ? colors.success : colors.error;
+
+      return (
+        <Card
           style={{
-            ...typography.base,
-            fontWeight: typography.weight.bold,
-            color: colors.textInverse,
-            letterSpacing: 1,
+            marginHorizontal: spacing[4],
+            marginBottom: spacing[2],
           }}
         >
-          {typeLabel}
-        </Text>
-      </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing[3],
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radii.md,
+                backgroundColor: isIn
+                  ? colors.successBackground
+                  : colors.errorBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon size={20} color={iconColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  ...typePresets.bodySmall,
+                  color: colors.text,
+                  fontWeight: '600',
+                }}
+                numberOfLines={1}
+              >
+                {getItemName(item.item_id)}
+              </Text>
+              <Text
+                style={{
+                  ...typePresets.caption,
+                  color: colors.textSecondary,
+                }}
+              >
+                {isIn ? 'Stock In' : 'Stock Out'} x{item.quantity}
+                {' | '}
+                {formatTime(item.device_timestamp)}
+              </Text>
+              {item.notes && (
+                <Text
+                  style={{
+                    ...typePresets.caption,
+                    color: colors.textTertiary,
+                    marginTop: 2,
+                  }}
+                  numberOfLines={1}
+                >
+                  {item.notes}
+                </Text>
+              )}
+            </View>
+            <Badge
+              label={item.status}
+              variant={
+                item.status === 'failed'
+                  ? 'error'
+                  : item.status === 'syncing'
+                    ? 'info'
+                    : 'default'
+              }
+            />
+            <AnimatedPressable
+              onPress={() => handleDelete(item)}
+              hapticPattern="warning"
+              style={{
+                padding: spacing[2],
+              }}
+            >
+              <Trash2 size={18} color={colors.error} />
+            </AnimatedPressable>
+          </View>
+        </Card>
+      );
+    },
+    [colors, spacing, radii, typePresets, getItemName, handleDelete],
+  );
+
+  return (
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
+    >
+      <ScreenHeader
+        title="Batch Review"
+        rightAction={
+          <AnimatedPressable
+            onPress={() => router.back()}
+            hapticPattern="light"
+          >
+            <Text
+              style={{
+                ...typePresets.bodySmall,
+                color: colors.primary,
+                fontWeight: '600',
+              }}
+            >
+              Done
+            </Text>
+          </AnimatedPressable>
+        }
+      />
 
       <FlatList
-        data={items}
-        keyExtractor={(item) => item.itemId}
-        renderItem={({ item: batchItem, index }) => (
-          <BatchItemRow
-            item={{
-              id: batchItem.itemId,
-              name: batchItem.item.name,
-              quantity: batchItem.quantity,
-              unit: batchItem.item.unit,
-              currentStock: batchItem.item.current_stock,
+        data={transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListEmptyComponent={
+          <EmptyState
+            icon={<ClipboardList size={48} color={colors.textTertiary} />}
+            title="Queue Empty"
+            message="All transactions have been synced."
+            action={{
+              label: 'Go Back',
+              onPress: () => router.back(),
             }}
-            onQuantityChange={handleQuantityChange}
-            onRemove={handleRemove}
-            testID={`batch-row-${index}`}
           />
-        )}
-        contentContainerStyle={{ paddingBottom: spacing[4] }}
-      />
-
-      <View
-        style={{
-          backgroundColor: colors.surfacePrimary,
-          borderTopWidth: 1,
-          borderTopColor: colors.borderSubtle,
-          padding: spacing[4],
-          gap: spacing[3],
+        }
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: spacing[2],
+          paddingBottom: spacing[4],
         }}
-      >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text
-            style={{
-              ...typography.base,
-              color: colors.textSecondary,
-              fontWeight: typography.weight.medium,
-            }}
-          >
-            Total Units:
-          </Text>
-          <Text
-            style={{
-              ...typography.xl,
-              fontWeight: typography.weight.bold,
-              color: colors.textPrimary,
-            }}
-          >
-            {totalUnits}
-          </Text>
-        </View>
-        <Button
-          label={confirmLabel}
-          onPress={() => setIsModalOpen(true)}
-          variant={isCheckIn ? 'primary' : 'danger'}
-          size="lg"
-          testID="confirm-button"
-        />
-      </View>
-
-      <BatchConfirmModal
-        isOpen={isModalOpen}
-        transactionType={transactionType}
-        itemCount={totalItems}
-        totalUnits={totalUnits}
-        onConfirm={handleConfirm}
-        onCancel={() => setIsModalOpen(false)}
-        isSubmitting={isSubmitting}
-        testID="confirm-modal"
       />
+
+      {transactions.length > 0 && (
+        <View
+          style={{
+            padding: spacing[4],
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            backgroundColor: colors.surface,
+          }}
+        >
+          <Button
+            title={`Sync All (${transactions.length})`}
+            onPress={handleSyncAll}
+            loading={isSyncing}
+            icon={<RefreshCw size={18} color={colors.textInverse} />}
+            size="lg"
+          />
+        </View>
+      )}
     </SafeAreaView>
-  )
+  );
 }
