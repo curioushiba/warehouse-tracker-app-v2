@@ -1,4 +1,5 @@
 import React from 'react'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Stack } from 'expo-router'
 import { useFonts } from 'expo-font'
 import * as SplashScreen from 'expo-splash-screen'
@@ -30,24 +31,26 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null
 
   return (
-    <AuthProvider>
-      <DomainProvider>
-        <SettingsProvider>
-          <ThemeProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-                animationDuration: 250,
-              }}
-            >
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="domain-picker" />
-              <Stack.Screen name="(app)" />
-            </Stack>
-          </ThemeProvider>
-        </SettingsProvider>
-      </DomainProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <DomainProvider>
+          <SettingsProvider>
+            <ThemeProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'fade',
+                  animationDuration: 250,
+                }}
+              >
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="domain-picker" />
+                <Stack.Screen name="(app)" />
+              </Stack>
+            </ThemeProvider>
+          </SettingsProvider>
+        </DomainProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   )
 }
