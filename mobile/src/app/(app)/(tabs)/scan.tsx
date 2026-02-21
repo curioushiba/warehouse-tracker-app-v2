@@ -60,7 +60,7 @@ export default function ScanScreen() {
   } = useScanFeedback()
   const { colors, spacing, typography, shadows, radii } = useTheme()
   const { domainId } = useDomain()
-  const { items: cachedItems, error: itemCacheError, refreshItems } = useItemCache(db, domainId)
+  const { items: cachedItems, isLoading: isItemCacheLoading, error: itemCacheError, refreshItems } = useItemCache(db, domainId)
 
   const [mode, setMode] = useState<ScanMode>('scan')
   const [showInstruction, setShowInstruction] = useState(true)
@@ -292,6 +292,7 @@ export default function ScanScreen() {
                 items={autocompleteItems}
                 onSelect={handleManualSelect}
                 placeholder="Search by name, SKU, or barcode..."
+                isLoading={isItemCacheLoading}
                 testID="item-search-autocomplete"
               />
             </View>

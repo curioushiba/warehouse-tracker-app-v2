@@ -469,6 +469,46 @@ describe('ScanScreen', () => {
     expect(getByTestId('item-search-autocomplete')).toBeTruthy()
   })
 
+  it('passes isLoading to autocomplete — shows "Loading items..." when loading', () => {
+    mockUseItemCache.mockReturnValue({
+      items: [],
+      isLoading: true,
+      error: null,
+      refreshItems: jest.fn(),
+    })
+
+    const { getByTestId, getByText } = render(<ScanScreen />)
+    fireEvent.press(getByTestId('mode-control-search'))
+    fireEvent.changeText(getByTestId('item-search-autocomplete-input'), 'test')
+    expect(getByText('Loading items...')).toBeTruthy()
+  })
+
+  it('shows search results after loading completes', () => {
+    mockUseItemCache.mockReturnValue({
+      items: [
+        {
+          id: 'item-cached-1',
+          sku: 'SKU-C1',
+          name: 'Cached Widget',
+          barcode: 'BC-C1',
+          unit: 'pcs',
+          currentStock: 10,
+          minStock: 1,
+          version: 1,
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+      error: null,
+      refreshItems: jest.fn(),
+    })
+
+    const { getByTestId, getByText } = render(<ScanScreen />)
+    fireEvent.press(getByTestId('mode-control-search'))
+    fireEvent.changeText(getByTestId('item-search-autocomplete-input'), 'Cached')
+    expect(getByText('Cached Widget')).toBeTruthy()
+  })
+
   it('handleManualSelect uses getCachedItem with selected.id', () => {
     mockGetCachedItem.mockReturnValue(testCachedItem)
 

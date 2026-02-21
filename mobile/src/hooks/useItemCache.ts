@@ -53,7 +53,7 @@ export function createItemCacheManager(
 export function useItemCache(db: unknown, domainId: DomainId | null) {
   const [state, setItemCacheState] = useState<ItemCacheState>({
     items: [],
-    isLoading: false,
+    isLoading: true,
     error: null,
   })
 

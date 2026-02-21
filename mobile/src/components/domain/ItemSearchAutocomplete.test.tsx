@@ -26,6 +26,17 @@ jest.mock('react-native-reanimated', () => {
   }
 })
 
+jest.mock('@/components/ui/AnimatedPressable', () => ({
+  AnimatedPressable: ({ children, onPress, testID, style }: any) => {
+    const { Pressable } = require('react-native')
+    return (
+      <Pressable onPress={onPress} testID={testID} style={style}>
+        {children}
+      </Pressable>
+    )
+  },
+}))
+
 const items = [
   { id: '1', name: 'Widget Alpha', sku: 'WA-001', barcode: 'PT-00001' },
   { id: '2', name: 'Widget Beta', sku: 'WB-002', barcode: 'PT-00002' },
@@ -140,5 +151,50 @@ describe('ItemSearchAutocomplete', () => {
     fireEvent.changeText(getByTestId('search-input'), 'widget')
     expect(getByText('Widget Alpha')).toBeTruthy()
     expect(getByText('Widget Beta')).toBeTruthy()
+  })
+
+  it('shows "Loading items..." when isLoading=true and query entered', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <ItemSearchAutocomplete
+        items={[]}
+        onSelect={jest.fn()}
+        isLoading={true}
+        testID="search"
+      />
+    )
+    fireEvent.changeText(getByTestId('search-input'), 'Widget')
+    expect(getByText('Loading items...')).toBeTruthy()
+    expect(queryByText('No results')).toBeNull()
+    expect(queryByText('No items available')).toBeNull()
+  })
+
+  it('shows "No items available" when items=[], not loading, query entered', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <ItemSearchAutocomplete
+        items={[]}
+        onSelect={jest.fn()}
+        isLoading={false}
+        testID="search"
+      />
+    )
+    fireEvent.changeText(getByTestId('search-input'), 'Widget')
+    expect(getByText('No items available')).toBeTruthy()
+    expect(queryByText('No results')).toBeNull()
+    expect(queryByText('Loading items...')).toBeNull()
+  })
+
+  it('shows "No results" when items exist but none match', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <ItemSearchAutocomplete
+        items={items}
+        onSelect={jest.fn()}
+        isLoading={false}
+        testID="search"
+      />
+    )
+    fireEvent.changeText(getByTestId('search-input'), 'zzz-no-match')
+    expect(getByText('No results')).toBeTruthy()
+    expect(queryByText('Loading items...')).toBeNull()
+    expect(queryByText('No items available')).toBeNull()
   })
 })

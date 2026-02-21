@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, FlatList } from 'react-native'
+import { View, Text, TextInput, FlatList } from 'react-native'
 import { Search } from 'lucide-react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { useTheme } from '@/theme'
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable'
 
 export interface AutocompleteItem {
   id: string
@@ -15,6 +16,7 @@ export interface ItemSearchAutocompleteProps {
   items: AutocompleteItem[]
   onSelect: (item: { id: string; name: string; sku: string }) => void
   placeholder?: string
+  isLoading?: boolean
   testID?: string
 }
 
@@ -74,6 +76,7 @@ export function ItemSearchAutocomplete({
   items,
   onSelect,
   placeholder = 'Search items...',
+  isLoading = false,
   testID,
 }: ItemSearchAutocompleteProps) {
   const [query, setQuery] = useState('')
@@ -90,12 +93,20 @@ export function ItemSearchAutocomplete({
     )
   }, [query, items])
 
-  const handleSelect = (item: AutocompleteItem) => {
+  function handleSelect(item: AutocompleteItem) {
     onSelect({ id: item.id, name: item.name, sku: item.sku })
     setQuery('')
   }
 
+  function getEmptyStateMessage(): string | null {
+    if (isLoading) return 'Loading items...'
+    if (items.length === 0) return 'No items available'
+    if (filteredItems.length === 0) return 'No results'
+    return null
+  }
+
   const showDropdown = query.trim().length > 0
+  const emptyStateMessage = showDropdown ? getEmptyStateMessage() : null
 
   return (
     <View style={{ width: '100%', zIndex: 10 }} testID={testID}>
@@ -140,7 +151,7 @@ export function ItemSearchAutocomplete({
             overflow: 'hidden',
           }}
         >
-          {filteredItems.length === 0 ? (
+          {emptyStateMessage ? (
             <Text
               style={{
                 padding: spacing[3],
@@ -150,7 +161,7 @@ export function ItemSearchAutocomplete({
                 textAlign: 'center',
               }}
             >
-              No results
+              {emptyStateMessage}
             </Text>
           ) : (
             <FlatList
@@ -158,7 +169,7 @@ export function ItemSearchAutocomplete({
               keyExtractor={(item) => item.id}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
-                <TouchableOpacity
+                <AnimatedPressable
                   style={{
                     paddingVertical: spacing[2.5],
                     paddingHorizontal: spacing[3],
@@ -187,7 +198,7 @@ export function ItemSearchAutocomplete({
                   >
                     {item.sku}
                   </Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               )}
             />
           )}
