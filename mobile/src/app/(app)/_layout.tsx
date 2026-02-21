@@ -9,6 +9,7 @@ import { BatchScanProvider } from '@/contexts/BatchScanContext'
 import { useDeviceType } from '@/hooks/useDeviceType'
 import { BACKGROUND_SYNC_TASK } from '@/lib/sync/backgroundTask'
 import { BACKGROUND_FETCH_INTERVAL } from '@/lib/constants'
+import { runMigrations } from '@/lib/db'
 
 export default function AppLayout() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -32,7 +33,7 @@ export default function AppLayout() {
     registerBackgroundFetch()
 
     return () => {
-      BackgroundFetch.unregisterTaskAsync(BACKGROUND_SYNC_TASK).catch(() => {})
+      BackgroundFetch.unregisterTaskAsync(BACKGROUND_SYNC_TASK).catch(() => { })
     }
   }, [])
 
@@ -41,7 +42,14 @@ export default function AppLayout() {
   if (!domainId) return <Redirect href="/domain-picker" />
 
   return (
-    <SQLiteProvider databaseName="packtrack.db">
+    <SQLiteProvider databaseName="packtrack.db" onInit={async (db) => {
+      try {
+        runMigrations(db)
+      } catch (e) {
+        console.error('SQLite migration failed:', e)
+        throw e
+      }
+    }}>
       <BatchScanProvider>
         <Stack
           screenOptions={{

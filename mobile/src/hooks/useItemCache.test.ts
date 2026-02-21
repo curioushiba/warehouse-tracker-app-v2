@@ -146,6 +146,21 @@ describe('createItemCacheManager', () => {
     expect(mockGetAllCachedItems).not.toHaveBeenCalled()
   })
 
+  it('refreshFromCache catches errors and sets error state', () => {
+    mockGetAllCachedItems.mockImplementation(() => {
+      throw new Error('no such table: items_cache')
+    })
+
+    const manager = createItemCacheManager(mockDb, 'commissary' as DomainId, setState)
+    manager.refreshFromCache()
+
+    expect(setState).toHaveBeenCalledWith({
+      items: [],
+      isLoading: false,
+      error: 'Failed to read item cache',
+    })
+  })
+
   it('refreshFromCache reads from cache without server fetch', async () => {
     const cachedItems = [makeCachedItem({ id: 'item-refresh', name: 'Refreshed' })]
     mockGetAllCachedItems.mockReturnValue(cachedItems)

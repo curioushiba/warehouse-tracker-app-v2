@@ -26,8 +26,12 @@ export function createItemCacheManager(
 ): ItemCacheManager {
   function refreshFromCache() {
     if (!domainId) return
-    const items = getAllCachedItems(db as never, domainId)
-    setState({ items, isLoading: false, error: null })
+    try {
+      const items = getAllCachedItems(db as never, domainId)
+      setState({ items, isLoading: false, error: null })
+    } catch {
+      setState({ items: [], isLoading: false, error: 'Failed to read item cache' })
+    }
   }
 
   async function loadItems() {
