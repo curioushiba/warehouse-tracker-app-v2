@@ -15,6 +15,7 @@ export default defineConfig({
       'expo-sqlite': path.resolve(__dirname, './src/test/mocks/expo-sqlite.ts'),
       'expo-crypto': path.resolve(__dirname, './src/test/mocks/expo-crypto.ts'),
       '@react-native-async-storage/async-storage': path.resolve(__dirname, './src/test/mocks/async-storage.ts'),
+      'react-native': path.resolve(__dirname, './src/test/mocks/react-native.ts'),
     },
   },
 });

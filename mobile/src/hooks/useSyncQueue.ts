@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
-import type { AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPendingCount, getSyncMetadata } from '@/lib/db/operations';
+import { getPendingCount, getSyncMetadata, setSyncMetadata } from '@/lib/db/operations';
 import { processQueue, refreshItemCache } from '@/lib/sync/sync';
 import { checkOnlineStatus } from '@/lib/sync/online-status';
 
@@ -74,10 +73,16 @@ export function createSyncQueueManager(deps: {
       const now = new Date().toISOString();
 
       try {
-        const { setSyncMetadata: setMeta } = await import('@/lib/db/operations');
-        setMeta(getDb(), 'last_sync_time', now);
+        setSyncMetadata(getDb(), 'last_sync_time', now);
       } catch {
         // Non-critical
+      }
+
+      // Refresh item cache so search results are up-to-date
+      try {
+        await refreshItemCache(getDb(), getSupabase());
+      } catch {
+        // Cache refresh failure is non-critical during sync
       }
 
       const errorMsg =
@@ -143,7 +148,10 @@ export function useSyncQueue(): UseSyncQueueReturn {
   const manager = useRef(
     createSyncQueueManager({
       getDb: () => db,
-      getSupabase: () => supabase,
+      getSupabase: () => {
+        if (!supabase) throw new Error('Supabase not configured');
+        return supabase;
+      },
       getUserId: () => user?.id,
       checkOnline: checkOnlineStatus,
       onStateChange: (patch) =>
@@ -157,6 +165,13 @@ export function useSyncQueue(): UseSyncQueueReturn {
     manager.refreshCount();
     manager.readLastSyncTime();
   }, [manager]);
+
+  // Auto-sync (including cache refresh) when user becomes available
+  useEffect(() => {
+    if (user?.id) {
+      void manager.syncNow();
+    }
+  }, [manager, user?.id]);
 
   // Auto-sync when app comes to foreground
   useEffect(() => {
