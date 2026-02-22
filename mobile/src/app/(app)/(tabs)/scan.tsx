@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, FlatList, Alert } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   CameraView,
   useCameraPermissions,
@@ -11,214 +12,320 @@ import {
 import {
   Search,
   ScanLine,
-  Camera,
   Package,
-  ChevronRight,
+  ShoppingBag,
 } from 'lucide-react-native';
+import { randomUUID } from 'expo-crypto';
 import { useTheme } from '@/theme/ThemeContext';
+import { useSyncQueue } from '@/hooks/useSyncQueue';
 import {
+  getAllCachedItems,
+  searchCachedItems,
   getCachedItemByBarcode,
   getCachedItemBySku,
-  searchCachedItems,
+  enqueueTransaction,
 } from '@/lib/db/operations';
 import type { CachedItem } from '@/lib/db/types';
+import type { PendingTransaction } from '@/lib/db/types';
+import type { TransactionType } from '@/lib/types';
+import {
+  addToCart,
+  removeFromCart,
+  updateQuantity,
+  updateNotes,
+  getCartItemCount,
+  getCartTotalQuantity,
+  validateCart,
+  cartToArray,
+  isInCart,
+  getCartQuantity,
+  type CartState,
+} from '@/lib/cart';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { StockLevelIndicator } from '@/components/indicators/StockLevelIndicator';
+import { CartReviewSheet } from '@/components/cart/CartReviewSheet';
+import { CartSummaryBar } from '@/components/cart/CartSummaryBar';
 import { haptic } from '@/lib/haptics';
 
 export default function ScanScreen() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ type?: string }>();
   const { colors, spacing, typePresets, radii } = useTheme();
+  const { syncNow } = useSyncQueue();
   const [permission, requestPermission] = useCameraPermissions();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CachedItem[]>([]);
-  const [scanning, setScanning] = useState(true);
-  const [scanned, setScanned] = useState(false);
-
-  useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
-      const results = searchCachedItems(db, searchQuery.trim());
-      setSearchResults(results.filter((item) => !item.is_archived));
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery, db]);
-
-  const navigateToTransaction = useCallback(
-    (itemId: string) => {
-      haptic('medium');
-      const txType = params.type ?? 'in';
-      router.push({
-        pathname: '/(app)/transaction/[id]',
-        params: { id: itemId, type: txType },
-      });
-    },
-    [params.type],
+  const [allItems, setAllItems] = useState<CachedItem[]>([]);
+  const [cart, setCart] = useState<CartState>(new Map());
+  const [transactionType, setTransactionType] = useState<TransactionType>(
+    params.type === 'check_out' ? 'check_out' : 'check_in',
   );
+  const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Load all items on mount and when tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      const items = getAllCachedItems(db).filter((i) => !i.is_archived);
+      setAllItems(items);
+    }, [db]),
+  );
+
+  // Update transaction type when navigated with param
+  useEffect(() => {
+    if (params.type === 'check_out' || params.type === 'check_in') {
+      setTransactionType(params.type);
+    }
+  }, [params.type]);
+
+  // Derive displayed items: search or show all
+  const displayedItems = useMemo(() => {
+    const query = searchQuery.trim();
+    if (query.length >= 2) {
+      return searchCachedItems(db, query).filter((i) => !i.is_archived);
+    }
+    return allItems;
+  }, [searchQuery, db, allItems]);
+
+  const cartItemCount = getCartItemCount(cart);
+  const cartTotalQty = getCartTotalQuantity(cart);
+
+  // --- Cart handlers ---
+
+  const handleAddToCart = useCallback(
+    (item: CachedItem) => {
+      haptic('light');
+      setCart((prev) => addToCart(prev, item));
+    },
+    [],
+  );
+
+  const handleRemoveFromCart = useCallback(
+    (itemId: string) => {
+      setCart((prev) => removeFromCart(prev, itemId));
+    },
+    [],
+  );
+
+  const handleUpdateQuantity = useCallback(
+    (itemId: string, qty: number) => {
+      setCart((prev) => updateQuantity(prev, itemId, qty));
+    },
+    [],
+  );
+
+  const handleUpdateNotes = useCallback(
+    (itemId: string, notes: string) => {
+      setCart((prev) => updateNotes(prev, itemId, notes));
+    },
+    [],
+  );
+
+  const handleClearCart = useCallback(() => {
+    Alert.alert('Clear Cart', 'Remove all items from the cart?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          haptic('medium');
+          setCart(new Map());
+        },
+      },
+    ]);
+  }, []);
+
+  // --- Barcode scanning ---
+
+  const handleToggleScanner = useCallback(() => {
+    if (!scanning && permission && !permission.granted) {
+      requestPermission();
+      return;
+    }
+    setScanning((prev) => !prev);
+    setScanned(false);
+  }, [scanning, permission, requestPermission]);
 
   const handleBarcodeScanned = useCallback(
     (result: BarcodeScanningResult) => {
       if (scanned) return;
       setScanned(true);
-      haptic('success');
 
       const code = result.data;
       const item =
         getCachedItemByBarcode(db, code) ?? getCachedItemBySku(db, code);
 
-      if (item) {
-        navigateToTransaction(item.id);
+      if (item && !item.is_archived) {
+        haptic('success');
+        setCart((prev) => addToCart(prev, item));
+        // Auto-reset after 1s for continuous scanning
+        setTimeout(() => setScanned(false), 1000);
       } else {
+        haptic('warning');
         Alert.alert(
           'Item Not Found',
-          `No item found with barcode "${code}". Try searching manually.`,
+          `No item found with barcode "${code}".`,
           [{ text: 'OK', onPress: () => setScanned(false) }],
         );
       }
     },
-    [db, scanned, navigateToTransaction],
+    [db, scanned],
   );
 
-  const renderSearchResult = useCallback(
-    ({ item }: { item: CachedItem }) => (
-      <AnimatedPressable
-        onPress={() => navigateToTransaction(item.id)}
-        hapticPattern="light"
-        style={{ paddingHorizontal: spacing[4], paddingVertical: spacing[1] }}
-      >
-        <Card>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing[3],
-            }}
+  // --- Batch submission ---
+
+  const handleConfirmBatch = useCallback(async () => {
+    const errors = validateCart(cart);
+    if (errors.length > 0) {
+      Alert.alert(
+        'Validation Error',
+        errors.map((e) => `${e.itemName}: ${e.error}`).join('\n'),
+      );
+      return;
+    }
+
+    const count = getCartItemCount(cart);
+    const typeLabel = transactionType === 'check_in' ? 'Stock In' : 'Stock Out';
+
+    Alert.alert(
+      `Confirm ${typeLabel}`,
+      `Submit ${count} item${count !== 1 ? 's' : ''} as ${typeLabel}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              const now = new Date().toISOString();
+              const items = cartToArray(cart);
+
+              for (const cartItem of items) {
+                const tx: PendingTransaction = {
+                  id: randomUUID(),
+                  item_id: cartItem.item.id,
+                  transaction_type: transactionType,
+                  quantity: cartItem.quantity,
+                  notes: cartItem.notes.trim() || null,
+                  device_timestamp: now,
+                  created_at: now,
+                  status: 'pending',
+                };
+                enqueueTransaction(db, tx);
+              }
+
+              haptic('success');
+              void syncNow();
+
+              setCart(new Map());
+              setReviewVisible(false);
+
+              Alert.alert(
+                'Success',
+                `${items.length} transaction${items.length !== 1 ? 's' : ''} queued for sync.`,
+              );
+            } catch {
+              haptic('error');
+              Alert.alert('Error', 'Failed to save transactions. Please try again.');
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [cart, transactionType, db, syncNow]);
+
+  // --- Item list rendering ---
+
+  const renderItem = useCallback(
+    ({ item }: { item: CachedItem }) => {
+      const inCart = isInCart(cart, item.id);
+      const qty = getCartQuantity(cart, item.id);
+
+      return (
+        <AnimatedPressable
+          onPress={() => handleAddToCart(item)}
+          hapticPattern="light"
+          style={{ paddingHorizontal: spacing[4], paddingVertical: spacing[1] }}
+        >
+          <Card
+            style={
+              inCart
+                ? { borderWidth: 2, borderColor: colors.primary }
+                : undefined
+            }
           >
             <View
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: radii.md,
-                backgroundColor: colors.primaryLight,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: spacing[3],
               }}
             >
-              <Package size={20} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
+              <View
                 style={{
-                  ...typePresets.bodySmall,
-                  color: colors.text,
-                  fontWeight: '600',
+                  width: 40,
+                  height: 40,
+                  borderRadius: radii.md,
+                  backgroundColor: inCart
+                    ? colors.primary
+                    : colors.primaryLight,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-                numberOfLines={1}
               >
-                {item.name}
-              </Text>
-              <Text
-                style={{ ...typePresets.caption, color: colors.textSecondary }}
-              >
-                {item.sku} | Stock: {item.current_stock} {item.unit}
-              </Text>
+                {inCart ? (
+                  <Text
+                    style={{
+                      ...typePresets.bodySmall,
+                      color: colors.textInverse,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {qty}
+                  </Text>
+                ) : (
+                  <Package size={20} color={colors.primary} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    ...typePresets.bodySmall,
+                    color: colors.text,
+                    fontWeight: '600',
+                  }}
+                  numberOfLines={1}
+                >
+                  {item.name}
+                </Text>
+                <Text
+                  style={{
+                    ...typePresets.caption,
+                    color: colors.textSecondary,
+                  }}
+                >
+                  {item.sku} | Stock: {item.current_stock} {item.unit}
+                </Text>
+              </View>
+              <StockLevelIndicator
+                currentStock={item.current_stock}
+                minStock={item.min_stock}
+                maxStock={item.max_stock ?? undefined}
+              />
             </View>
-            <StockLevelIndicator
-              currentStock={item.current_stock}
-              minStock={item.min_stock}
-              maxStock={item.max_stock ?? undefined}
-            />
-            <ChevronRight size={16} color={colors.textTertiary} />
-          </View>
-        </Card>
-      </AnimatedPressable>
-    ),
-    [colors, spacing, radii, typePresets, navigateToTransaction],
+          </Card>
+        </AnimatedPressable>
+      );
+    },
+    [cart, colors, spacing, radii, typePresets, handleAddToCart],
   );
-
-  // Permission not yet determined
-  if (!permission) {
-    return (
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        edges={['top']}
-      >
-        <ScreenHeader title="Scan" />
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ ...typePresets.body, color: colors.textSecondary }}>
-            Loading camera...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Permission denied
-  if (!permission.granted) {
-    return (
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        edges={['top']}
-      >
-        <ScreenHeader title="Scan" />
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: spacing[6],
-            gap: spacing[4],
-          }}
-        >
-          <Camera size={48} color={colors.textTertiary} />
-          <Text
-            style={{
-              ...typePresets.body,
-              color: colors.textSecondary,
-              textAlign: 'center',
-            }}
-          >
-            Camera permission is required to scan barcodes
-          </Text>
-          <Button
-            title="Grant Permission"
-            onPress={requestPermission}
-            variant="primary"
-          />
-        </View>
-
-        {/* Manual search fallback */}
-        <View style={{ padding: spacing[4] }}>
-          <Input
-            label="Manual Search"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search by name, SKU, or barcode"
-            icon={<Search size={20} color={colors.iconSecondary} />}
-          />
-        </View>
-        {searchResults.length > 0 && (
-          <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.id}
-            renderItem={renderSearchResult}
-            contentContainerStyle={{ paddingBottom: spacing[4] }}
-          />
-        )}
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView
@@ -226,10 +333,10 @@ export default function ScanScreen() {
       edges={['top']}
     >
       <ScreenHeader
-        title="Scan"
+        title="Stock Transaction"
         rightAction={
           <AnimatedPressable
-            onPress={() => setScanning((prev) => !prev)}
+            onPress={handleToggleScanner}
             hapticPattern="light"
           >
             <ScanLine
@@ -240,8 +347,12 @@ export default function ScanScreen() {
         }
       />
 
-      {/* Search Bar */}
-      <View style={{ paddingHorizontal: spacing[4], marginBottom: spacing[3] }}>
+      <View
+        style={{
+          paddingHorizontal: spacing[4],
+          marginBottom: spacing[3],
+        }}
+      >
         <Input
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -250,104 +361,109 @@ export default function ScanScreen() {
         />
       </View>
 
-      {searchQuery.trim().length >= 2 ? (
-        <FlatList
-          data={searchResults}
-          keyExtractor={(item) => item.id}
-          renderItem={renderSearchResult}
-          ListEmptyComponent={
+      {scanning && permission?.granted && (
+        <View
+          style={{
+            height: 200,
+            marginHorizontal: spacing[4],
+            borderRadius: radii.lg,
+            overflow: 'hidden',
+            marginBottom: spacing[3],
+          }}
+        >
+          <CameraView
+            style={{ flex: 1 }}
+            barcodeScannerSettings={{
+              barcodeTypes: [
+                'qr',
+                'ean13',
+                'ean8',
+                'code128',
+                'code39',
+                'upc_a',
+                'upc_e',
+              ],
+            }}
+            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+          />
+          {/* Scanner overlay */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <View
               style={{
-                alignItems: 'center',
-                padding: spacing[8],
-              }}
-            >
-              <Text
-                style={{ ...typePresets.body, color: colors.textSecondary }}
-              >
-                No items found
-              </Text>
-            </View>
-          }
-          contentContainerStyle={{ paddingBottom: spacing[4] }}
-        />
-      ) : (
-        <>
-          {/* Camera Scanner */}
-          {scanning && (
-            <View
-              style={{
-                height: 250,
-                marginHorizontal: spacing[4],
+                width: 160,
+                height: 160,
+                borderWidth: 2,
+                borderColor: colors.primary,
                 borderRadius: radii.lg,
-                overflow: 'hidden',
-                marginBottom: spacing[3],
               }}
-            >
-              <CameraView
-                style={{ flex: 1 }}
-                barcodeScannerSettings={{
-                  barcodeTypes: [
-                    'qr',
-                    'ean13',
-                    'ean8',
-                    'code128',
-                    'code39',
-                    'upc_a',
-                    'upc_e',
-                  ],
-                }}
-                onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-              />
-              {/* Scanner overlay */}
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    width: 200,
-                    height: 200,
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                    borderRadius: radii.lg,
-                  }}
-                />
-              </View>
-            </View>
-          )}
+            />
+          </View>
+        </View>
+      )}
 
-          {scanned && (
-            <View style={{ paddingHorizontal: spacing[4], marginBottom: spacing[3] }}>
-              <Button
-                title="Scan Again"
-                onPress={() => setScanned(false)}
-                variant="secondary"
-                icon={<ScanLine size={20} color={colors.text} />}
-              />
-            </View>
-          )}
-
+      <FlatList
+        data={displayedItems}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListEmptyComponent={
           <View
             style={{
               alignItems: 'center',
-              padding: spacing[4],
+              padding: spacing[8],
+              gap: spacing[3],
             }}
           >
+            <Package size={48} color={colors.textTertiary} />
             <Text
-              style={{ ...typePresets.bodySmall, color: colors.textTertiary }}
+              style={{ ...typePresets.body, color: colors.textSecondary }}
             >
-              Point camera at a barcode or search manually
+              {searchQuery.trim().length >= 2
+                ? 'No items found'
+                : 'No items available'}
             </Text>
           </View>
-        </>
+        }
+        contentContainerStyle={{
+          paddingBottom: cartItemCount > 0 ? 80 : spacing[4],
+        }}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      {reviewVisible && (
+        <CartReviewSheet
+          visible={reviewVisible}
+          cart={cart}
+          transactionType={transactionType}
+          onChangeTransactionType={setTransactionType}
+          onUpdateQuantity={handleUpdateQuantity}
+          onUpdateNotes={handleUpdateNotes}
+          onRemoveItem={handleRemoveFromCart}
+          onConfirm={handleConfirmBatch}
+          onClose={() => setReviewVisible(false)}
+          submitting={submitting}
+        />
+      )}
+
+      {cartItemCount > 0 && !reviewVisible && (
+        <CartSummaryBar
+          itemCount={cartItemCount}
+          totalQuantity={cartTotalQty}
+          onReview={() => {
+            haptic('medium');
+            setReviewVisible(true);
+          }}
+          onClear={handleClearCart}
+        />
       )}
     </SafeAreaView>
   );
