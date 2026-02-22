@@ -11,9 +11,18 @@ export interface AuthState {
 export interface AuthDeps {
   signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null; data: { user: User | null } }>;
   signOut: () => Promise<{ error: Error | null }>;
-  getSession: () => Promise<{ data: { session: { user: User } | null }; error: Error | null }>;
   fetchProfile: (userId: string) => Promise<Profile>;
 }
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
+const CLEARED: Pick<AuthState, 'user' | 'profile' | 'error'> = {
+  user: null,
+  profile: null,
+  error: null,
+};
 
 export function createAuthManager(deps: AuthDeps) {
   let state: AuthState = {
@@ -29,18 +38,24 @@ export function createAuthManager(deps: AuthDeps) {
     return state;
   }
 
-  function setState(patch: Partial<AuthState>) {
+  function setState(patch: Partial<AuthState>): void {
     state = { ...state, ...patch };
     listeners.forEach((l) => l());
   }
 
-  function subscribe(listener: () => void) {
+  function subscribe(listener: () => void): () => void {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
   }
 
-  function clearState() {
-    setState({ user: null, profile: null, error: null });
+  /** Synchronous -- only updates user state, no Supabase API calls */
+  function handleAuthEvent(event: string, sessionUser: User | null): void {
+    if (event === 'SIGNED_OUT' || !sessionUser) {
+      setState({ ...CLEARED, loading: false });
+      return;
+    }
+    // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED
+    setState({ user: sessionUser });
   }
 
   async function loadProfile(authUser: User): Promise<void> {
@@ -49,47 +64,26 @@ export function createAuthManager(deps: AuthDeps) {
 
       if (!profile.is_active) {
         await deps.signOut();
-        clearState();
-        setState({ error: 'Account is deactivated' });
+        setState({ ...CLEARED, error: 'Account is deactivated', loading: false });
         return;
       }
 
-      setState({ user: authUser, profile, error: null });
+      setState({ user: authUser, profile, error: null, loading: false });
     } catch {
       await deps.signOut();
-      clearState();
-      setState({ error: 'Failed to load user profile' });
+      setState({ ...CLEARED, error: 'Failed to load user profile', loading: false });
     }
   }
 
-  async function initSession(): Promise<void> {
-    try {
-      const { data: { session } } = await deps.getSession();
-      if (session?.user) {
-        await loadProfile(session.user);
-      }
-    } catch {
-      setState({ error: 'Failed to restore session' });
-    } finally {
-      setState({ loading: false });
-    }
-  }
-
-  async function signIn(email: string, password: string): Promise<void> {
+  async function signIn(username: string, password: string): Promise<void> {
     setState({ loading: true, error: null });
     try {
+      const email = `${username.toLowerCase()}@employee.internal`;
       const { error } = await deps.signInWithPassword(email, password);
       if (error) throw error;
-      // In real app, onAuthStateChange fires and calls loadProfile
-      // For the manager, we simulate it by fetching session
-      const { data: { session } } = await deps.getSession();
-      if (session?.user) {
-        await loadProfile(session.user);
-      }
-      setState({ loading: false });
+      // Profile loading triggered by onAuthStateChange in real app
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign in failed';
-      setState({ error: message, loading: false });
+      setState({ error: getErrorMessage(err, 'Sign in failed'), loading: false });
       throw err;
     }
   }
@@ -97,13 +91,12 @@ export function createAuthManager(deps: AuthDeps) {
   async function signOut(): Promise<void> {
     try {
       await deps.signOut();
-      clearState();
+      setState({ ...CLEARED });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign out failed';
-      setState({ error: message });
+      setState({ error: getErrorMessage(err, 'Sign out failed') });
       throw err;
     }
   }
 
-  return { getState, subscribe, initSession, signIn, signOut };
+  return { getState, subscribe, handleAuthEvent, loadProfile, signIn, signOut };
 }
