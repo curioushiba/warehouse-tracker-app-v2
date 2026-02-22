@@ -3,6 +3,7 @@ import {
   mergeTransactions,
   transactionBadgeVariant,
   transactionBadgeLabel,
+  formatQuantityDelta,
   type UnifiedTransaction,
 } from './transactions';
 import type { PendingTransaction } from '@/lib/db/types';
@@ -167,5 +168,36 @@ describe('transactionBadgeLabel', () => {
     expect(transactionBadgeLabel('pending')).toBe('pending');
     expect(transactionBadgeLabel('syncing')).toBe('syncing');
     expect(transactionBadgeLabel('failed')).toBe('failed');
+  });
+});
+
+describe('formatQuantityDelta', () => {
+  it('returns positive delta for check_in', () => {
+    expect(formatQuantityDelta(500, 'check_in')).toBe('+500');
+  });
+
+  it('returns positive delta for return', () => {
+    expect(formatQuantityDelta(10, 'return')).toBe('+10');
+  });
+
+  it('returns negative delta for check_out', () => {
+    expect(formatQuantityDelta(20, 'check_out')).toBe('-20');
+  });
+
+  it('returns negative delta for write_off', () => {
+    expect(formatQuantityDelta(3, 'write_off')).toBe('-3');
+  });
+
+  it('handles decimal quantities for stock-in', () => {
+    expect(formatQuantityDelta(5.5, 'check_in')).toBe('+5.5');
+  });
+
+  it('handles decimal quantities for stock-out', () => {
+    expect(formatQuantityDelta(2.75, 'check_out')).toBe('-2.75');
+  });
+
+  it('handles zero quantity', () => {
+    expect(formatQuantityDelta(0, 'check_in')).toBe('+0');
+    expect(formatQuantityDelta(0, 'check_out')).toBe('-0');
   });
 });

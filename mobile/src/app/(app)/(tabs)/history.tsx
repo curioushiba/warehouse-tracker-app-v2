@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { View, Text, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
-  RefreshCw,
+  SlidersHorizontal,
   ClipboardList,
+  Search,
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,14 +18,15 @@ import { supabase } from '@/lib/supabase';
 import { fetchRecentTransactions } from '@/lib/sync';
 import {
   mergeTransactions,
-  transactionBadgeVariant,
-  transactionBadgeLabel,
+  formatQuantityDelta,
   type UnifiedTransaction,
 } from '@/lib/transactions';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { haptic } from '@/lib/haptics';
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -35,14 +37,16 @@ function formatDate(isoString: string): string {
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
-  if (isToday) return 'Today';
-  if (isYesterday) return 'Yesterday';
+  if (isToday) return 'TODAY';
 
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  });
+  const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  const day = date.getDate();
+
+  if (isYesterday) return `YESTERDAY, ${month} ${day}`;
+
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+  const yearSuffix = date.getFullYear() !== now.getFullYear() ? ` ${date.getFullYear()}` : '';
+  return `${weekday}, ${month} ${day}${yearSuffix}`;
 }
 
 function formatTime(isoString: string): string {
@@ -83,6 +87,10 @@ export default function HistoryScreen() {
   const { pendingCount, isSyncing, syncNow } = useSyncQueue();
   const [transactions, setTransactions] = useState<UnifiedTransaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [itemLookup, setItemLookup] = useState<Map<string, { name: string; sku: string }>>(
+    new Map(),
+  );
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -93,7 +101,21 @@ export default function HistoryScreen() {
         completed = await fetchRecentTransactions(supabase, user.id);
       }
 
-      setTransactions(mergeTransactions(localTxs, completed));
+      const merged = mergeTransactions(localTxs, completed);
+      setTransactions(merged);
+
+      // Build item lookup from unique item IDs
+      const lookup = new Map<string, { name: string; sku: string }>();
+      const seenIds = new Set<string>();
+      for (const tx of merged) {
+        if (seenIds.has(tx.item_id)) continue;
+        seenIds.add(tx.item_id);
+        const cached = getCachedItem(db, tx.item_id);
+        if (cached) {
+          lookup.set(tx.item_id, { name: cached.name, sku: cached.sku });
+        }
+      }
+      setItemLookup(lookup);
     } catch {
       // DB may not be ready
     }
@@ -110,15 +132,16 @@ export default function HistoryScreen() {
     setRefreshing(false);
   }, [syncNow, loadTransactions]);
 
-  const getItemName = useCallback(
-    (itemId: string): string => {
-      const item = getCachedItem(db, itemId);
-      return item?.name ?? 'Unknown Item';
-    },
-    [db],
-  );
+  const filteredTransactions = useMemo(() => {
+    if (!searchQuery.trim()) return transactions;
+    const q = searchQuery.trim().toLowerCase();
+    return transactions.filter((tx) => {
+      const item = itemLookup.get(tx.item_id);
+      return item?.name.toLowerCase().includes(q) || item?.sku.toLowerCase().includes(q);
+    });
+  }, [transactions, searchQuery, itemLookup]);
 
-  const grouped = groupByDate(transactions);
+  const grouped = groupByDate(filteredTransactions);
 
   const renderItem = useCallback(
     ({ item }: { item: GroupedTransactions }) => (
@@ -131,8 +154,10 @@ export default function HistoryScreen() {
         >
           <Text
             style={{
-              ...typePresets.label,
-              color: colors.textSecondary,
+              ...typePresets.caption,
+              fontWeight: '600',
+              letterSpacing: 0.5,
+              color: colors.textTertiary,
             }}
           >
             {item.date}
@@ -143,10 +168,22 @@ export default function HistoryScreen() {
           const isIn = isStockInType(tx.transaction_type);
           const Icon = isIn ? ArrowDownToLine : ArrowUpFromLine;
           const iconColor = isIn ? colors.success : colors.error;
+          const deltaColor = isIn ? colors.success : colors.error;
+          const itemInfo = itemLookup.get(tx.item_id);
+          const itemName = itemInfo?.name ?? 'Unknown Item';
+          const itemSku = itemInfo?.sku ?? '';
+
+          const statusSuffix =
+            tx.status === 'failed'
+              ? ' \u00B7 Failed'
+              : tx.status === 'syncing'
+                ? ' \u00B7 Syncing'
+                : '';
 
           return (
             <Card
               key={tx.id}
+              variant="elevated"
               style={{
                 marginHorizontal: spacing[4],
                 marginBottom: spacing[2],
@@ -163,7 +200,7 @@ export default function HistoryScreen() {
                   style={{
                     width: 40,
                     height: 40,
-                    borderRadius: radii.md,
+                    borderRadius: radii.full,
                     backgroundColor: isIn
                       ? colors.successBackground
                       : colors.errorBackground,
@@ -182,31 +219,40 @@ export default function HistoryScreen() {
                     }}
                     numberOfLines={1}
                   >
-                    {getItemName(tx.item_id)}
+                    {itemName}
                   </Text>
                   <Text
                     style={{
                       ...typePresets.caption,
                       color: colors.textSecondary,
                     }}
+                    numberOfLines={1}
                   >
-                    {isIn ? 'Stock In' : 'Stock Out'} x{tx.quantity}
-                    {' | '}
-                    {formatTime(tx.timestamp)}
+                    {itemSku} {'\u00B7'} {formatTime(tx.timestamp)}
+                    {statusSuffix && (
+                      <Text style={{ color: colors.error }}>{statusSuffix}</Text>
+                    )}
                   </Text>
                 </View>
-                <Badge
-                  label={transactionBadgeLabel(tx.status)}
-                  variant={transactionBadgeVariant(tx.status)}
-                />
+                <Text
+                  style={{
+                    ...typePresets.bodySmall,
+                    fontWeight: '700',
+                    color: deltaColor,
+                  }}
+                >
+                  {formatQuantityDelta(tx.quantity, tx.transaction_type)}
+                </Text>
               </View>
             </Card>
           );
         })}
       </View>
     ),
-    [colors, spacing, radii, typePresets, getItemName],
+    [colors, spacing, radii, typePresets, itemLookup],
   );
+
+  const isSearchActive = searchQuery.trim().length > 0;
 
   return (
     <SafeAreaView
@@ -216,9 +262,15 @@ export default function HistoryScreen() {
       <ScreenHeader
         title="History"
         rightAction={
-          isSyncing ? (
-            <RefreshCw size={20} color={colors.primary} />
-          ) : undefined
+          <AnimatedPressable
+            onPress={() => {
+              haptic('light');
+              /* future filter sheet */
+            }}
+            hapticPattern="light"
+          >
+            <SlidersHorizontal size={22} color={colors.iconSecondary} />
+          </AnimatedPressable>
         }
       />
 
@@ -226,6 +278,7 @@ export default function HistoryScreen() {
         data={grouped}
         keyExtractor={(item) => item.date}
         renderItem={renderItem}
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -233,12 +286,30 @@ export default function HistoryScreen() {
             tintColor={colors.primary}
           />
         }
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[3] }}>
+            <Input
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search SKU or product..."
+              icon={<Search size={18} color={colors.textTertiary} />}
+            />
+          </View>
+        }
         ListEmptyComponent={
-          <EmptyState
-            icon={<ClipboardList size={48} color={colors.textTertiary} />}
-            title="No Transactions"
-            message="Your transaction history will appear here once you start recording stock movements."
-          />
+          isSearchActive ? (
+            <EmptyState
+              icon={<Search size={48} color={colors.textTertiary} />}
+              title="No Results"
+              message={`No transactions match "${searchQuery.trim()}". Try a different search term.`}
+            />
+          ) : (
+            <EmptyState
+              icon={<ClipboardList size={48} color={colors.textTertiary} />}
+              title="No Transactions"
+              message="Your transaction history will appear here once you start recording stock movements."
+            />
+          )
         }
         contentContainerStyle={{
           flexGrow: 1,

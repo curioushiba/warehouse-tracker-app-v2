@@ -1,6 +1,7 @@
 import type { PendingTransaction } from '@/lib/db/types';
 import type { CompletedTransaction } from '@/lib/sync';
 import type { TransactionType } from '@/lib/types';
+import { isStockInType } from '@/lib/types';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
 export interface UnifiedTransaction {
@@ -65,4 +66,12 @@ export function transactionBadgeVariant(status: UnifiedTransaction['status']): B
 
 export function transactionBadgeLabel(status: UnifiedTransaction['status']): string {
   return status === 'completed' ? 'Synced' : status;
+}
+
+export function formatQuantityDelta(
+  quantity: number,
+  transactionType: TransactionType,
+): string {
+  const sign = isStockInType(transactionType) ? '+' : '-';
+  return `${sign}${quantity}`;
 }
