@@ -9,9 +9,18 @@ import {
   ClipboardList,
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
 import { getPendingTransactions, getCachedItem } from '@/lib/db/operations';
-import type { PendingTransaction } from '@/lib/db/types';
+import { isStockInType } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
+import { fetchRecentTransactions } from '@/lib/sync';
+import {
+  mergeTransactions,
+  transactionBadgeVariant,
+  transactionBadgeLabel,
+  type UnifiedTransaction,
+} from '@/lib/transactions';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -45,14 +54,14 @@ function formatTime(isoString: string): string {
 
 interface GroupedTransactions {
   date: string;
-  transactions: PendingTransaction[];
+  transactions: UnifiedTransaction[];
 }
 
-function groupByDate(transactions: PendingTransaction[]): GroupedTransactions[] {
-  const groups = new Map<string, PendingTransaction[]>();
+function groupByDate(transactions: UnifiedTransaction[]): GroupedTransactions[] {
+  const groups = new Map<string, UnifiedTransaction[]>();
 
   for (const tx of transactions) {
-    const dateKey = formatDate(tx.device_timestamp);
+    const dateKey = formatDate(tx.timestamp);
     const existing = groups.get(dateKey);
     if (existing) {
       existing.push(tx);
@@ -70,27 +79,34 @@ function groupByDate(transactions: PendingTransaction[]): GroupedTransactions[] 
 export default function HistoryScreen() {
   const db = useSQLiteContext();
   const { colors, spacing, typePresets, radii } = useTheme();
+  const { user } = useAuth();
   const { pendingCount, isSyncing, syncNow } = useSyncQueue();
-  const [transactions, setTransactions] = useState<PendingTransaction[]>([]);
+  const [transactions, setTransactions] = useState<UnifiedTransaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadTransactions = useCallback(() => {
+  const loadTransactions = useCallback(async () => {
     try {
-      const txs = getPendingTransactions(db);
-      setTransactions(txs.reverse());
+      const localTxs = getPendingTransactions(db);
+
+      let completed: Awaited<ReturnType<typeof fetchRecentTransactions>> = [];
+      if (user?.id && supabase) {
+        completed = await fetchRecentTransactions(supabase, user.id);
+      }
+
+      setTransactions(mergeTransactions(localTxs, completed));
     } catch {
       // DB may not be ready
     }
-  }, [db]);
+  }, [db, user?.id]);
 
   useEffect(() => {
-    loadTransactions();
+    void loadTransactions();
   }, [loadTransactions, pendingCount]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await syncNow();
-    loadTransactions();
+    await loadTransactions();
     setRefreshing(false);
   }, [syncNow, loadTransactions]);
 
@@ -107,7 +123,6 @@ export default function HistoryScreen() {
   const renderItem = useCallback(
     ({ item }: { item: GroupedTransactions }) => (
       <View style={{ marginBottom: spacing[3] }}>
-        {/* Date Header */}
         <View
           style={{
             paddingHorizontal: spacing[4],
@@ -124,11 +139,8 @@ export default function HistoryScreen() {
           </Text>
         </View>
 
-        {/* Transactions for this date */}
         {item.transactions.map((tx) => {
-          const isIn =
-            tx.transaction_type === 'in' ||
-            tx.transaction_type === 'check_in';
+          const isIn = isStockInType(tx.transaction_type);
           const Icon = isIn ? ArrowDownToLine : ArrowUpFromLine;
           const iconColor = isIn ? colors.success : colors.error;
 
@@ -180,18 +192,12 @@ export default function HistoryScreen() {
                   >
                     {isIn ? 'Stock In' : 'Stock Out'} x{tx.quantity}
                     {' | '}
-                    {formatTime(tx.device_timestamp)}
+                    {formatTime(tx.timestamp)}
                   </Text>
                 </View>
                 <Badge
-                  label={tx.status}
-                  variant={
-                    tx.status === 'failed'
-                      ? 'error'
-                      : tx.status === 'syncing'
-                        ? 'info'
-                        : 'default'
-                  }
+                  label={transactionBadgeLabel(tx.status)}
+                  variant={transactionBadgeVariant(tx.status)}
                 />
               </View>
             </Card>

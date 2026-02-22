@@ -11,49 +11,67 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
 import { getAllCachedItems, getPendingTransactions, getCachedItem } from '@/lib/db/operations';
-import type { PendingTransaction, CachedItem } from '@/lib/db/types';
+import { supabase } from '@/lib/supabase';
+import { fetchRecentTransactions } from '@/lib/sync';
+import {
+  mergeTransactions,
+  transactionBadgeVariant,
+  transactionBadgeLabel,
+  type UnifiedTransaction,
+} from '@/lib/transactions';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { SectionHeader } from '@/components/layout/SectionHeader';
 import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { isStockInType } from '@/lib/types';
 import { haptic } from '@/lib/haptics';
 
 export default function HomeScreen() {
   const db = useSQLiteContext();
   const { colors, spacing, typePresets, radii, shadows } = useTheme();
+  const { user } = useAuth();
   const { pendingCount, isSyncing, lastSyncTime, syncNow } = useSyncQueue();
   const [cachedItemCount, setCachedItemCount] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState<PendingTransaction[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<UnifiedTransaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     try {
       const items = getAllCachedItems(db);
       setCachedItemCount(items.length);
-      const txs = getPendingTransactions(db);
-      setRecentTransactions(txs.slice(-5).reverse());
+
+      const pending = getPendingTransactions(db);
+
+      let completed: Awaited<ReturnType<typeof fetchRecentTransactions>> = [];
+      if (user?.id && supabase) {
+        completed = await fetchRecentTransactions(supabase, user.id, 5);
+      }
+
+      const merged = mergeTransactions(pending, completed);
+      setRecentTransactions(merged.slice(0, 5));
     } catch {
       // DB may not be ready
     }
-  }, [db]);
+  }, [db, user?.id]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData, pendingCount]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await syncNow();
-    loadData();
+    await loadData();
     setRefreshing(false);
   }, [syncNow, loadData]);
 
   const navigateToScan = useCallback(
-    (type: 'in' | 'out') => {
+    (type: 'check_in' | 'check_out') => {
       haptic('medium');
       router.push({ pathname: '/(app)/(tabs)/scan', params: { type } });
     },
@@ -69,8 +87,8 @@ export default function HomeScreen() {
   );
 
   const renderTransaction = useCallback(
-    ({ item }: { item: PendingTransaction }) => {
-      const isIn = item.transaction_type === 'in' || item.transaction_type === 'check_in';
+    ({ item }: { item: UnifiedTransaction }) => {
+      const isIn = isStockInType(item.transaction_type);
       const Icon = isIn ? ArrowDownToLine : ArrowUpFromLine;
       const iconColor = isIn ? colors.success : colors.error;
 
@@ -101,14 +119,8 @@ export default function HomeScreen() {
               </Text>
             </View>
             <Badge
-              label={item.status}
-              variant={
-                item.status === 'failed'
-                  ? 'error'
-                  : item.status === 'syncing'
-                    ? 'info'
-                    : 'default'
-              }
+              label={transactionBadgeLabel(item.status)}
+              variant={transactionBadgeVariant(item.status)}
             />
           </View>
         </Card>
@@ -143,7 +155,6 @@ export default function HomeScreen() {
         }
         ListHeaderComponent={
           <View>
-            {/* Quick Actions */}
             <View
               style={{
                 flexDirection: 'row',
@@ -153,7 +164,7 @@ export default function HomeScreen() {
               }}
             >
               <AnimatedPressable
-                onPress={() => navigateToScan('in')}
+                onPress={() => navigateToScan('check_in')}
                 hapticPattern="medium"
                 style={{
                   flex: 1,
@@ -172,7 +183,7 @@ export default function HomeScreen() {
               </AnimatedPressable>
 
               <AnimatedPressable
-                onPress={() => navigateToScan('out')}
+                onPress={() => navigateToScan('check_out')}
                 hapticPattern="medium"
                 style={{
                   flex: 1,
@@ -191,7 +202,6 @@ export default function HomeScreen() {
               </AnimatedPressable>
             </View>
 
-            {/* Summary Stats */}
             <View
               style={{
                 flexDirection: 'row',
@@ -237,15 +247,10 @@ export default function HomeScreen() {
               </AnimatedPressable>
             </View>
 
-            {/* Recent Transactions Header */}
             {recentTransactions.length > 0 && (
               <SectionHeader
                 title="Recent Transactions"
-                action={
-                  pendingCount > 0
-                    ? { label: 'View All', onPress: () => router.push('/(app)/batch-review') }
-                    : undefined
-                }
+                action={{ label: 'View All', onPress: () => router.push('/(app)/(tabs)/history') }}
               />
             )}
           </View>
