@@ -6,54 +6,48 @@ import { useSQLiteContext } from 'expo-sqlite';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  Search,
+  SlidersHorizontal,
   Package,
-  ChevronRight,
-  AlertCircle,
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
-import { getAllCachedItems, getPendingTransactions, getCachedItem } from '@/lib/db/operations';
+import { getPendingTransactions } from '@/lib/db/operations';
+import type { CachedItem } from '@/lib/db/types';
 import { supabase } from '@/lib/supabase';
 import { fetchRecentTransactions } from '@/lib/sync';
-import {
-  mergeTransactions,
-  transactionBadgeVariant,
-  transactionBadgeLabel,
-  type UnifiedTransaction,
-} from '@/lib/transactions';
+import { mergeTransactions } from '@/lib/transactions';
+import { getRecentlyAccessedItems } from '@/lib/recently-accessed';
+import { createQuickTransaction } from '@/lib/quick-transaction';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { SectionHeader } from '@/components/layout/SectionHeader';
-import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
-import { isStockInType } from '@/lib/types';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { InventoryItemCard } from '@/components/inventory/InventoryItemCard';
 import { haptic } from '@/lib/haptics';
 
 export default function HomeScreen() {
   const db = useSQLiteContext();
   const { colors, spacing, typePresets, radii, shadows } = useTheme();
   const { user } = useAuth();
-  const { pendingCount, isSyncing, lastSyncTime, syncNow } = useSyncQueue();
-  const [cachedItemCount, setCachedItemCount] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState<UnifiedTransaction[]>([]);
+  const { pendingCount, syncNow } = useSyncQueue();
+  const [recentItems, setRecentItems] = useState<CachedItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const items = getAllCachedItems(db);
-      setCachedItemCount(items.length);
-
       const pending = getPendingTransactions(db);
 
       let completed: Awaited<ReturnType<typeof fetchRecentTransactions>> = [];
       if (user?.id && supabase) {
-        completed = await fetchRecentTransactions(supabase, user.id, 5);
+        completed = await fetchRecentTransactions(supabase, user.id, 20);
       }
 
       const merged = mergeTransactions(pending, completed);
-      setRecentTransactions(merged.slice(0, 5));
+      const items = getRecentlyAccessedItems(db, merged, 10);
+      setRecentItems(items);
     } catch {
       // DB may not be ready
     }
@@ -78,74 +72,146 @@ export default function HomeScreen() {
     [],
   );
 
-  const getItemName = useCallback(
-    (itemId: string): string => {
-      const item = getCachedItem(db, itemId);
-      return item?.name ?? 'Unknown Item';
+  const handleQuickIn = useCallback(
+    (itemId: string) => {
+      haptic('success');
+      createQuickTransaction(db, { itemId, type: 'check_in' });
+      setRecentItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, current_stock: item.current_stock + 1 } : item,
+        ),
+      );
+      void syncNow();
     },
-    [db],
+    [db, syncNow],
   );
 
-  const renderTransaction = useCallback(
-    ({ item }: { item: UnifiedTransaction }) => {
-      const isIn = isStockInType(item.transaction_type);
-      const Icon = isIn ? ArrowDownToLine : ArrowUpFromLine;
-      const iconColor = isIn ? colors.success : colors.error;
+  const handleQuickOut = useCallback(
+    (itemId: string) => {
+      haptic('warning');
+      createQuickTransaction(db, { itemId, type: 'check_out' });
+      setRecentItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, current_stock: item.current_stock - 1 } : item,
+        ),
+      );
+      void syncNow();
+    },
+    [db, syncNow],
+  );
 
-      return (
-        <Card style={{ marginHorizontal: spacing[4], marginBottom: spacing[2] }}>
+  const renderItem = useCallback(
+    ({ item }: { item: CachedItem }) => (
+      <InventoryItemCard
+        item={item}
+        onQuickIn={handleQuickIn}
+        onQuickOut={handleQuickOut}
+      />
+    ),
+    [handleQuickIn, handleQuickOut],
+  );
+
+  const listHeader = (
+    <View>
+      {/* Search bar */}
+      <AnimatedPressable
+        onPress={() => router.push('/(app)/(tabs)/scan')}
+        hapticPattern="light"
+        style={{ marginHorizontal: spacing[4], marginBottom: spacing[4] }}
+      >
+        <Card variant="elevated">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+            <Search size={20} color={colors.textTertiary} />
+            <Text
+              style={{
+                ...typePresets.body,
+                color: colors.textTertiary,
+                flex: 1,
+              }}
+            >
+              Search items...
+            </Text>
+            <SlidersHorizontal size={20} color={colors.textTertiary} />
+          </View>
+        </Card>
+      </AnimatedPressable>
+
+      {/* Action buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: spacing[3],
+          paddingHorizontal: spacing[4],
+          marginBottom: spacing[4],
+        }}
+      >
+        <AnimatedPressable
+          onPress={() => navigateToScan('check_in')}
+          hapticPattern="medium"
+          style={{ flex: 1 }}
+        >
+          <Card variant="elevated" style={{ alignItems: 'center', gap: spacing[3] }}>
             <View
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: radii.md,
-                backgroundColor: isIn ? colors.successBackground : colors.errorBackground,
+                width: 48,
+                height: 48,
+                borderRadius: radii.full,
+                backgroundColor: colors.successBackground,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Icon size={20} color={iconColor} />
+              <ArrowDownToLine size={24} color={colors.success} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{ ...typePresets.bodySmall, color: colors.text, fontWeight: '600' }}
-                numberOfLines={1}
-              >
-                {getItemName(item.item_id)}
-              </Text>
-              <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
-                {isIn ? 'Stock In' : 'Stock Out'} x{item.quantity}
-              </Text>
+            <Text style={{ ...typePresets.label, color: colors.text }}>
+              Receive Stock
+            </Text>
+          </Card>
+        </AnimatedPressable>
+
+        <AnimatedPressable
+          onPress={() => navigateToScan('check_out')}
+          hapticPattern="medium"
+          style={{ flex: 1 }}
+        >
+          <Card variant="elevated" style={{ alignItems: 'center', gap: spacing[3] }}>
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: radii.full,
+                backgroundColor: colors.errorBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ArrowUpFromLine size={24} color={colors.error} />
             </View>
-            <Badge
-              label={transactionBadgeLabel(item.status)}
-              variant={transactionBadgeVariant(item.status)}
-            />
-          </View>
-        </Card>
-      );
-    },
-    [colors, spacing, radii, typePresets, getItemName],
+            <Text style={{ ...typePresets.label, color: colors.text }}>
+              Issue Stock
+            </Text>
+          </Card>
+        </AnimatedPressable>
+      </View>
+
+      {/* Section header */}
+      {recentItems.length > 0 && (
+        <SectionHeader
+          title="Recently Accessed"
+          action={{ label: 'View All', onPress: () => router.push('/(app)/(tabs)/history') }}
+        />
+      )}
+    </View>
   );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      <ScreenHeader
-        title="PackTrack"
-        rightAction={
-          <SyncStatusIndicator
-            pendingCount={pendingCount}
-            isSyncing={isSyncing}
-            lastSyncTime={lastSyncTime}
-          />
-        }
-      />
+      <ScreenHeader title="PackTrack" />
 
       <FlatList
-        data={recentTransactions}
+        data={recentItems}
         keyExtractor={(item) => item.id}
-        renderItem={renderTransaction}
+        renderItem={renderItem}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -153,132 +219,13 @@ export default function HomeScreen() {
             tintColor={colors.primary}
           />
         }
-        ListHeaderComponent={
-          <View>
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: spacing[3],
-                paddingHorizontal: spacing[4],
-                marginBottom: spacing[4],
-              }}
-            >
-              <AnimatedPressable
-                onPress={() => navigateToScan('check_in')}
-                hapticPattern="medium"
-                style={{
-                  flex: 1,
-                  backgroundColor: colors.successBackground,
-                  borderRadius: radii.lg,
-                  padding: spacing[4],
-                  alignItems: 'center',
-                  gap: spacing[2],
-                  ...shadows.sm,
-                }}
-              >
-                <ArrowDownToLine size={28} color={colors.success} />
-                <Text style={{ ...typePresets.label, color: colors.success }}>
-                  Stock In
-                </Text>
-              </AnimatedPressable>
-
-              <AnimatedPressable
-                onPress={() => navigateToScan('check_out')}
-                hapticPattern="medium"
-                style={{
-                  flex: 1,
-                  backgroundColor: colors.errorBackground,
-                  borderRadius: radii.lg,
-                  padding: spacing[4],
-                  alignItems: 'center',
-                  gap: spacing[2],
-                  ...shadows.sm,
-                }}
-              >
-                <ArrowUpFromLine size={28} color={colors.error} />
-                <Text style={{ ...typePresets.label, color: colors.error }}>
-                  Stock Out
-                </Text>
-              </AnimatedPressable>
-            </View>
-
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: spacing[3],
-                paddingHorizontal: spacing[4],
-                marginBottom: spacing[4],
-              }}
-            >
-              <Card variant="elevated" style={{ flex: 1 }}>
-                <View style={{ alignItems: 'center', gap: spacing[1] }}>
-                  <Package size={24} color={colors.primary} />
-                  <Text style={{ ...typePresets.heading, color: colors.text }}>
-                    {cachedItemCount}
-                  </Text>
-                  <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
-                    Cached Items
-                  </Text>
-                </View>
-              </Card>
-
-              <AnimatedPressable
-                onPress={() => {
-                  if (pendingCount > 0) {
-                    router.push('/(app)/batch-review');
-                  }
-                }}
-                style={{ flex: 1 }}
-              >
-                <Card variant="elevated" style={{ flex: 1 }}>
-                  <View style={{ alignItems: 'center', gap: spacing[1] }}>
-                    <AlertCircle
-                      size={24}
-                      color={pendingCount > 0 ? colors.warning : colors.success}
-                    />
-                    <Text style={{ ...typePresets.heading, color: colors.text }}>
-                      {pendingCount}
-                    </Text>
-                    <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
-                      Pending Sync
-                    </Text>
-                  </View>
-                </Card>
-              </AnimatedPressable>
-            </View>
-
-            {recentTransactions.length > 0 && (
-              <SectionHeader
-                title="Recent Transactions"
-                action={{ label: 'View All', onPress: () => router.push('/(app)/(tabs)/history') }}
-              />
-            )}
-          </View>
-        }
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          <View style={{ alignItems: 'center', padding: spacing[8] }}>
-            <Package size={48} color={colors.textTertiary} />
-            <Text
-              style={{
-                ...typePresets.body,
-                color: colors.textSecondary,
-                marginTop: spacing[3],
-                textAlign: 'center',
-              }}
-            >
-              No recent transactions
-            </Text>
-            <Text
-              style={{
-                ...typePresets.bodySmall,
-                color: colors.textTertiary,
-                marginTop: spacing[1],
-                textAlign: 'center',
-              }}
-            >
-              Scan an item to get started
-            </Text>
-          </View>
+          <EmptyState
+            icon={<Package size={48} color={colors.textTertiary} />}
+            title="No items yet"
+            message="Scan an item or receive stock to get started"
+          />
         }
         contentContainerStyle={{ paddingBottom: spacing[4] }}
       />
