@@ -221,6 +221,43 @@ export function clearItemCache(db: SQLiteDatabase): void {
   db.runSync('DELETE FROM item_cache');
 }
 
+export function getDistinctCategories(db: SQLiteDatabase): string[] {
+  const rows = db.getAllSync<{ category_name: string }>(
+    `SELECT DISTINCT category_name FROM item_cache
+     WHERE is_archived = 0 AND category_name IS NOT NULL
+     ORDER BY category_name ASC`
+  );
+  return rows.map(r => r.category_name);
+}
+
+export function getLowStockItems(db: SQLiteDatabase, limit = 10): CachedItem[] {
+  const rows = db.getAllSync<CachedItemRow>(
+    `SELECT * FROM item_cache
+     WHERE is_archived = 0 AND (current_stock < min_stock OR current_stock <= 0)
+     ORDER BY (current_stock - min_stock) ASC, name ASC
+     LIMIT ?`,
+    [limit]
+  );
+  return rows.map(toCachedItem);
+}
+
+export function getItemsByCategory(db: SQLiteDatabase, categoryName: string, limit = 100): CachedItem[] {
+  const rows = db.getAllSync<CachedItemRow>(
+    `SELECT * FROM item_cache
+     WHERE is_archived = 0 AND category_name = ?
+     ORDER BY name ASC LIMIT ?`,
+    [categoryName, limit]
+  );
+  return rows.map(toCachedItem);
+}
+
+export function getItemCount(db: SQLiteDatabase): number {
+  const row = db.getFirstSync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM item_cache WHERE is_archived = 0'
+  );
+  return row?.count ?? 0;
+}
+
 // --- Sync metadata operations ---
 
 export function getSyncMetadata(db: SQLiteDatabase, key: string): string | null {

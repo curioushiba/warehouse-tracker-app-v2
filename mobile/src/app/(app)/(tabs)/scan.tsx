@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { View, Text, FlatList, Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,6 @@ import {
   Search,
   ScanLine,
   Package,
-  ShoppingBag,
 } from 'lucide-react-native';
 import { randomUUID } from 'expo-crypto';
 import { useTheme } from '@/theme/ThemeContext';
@@ -23,6 +22,11 @@ import {
   getCachedItemByBarcode,
   getCachedItemBySku,
   enqueueTransaction,
+  getAllCachedItems,
+  getDistinctCategories,
+  getLowStockItems,
+  getItemsByCategory,
+  getItemCount,
 } from '@/lib/db/operations';
 import type { CachedItem } from '@/lib/db/types';
 import type { PendingTransaction } from '@/lib/db/types';
@@ -42,10 +46,14 @@ import {
 } from '@/lib/cart';
 import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { SectionHeader } from '@/components/layout/SectionHeader';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { StockLevelIndicator } from '@/components/indicators/StockLevelIndicator';
+import { TransactionTypeToggle } from '@/components/cart/TransactionTypeToggle';
+import { CategoryChipBar } from '@/components/inventory/CategoryChipBar';
+import { LowStockSection } from '@/components/inventory/LowStockSection';
 import { CartReviewSheet } from '@/components/cart/CartReviewSheet';
 import { CartSummaryBar } from '@/components/cart/CartSummaryBar';
 import { haptic } from '@/lib/haptics';
@@ -54,8 +62,9 @@ export default function ScanScreen() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ type?: string }>();
   const { colors, spacing, typePresets, radii } = useTheme();
-  const { syncNow } = useSyncQueue();
+  const { syncNow, pendingCount } = useSyncQueue();
   const [permission, requestPermission] = useCameraPermissions();
+  const listRef = useRef<FlatList<CachedItem>>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartState>(new Map());
@@ -67,6 +76,13 @@ export default function ScanScreen() {
   const [reviewVisible, setReviewVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Browse state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<CachedItem[]>([]);
+  const [allItems, setAllItems] = useState<CachedItem[]>([]);
+  const [itemCount, setItemCount] = useState(0);
+
   // Update transaction type when navigated with param
   useEffect(() => {
     if (params.type === 'check_out' || params.type === 'check_in') {
@@ -74,12 +90,35 @@ export default function ScanScreen() {
     }
   }, [params.type]);
 
+  // Load browse data on mount and when pendingCount changes (after sync)
+  useEffect(() => {
+    setCategories(getDistinctCategories(db));
+    setLowStockItems(getLowStockItems(db, 10));
+    setItemCount(getItemCount(db));
+    if (!selectedCategory) {
+      setAllItems(getAllCachedItems(db));
+    }
+  }, [db, pendingCount, selectedCategory]);
+
+  // Load category-filtered items
+  useEffect(() => {
+    if (selectedCategory) {
+      setAllItems(getItemsByCategory(db, selectedCategory));
+    } else {
+      setAllItems(getAllCachedItems(db));
+    }
+  }, [db, selectedCategory]);
+
   // Debounced search: only query DB after 300ms pause
   const debouncedQuery = useDebounce(searchQuery.trim(), 300);
-  const displayedItems = useMemo(() => {
-    if (debouncedQuery.length < 2) return [];
+  const isSearching = debouncedQuery.length >= 2;
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
     return searchCachedItemsLimited(db, debouncedQuery, 50);
-  }, [debouncedQuery, db]);
+  }, [debouncedQuery, db, isSearching]);
+
+  const displayedItems = isSearching ? searchResults : allItems;
 
   const cartItemCount = getCartItemCount(cart);
   const cartTotalQty = getCartTotalQuantity(cart);
@@ -163,6 +202,24 @@ export default function ScanScreen() {
       }
     },
     [db, scanned],
+  );
+
+  // --- Low stock item press → scroll to item in list ---
+
+  const handleLowStockPress = useCallback(
+    (itemId: string) => {
+      // Clear category filter and search to show all items
+      setSelectedCategory(null);
+      setSearchQuery('');
+      // Find item index in allItems after state settles
+      requestAnimationFrame(() => {
+        const idx = allItems.findIndex((i) => i.id === itemId);
+        if (idx >= 0 && listRef.current) {
+          listRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
+        }
+      });
+    },
+    [allItems],
   );
 
   // --- Batch submission ---
@@ -315,6 +372,28 @@ export default function ScanScreen() {
     [cart, colors, spacing, radii, typePresets, handleAddToCart],
   );
 
+  // --- List header component ---
+
+  const listHeader = useMemo(() => {
+    if (isSearching) return null;
+
+    const sectionTitle = selectedCategory
+      ? selectedCategory
+      : `All Items (${itemCount})`;
+
+    return (
+      <View style={{ gap: spacing[2] }}>
+        {!selectedCategory && lowStockItems.length > 0 && (
+          <LowStockSection
+            items={lowStockItems}
+            onItemPress={handleLowStockPress}
+          />
+        )}
+        <SectionHeader title={sectionTitle} />
+      </View>
+    );
+  }, [isSearching, selectedCategory, itemCount, lowStockItems, spacing, handleLowStockPress]);
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: screenColors.scan }}
@@ -337,10 +416,15 @@ export default function ScanScreen() {
       />
 
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <TransactionTypeToggle
+          value={transactionType}
+          onChange={setTransactionType}
+        />
+
         <View
           style={{
             paddingHorizontal: spacing[4],
-            marginBottom: spacing[3],
+            marginBottom: spacing[2],
           }}
         >
           <Input
@@ -350,6 +434,16 @@ export default function ScanScreen() {
             icon={<Search size={20} color={colors.iconSecondary} />}
           />
         </View>
+
+        {!isSearching && categories.length > 0 && (
+          <View style={{ marginBottom: spacing[2] }}>
+            <CategoryChipBar
+              categories={categories}
+              selected={selectedCategory}
+              onSelect={setSelectedCategory}
+            />
+          </View>
+        )}
 
         {scanning && permission?.granted && (
           <View
@@ -402,6 +496,7 @@ export default function ScanScreen() {
         )}
 
         <FlatList
+          ref={listRef}
           data={displayedItems}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -409,28 +504,56 @@ export default function ScanScreen() {
           maxToRenderPerBatch={5}
           windowSize={5}
           removeClippedSubviews={true}
+          ListHeaderComponent={listHeader}
           ListEmptyComponent={
-            <View
-              style={{
-                alignItems: 'center',
-                padding: spacing[8],
-                gap: spacing[3],
-              }}
-            >
-              <Package size={48} color={colors.textTertiary} />
-              <Text
-                style={{ ...typePresets.body, color: colors.textSecondary }}
+            isSearching ? (
+              <View
+                style={{
+                  alignItems: 'center',
+                  padding: spacing[8],
+                  gap: spacing[3],
+                }}
               >
-                {searchQuery.trim().length >= 2
-                  ? 'No items found'
-                  : 'Search to find items'}
-              </Text>
-            </View>
+                <Package size={48} color={colors.textTertiary} />
+                <Text
+                  style={{ ...typePresets.body, color: colors.textSecondary }}
+                >
+                  No items found
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={{
+                  alignItems: 'center',
+                  padding: spacing[8],
+                  gap: spacing[3],
+                }}
+              >
+                <Package size={48} color={colors.textTertiary} />
+                <Text
+                  style={{ ...typePresets.body, color: colors.textSecondary }}
+                >
+                  No items in cache yet
+                </Text>
+                <Text
+                  style={{ ...typePresets.caption, color: colors.textTertiary }}
+                >
+                  Items will appear after first sync
+                </Text>
+              </View>
+            )
           }
           contentContainerStyle={{
             paddingBottom: cartItemCount > 0 ? 80 : spacing[4],
           }}
           keyboardShouldPersistTaps="handled"
+          onScrollToIndexFailed={(info) => {
+            // Fallback: scroll to approximate offset
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            });
+          }}
         />
 
         {reviewVisible && (

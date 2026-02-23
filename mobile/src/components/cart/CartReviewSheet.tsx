@@ -15,7 +15,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowDownToLine, ArrowUpFromLine, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { MODAL_SPRING } from '@/theme/animations';
 import { Button } from '@/components/ui/Button';
@@ -170,97 +170,6 @@ export function CartReviewSheet({
             <AnimatedPressable onPress={onClose} hapticPattern="light">
               <X size={24} color={colors.textSecondary} />
             </AnimatedPressable>
-          </View>
-
-          {/* Transaction type toggle */}
-          <View style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[3] }}>
-            <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-              <AnimatedPressable
-                onPress={() => onChangeTransactionType('check_in')}
-                hapticPattern="light"
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: spacing[2],
-                  paddingVertical: spacing[3],
-                  borderRadius: radii.md,
-                  backgroundColor:
-                    transactionType === 'check_in'
-                      ? colors.successBackground
-                      : colors.surfaceSecondary,
-                  borderWidth: transactionType === 'check_in' ? 2 : 1,
-                  borderColor:
-                    transactionType === 'check_in'
-                      ? colors.success
-                      : colors.border,
-                }}
-              >
-                <ArrowDownToLine
-                  size={20}
-                  color={
-                    transactionType === 'check_in'
-                      ? colors.success
-                      : colors.textSecondary
-                  }
-                />
-                <Text
-                  style={{
-                    ...typePresets.label,
-                    color:
-                      transactionType === 'check_in'
-                        ? colors.success
-                        : colors.textSecondary,
-                  }}
-                >
-                  Stock In
-                </Text>
-              </AnimatedPressable>
-
-              <AnimatedPressable
-                onPress={() => onChangeTransactionType('check_out')}
-                hapticPattern="light"
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: spacing[2],
-                  paddingVertical: spacing[3],
-                  borderRadius: radii.md,
-                  backgroundColor:
-                    transactionType === 'check_out'
-                      ? colors.errorBackground
-                      : colors.surfaceSecondary,
-                  borderWidth: transactionType === 'check_out' ? 2 : 1,
-                  borderColor:
-                    transactionType === 'check_out'
-                      ? colors.error
-                      : colors.border,
-                }}
-              >
-                <ArrowUpFromLine
-                  size={20}
-                  color={
-                    transactionType === 'check_out'
-                      ? colors.error
-                      : colors.textSecondary
-                  }
-                />
-                <Text
-                  style={{
-                    ...typePresets.label,
-                    color:
-                      transactionType === 'check_out'
-                        ? colors.error
-                        : colors.textSecondary,
-                  }}
-                >
-                  Stock Out
-                </Text>
-              </AnimatedPressable>
-            </View>
           </View>
 
           {/* Cart items list */}

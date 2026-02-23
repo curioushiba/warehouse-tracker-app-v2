@@ -20,6 +20,10 @@ import {
   clearItemCache,
   getSyncMetadata,
   setSyncMetadata,
+  getDistinctCategories,
+  getLowStockItems,
+  getItemsByCategory,
+  getItemCount,
 } from './operations';
 import type { PendingTransaction, CachedItem } from './types';
 
@@ -495,6 +499,155 @@ describe('SQLite operations', () => {
 
       const found = getTransactionById(db as never, tx.id);
       expect(found?.notes).toBe('Delivered by truck #42');
+    });
+  });
+
+  // --- New query functions ---
+
+  describe('getDistinctCategories', () => {
+    it('should return sorted unique category names', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'A', sku: 'S1', barcode: 'B1', category_name: 'Dry Goods' }),
+        makeItem({ id: 'i2', name: 'B', sku: 'S2', barcode: 'B2', category_name: 'Beverages' }),
+        makeItem({ id: 'i3', name: 'C', sku: 'S3', barcode: 'B3', category_name: 'Dry Goods' }),
+      ]);
+
+      const categories = getDistinctCategories(db as never);
+      expect(categories).toEqual(['Beverages', 'Dry Goods']);
+    });
+
+    it('should exclude items with null category_name', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'A', sku: 'S1', barcode: 'B1', category_name: 'Snacks' }),
+        makeItem({ id: 'i2', name: 'B', sku: 'S2', barcode: 'B2', category_name: null }),
+      ]);
+
+      const categories = getDistinctCategories(db as never);
+      expect(categories).toEqual(['Snacks']);
+    });
+
+    it('should exclude archived items', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'A', sku: 'S1', barcode: 'B1', category_name: 'Active', is_archived: false }),
+        makeItem({ id: 'i2', name: 'B', sku: 'S2', barcode: 'B2', category_name: 'Archived Only', is_archived: true }),
+      ]);
+
+      const categories = getDistinctCategories(db as never);
+      expect(categories).toEqual(['Active']);
+    });
+
+    it('should return empty array when no items exist', () => {
+      expect(getDistinctCategories(db as never)).toEqual([]);
+    });
+  });
+
+  describe('getLowStockItems', () => {
+    it('should return items where current_stock < min_stock', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Low', sku: 'S1', barcode: 'B1', current_stock: 5, min_stock: 10 }),
+        makeItem({ id: 'i2', name: 'Normal', sku: 'S2', barcode: 'B2', current_stock: 50, min_stock: 10 }),
+      ]);
+
+      const low = getLowStockItems(db as never);
+      expect(low).toHaveLength(1);
+      expect(low[0].id).toBe('i1');
+    });
+
+    it('should return items where current_stock <= 0', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Empty', sku: 'S1', barcode: 'B1', current_stock: 0, min_stock: 0 }),
+        makeItem({ id: 'i2', name: 'Normal', sku: 'S2', barcode: 'B2', current_stock: 50, min_stock: 10 }),
+      ]);
+
+      const low = getLowStockItems(db as never);
+      expect(low).toHaveLength(1);
+      expect(low[0].id).toBe('i1');
+    });
+
+    it('should sort by deficit (most critical first)', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Slight', sku: 'S1', barcode: 'B1', current_stock: 8, min_stock: 10 }),
+        makeItem({ id: 'i2', name: 'Critical', sku: 'S2', barcode: 'B2', current_stock: 0, min_stock: 20 }),
+        makeItem({ id: 'i3', name: 'Moderate', sku: 'S3', barcode: 'B3', current_stock: 3, min_stock: 10 }),
+      ]);
+
+      const low = getLowStockItems(db as never);
+      expect(low.map(i => i.id)).toEqual(['i2', 'i3', 'i1']);
+    });
+
+    it('should respect limit parameter', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'A', sku: 'S1', barcode: 'B1', current_stock: 1, min_stock: 10 }),
+        makeItem({ id: 'i2', name: 'B', sku: 'S2', barcode: 'B2', current_stock: 2, min_stock: 10 }),
+        makeItem({ id: 'i3', name: 'C', sku: 'S3', barcode: 'B3', current_stock: 3, min_stock: 10 }),
+      ]);
+
+      const low = getLowStockItems(db as never, 2);
+      expect(low).toHaveLength(2);
+    });
+
+    it('should exclude archived items', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Active Low', sku: 'S1', barcode: 'B1', current_stock: 1, min_stock: 10, is_archived: false }),
+        makeItem({ id: 'i2', name: 'Archived Low', sku: 'S2', barcode: 'B2', current_stock: 1, min_stock: 10, is_archived: true }),
+      ]);
+
+      const low = getLowStockItems(db as never);
+      expect(low).toHaveLength(1);
+      expect(low[0].id).toBe('i1');
+    });
+  });
+
+  describe('getItemsByCategory', () => {
+    beforeEach(() => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Coca Cola', sku: 'S1', barcode: 'B1', category_name: 'Beverages' }),
+        makeItem({ id: 'i2', name: 'Pepsi', sku: 'S2', barcode: 'B2', category_name: 'Beverages' }),
+        makeItem({ id: 'i3', name: 'Rice', sku: 'S3', barcode: 'B3', category_name: 'Dry Goods' }),
+        makeItem({ id: 'i4', name: 'Archived Soda', sku: 'S4', barcode: 'B4', category_name: 'Beverages', is_archived: true }),
+      ]);
+    });
+
+    it('should filter items by exact category_name match', () => {
+      const items = getItemsByCategory(db as never, 'Beverages');
+      expect(items).toHaveLength(2);
+      expect(items.every(i => i.category_name === 'Beverages')).toBe(true);
+    });
+
+    it('should exclude archived items', () => {
+      const items = getItemsByCategory(db as never, 'Beverages');
+      expect(items.every(i => !i.is_archived)).toBe(true);
+    });
+
+    it('should return results sorted by name', () => {
+      const items = getItemsByCategory(db as never, 'Beverages');
+      expect(items.map(i => i.name)).toEqual(['Coca Cola', 'Pepsi']);
+    });
+
+    it('should respect limit parameter', () => {
+      const items = getItemsByCategory(db as never, 'Beverages', 1);
+      expect(items).toHaveLength(1);
+    });
+
+    it('should return empty array for non-existent category', () => {
+      const items = getItemsByCategory(db as never, 'NonExistent');
+      expect(items).toEqual([]);
+    });
+  });
+
+  describe('getItemCount', () => {
+    it('should return total count of non-archived items', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'A', sku: 'S1', barcode: 'B1', is_archived: false }),
+        makeItem({ id: 'i2', name: 'B', sku: 'S2', barcode: 'B2', is_archived: false }),
+        makeItem({ id: 'i3', name: 'C', sku: 'S3', barcode: 'B3', is_archived: true }),
+      ]);
+
+      expect(getItemCount(db as never)).toBe(2);
+    });
+
+    it('should return 0 when cache is empty', () => {
+      expect(getItemCount(db as never)).toBe(0);
     });
   });
 });
