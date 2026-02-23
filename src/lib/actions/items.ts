@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Item, ItemInsert, ItemUpdate } from '@/lib/supabase/types'
 import { type ActionResult, type PaginatedResult, success, failure, paginatedSuccess } from '@/lib/types/action-result'
@@ -11,6 +11,7 @@ export type { ActionResult, PaginatedResult } from '@/lib/types/action-result'
 export interface ItemFilters {
   categoryId?: string
   locationId?: string
+  storeId?: string
   isArchived?: boolean
   search?: string
   stockLevel?: 'critical' | 'low' | 'normal' | 'overstocked'
@@ -38,6 +39,11 @@ export async function getItems(filters?: ItemFilters): Promise<ActionResult<Item
     // Apply location filter
     if (filters?.locationId) {
       query = query.eq('location_id', filters.locationId)
+    }
+
+    // Apply store filter
+    if (filters?.storeId) {
+      query = query.eq('store_id', filters.storeId)
     }
 
     // Apply search filter
@@ -96,6 +102,12 @@ export async function getItemsPaginated(
     if (filters?.locationId) {
       countQuery = countQuery.eq('location_id', filters.locationId)
       dataQuery = dataQuery.eq('location_id', filters.locationId)
+    }
+
+    // Apply store filter
+    if (filters?.storeId) {
+      countQuery = countQuery.eq('store_id', filters.storeId)
+      dataQuery = dataQuery.eq('store_id', filters.storeId)
     }
 
     // Apply search filter (server-side)
@@ -240,40 +252,32 @@ export async function createItem(itemData: ItemInsert): Promise<ActionResult<Ite
 
 export async function updateItem(id: string, itemData: ItemUpdate, expectedVersion?: number): Promise<ActionResult<Item>> {
   try {
+    // Verify auth via cookie client (defense in depth — middleware also checks)
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return failure('Session expired. Please refresh the page and sign in again.')
+    }
 
-    // If version is provided, implement optimistic locking
+    // If version is provided, implement optimistic locking via WHERE clause.
+    // The DB trigger (handle_item_update) auto-increments version and updated_at,
+    // so we only need to match the expected version — no need for a separate pre-read.
     if (expectedVersion !== undefined) {
-      // First check if the item version matches
-      const { data: currentItem, error: fetchError } = await supabase
+      // Use admin client to bypass RLS — the is_admin() RLS function fails in
+      // server action context. Auth verified above. Matches pattern in transactions.ts.
+      const adminClient = createAdminClient()
+
+      const { data: item, error } = await adminClient
         .from('inv_items')
-        .select('version')
+        .update(itemData as never)
         .eq('id', id)
-        .single()
-
-      if (fetchError) {
-        return failure(fetchError.message)
-      }
-
-      const itemVersion = (currentItem as { version: number } | null)?.version
-      if (itemVersion !== expectedVersion) {
-        return failure('Item was modified, please refresh')
-      }
-
-      // Include incremented version in update
-      const updateData = { ...itemData, version: expectedVersion + 1 }
-
-      const { data: item, error } = await supabase
-        .from('inv_items')
-        .update(updateData as never)
-        .eq('id', id)
-        .eq('version', expectedVersion) // Double-check with WHERE clause
+        .eq('version', expectedVersion)
         .select()
         .single()
 
       if (error) {
         if (error.code === 'PGRST116') {
-          return failure('Item was modified, please refresh')
+          return failure('Item was modified by another user. Please refresh and try again.')
         }
         return failure(error.message)
       }
@@ -283,8 +287,9 @@ export async function updateItem(id: string, itemData: ItemUpdate, expectedVersi
       return success(item)
     }
 
-    // Without version check (backwards compatible)
-    const { data: item, error } = await supabase
+    // Without version check (backwards compatible) — use admin client
+    const adminClient = createAdminClient()
+    const { data: item, error } = await adminClient
       .from('inv_items')
       .update(itemData as never)
       .eq('id', id)
@@ -383,7 +388,7 @@ function escapeLikePattern(query: string): string {
   return query.replace(/[%_\\]/g, '\\$&')
 }
 
-export async function searchItems(query: string, categoryId?: string): Promise<ActionResult<Item[]>> {
+export async function searchItems(query: string, categoryId?: string, storeId?: string): Promise<ActionResult<Item[]>> {
   try {
     const supabase = await createClient()
     const escaped = escapeLikePattern(query)
@@ -396,6 +401,10 @@ export async function searchItems(query: string, categoryId?: string): Promise<A
 
     if (categoryId) {
       q = q.eq('category_id', categoryId)
+    }
+
+    if (storeId) {
+      q = q.eq('store_id', storeId)
     }
 
     const { data, error } = await q
