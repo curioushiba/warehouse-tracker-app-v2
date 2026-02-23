@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import type { Transaction, TransactionType } from '@/lib/supabase/types'
 import type { PaginatedResult } from '@/lib/types/action-result'
 import { INV_DOMAIN } from './_shared/item-queries'
@@ -93,7 +93,16 @@ export async function getTransactionsWithDetails(
   filters?: TransactionFilters,
   options?: GetTransactionsWithDetailsOptions
 ): Promise<ActionResult<TransactionWithDetails[]>> {
-  const supabase = await createClient()
+  // Verify auth using cookie-based client (defense in depth — middleware also checks)
+  const userClient = await createClient()
+  const { data: { user }, error: authError } = await userClient.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: 'Session expired. Please refresh the page and sign in again.' }
+  }
+
+  // Use admin client for the actual query — bypasses RLS
+  // Safe because: auth verified above, route is admin-only (middleware-protected)
+  const supabase = createAdminClient()
 
   // Note: locations has two FKs from inv_transactions (source/destination).
   // Use explicit relationship names to avoid ambiguity in PostgREST.
@@ -153,7 +162,17 @@ export async function getTransactionsWithDetails(
 export async function getTransactionsWithDetailsPaginated(
   filters?: PaginatedTransactionFilters
 ): Promise<ActionResult<PaginatedResult<TransactionWithDetails>>> {
-  return getTransactionsWithDetailsPaginatedImpl(INV_DOMAIN, filters)
+  // Verify auth using cookie-based client (defense in depth — middleware also checks)
+  const userClient = await createClient()
+  const { data: { user }, error: authError } = await userClient.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: 'Session expired. Please refresh the page and sign in again.' }
+  }
+
+  // Use admin client for the actual query — bypasses RLS
+  // Safe because: auth verified above, route is admin-only (middleware-protected)
+  // Follows same pattern as dashboard.ts (getDashboardData, getRecentActivity)
+  return getTransactionsWithDetailsPaginatedImpl(INV_DOMAIN, filters, createAdminClient())
 }
 
 /**

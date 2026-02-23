@@ -35,8 +35,14 @@ const mockSupabaseClient = {
   },
 }
 
+const mockAdminClient = {
+  from: mockFrom,
+  rpc: mockRpc,
+}
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => Promise.resolve(mockSupabaseClient)),
+  createAdminClient: vi.fn(() => mockAdminClient),
 }))
 
 // Sample transaction data
@@ -406,6 +412,10 @@ describe('transactions actions', () => {
 
   describe('getTransactionsWithDetails', () => {
     it('should order transactions by event_timestamp descending', async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      })
       const transactions = [sampleTransaction]
       mockOrder.mockResolvedValueOnce({ data: transactions, error: null })
 

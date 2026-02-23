@@ -1,5 +1,7 @@
 import type { DomainConfig } from './item-queries'
 import { createClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase/types'
 import type { Transaction, TransactionType } from '@/lib/supabase/types'
 import { type ActionResult, type PaginatedResult, paginatedSuccess, success, failure } from '@/lib/types/action-result'
 
@@ -34,9 +36,10 @@ const DEFAULT_ADMIN_PAGE_SIZE = 25
  */
 export async function getTransactionsWithDetailsPaginatedImpl(
   domain: DomainConfig,
-  filters?: AdminTransactionFilters
+  filters?: AdminTransactionFilters,
+  supabaseClient?: SupabaseClient<Database>
 ): Promise<ActionResult<PaginatedResult<TransactionWithDetails>>> {
-  const supabase = await createClient()
+  const supabase = supabaseClient ?? await createClient()
   const page = filters?.page ?? 1
   const pageSize = filters?.pageSize ?? DEFAULT_ADMIN_PAGE_SIZE
   const offset = (page - 1) * pageSize
