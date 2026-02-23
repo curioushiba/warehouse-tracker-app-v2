@@ -7,9 +7,11 @@ import {
   UserCircle,
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
   const { colors, shadows } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -18,7 +20,8 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
-          height: 64,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom,
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           ...shadows.sm,
