@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,8 +21,9 @@ import {
 import { useTheme } from '@/theme/ThemeContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
 import { getCachedItem, enqueueTransaction } from '@/lib/db/operations';
-import type { CachedItem } from '@/lib/db/types';
-import type { PendingTransaction } from '@/lib/db/types';
+import type { CachedItem, PendingTransaction } from '@/lib/db/types';
+import type { TransactionType } from '@/lib/types';
+import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -36,11 +38,11 @@ export default function TransactionScreen() {
     id: string;
     type?: string;
   }>();
-  const { colors, spacing, typePresets, radii, shadows } = useTheme();
+  const { colors, spacing, typePresets, radii } = useTheme();
   const { syncNow } = useSyncQueue();
   const [item, setItem] = useState<CachedItem | null>(null);
-  const [transactionType, setTransactionType] = useState<'in' | 'out'>(
-    initialType === 'out' ? 'out' : 'in',
+  const [transactionType, setTransactionType] = useState<TransactionType>(
+    initialType === 'check_out' ? 'check_out' : 'check_in',
   );
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
@@ -48,8 +50,11 @@ export default function TransactionScreen() {
 
   useEffect(() => {
     if (id) {
-      const cached = getCachedItem(db, id);
-      setItem(cached);
+      const interaction = InteractionManager.runAfterInteractions(() => {
+        const cached = getCachedItem(db, id);
+        setItem(cached);
+      });
+      return () => interaction.cancel();
     }
   }, [db, id]);
 
@@ -67,7 +72,6 @@ export default function TransactionScreen() {
       return;
     }
 
-    // Validate decimal places
     const parts = quantity.split('.');
     if (parts.length > 1 && parts[1].length > item.quantity_decimals) {
       Alert.alert(
@@ -96,7 +100,6 @@ export default function TransactionScreen() {
       enqueueTransaction(db, tx);
       haptic('success');
 
-      // Attempt immediate sync (fire and forget)
       void syncNow();
 
       router.back();
@@ -111,17 +114,18 @@ export default function TransactionScreen() {
   if (!item) {
     return (
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: colors.background }}
+        style={{ flex: 1, backgroundColor: screenColors.transaction }}
         edges={['top']}
       >
         <ScreenHeader
           title="Transaction"
+          headerColor={screenColors.transaction}
           rightAction={
             <AnimatedPressable
               onPress={() => router.back()}
               hapticPattern="light"
             >
-              <ChevronLeft size={24} color={colors.primary} />
+              <ChevronLeft size={24} color="#fff" />
             </AnimatedPressable>
           }
         />
@@ -130,6 +134,7 @@ export default function TransactionScreen() {
             flex: 1,
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: colors.background,
           }}
         >
           <Text
@@ -144,11 +149,12 @@ export default function TransactionScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: screenColors.transaction }}
       edges={['top']}
     >
       <ScreenHeader
         title="New Transaction"
+        headerColor={screenColors.transaction}
         rightAction={
           <AnimatedPressable
             onPress={() => router.back()}
@@ -157,7 +163,7 @@ export default function TransactionScreen() {
             <Text
               style={{
                 ...typePresets.bodySmall,
-                color: colors.primary,
+                color: '#fff',
                 fontWeight: '600',
               }}
             >
@@ -168,7 +174,7 @@ export default function TransactionScreen() {
       />
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: colors.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
@@ -178,7 +184,6 @@ export default function TransactionScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Item Details Card */}
           <Card variant="elevated">
             <View
               style={{
@@ -258,7 +263,6 @@ export default function TransactionScreen() {
             </View>
           </Card>
 
-          {/* Transaction Type Toggle */}
           <View>
             <Text
               style={{
@@ -276,10 +280,7 @@ export default function TransactionScreen() {
               }}
             >
               <AnimatedPressable
-                onPress={() => {
-                  haptic('light');
-                  setTransactionType('in');
-                }}
+                onPress={() => setTransactionType('check_in')}
                 hapticPattern="light"
                 style={{
                   flex: 1,
@@ -290,12 +291,12 @@ export default function TransactionScreen() {
                   paddingVertical: spacing[3],
                   borderRadius: radii.md,
                   backgroundColor:
-                    transactionType === 'in'
+                    transactionType === 'check_in'
                       ? colors.successBackground
                       : colors.surfaceSecondary,
-                  borderWidth: transactionType === 'in' ? 2 : 1,
+                  borderWidth: transactionType === 'check_in' ? 2 : 1,
                   borderColor:
-                    transactionType === 'in'
+                    transactionType === 'check_in'
                       ? colors.success
                       : colors.border,
                 }}
@@ -303,7 +304,7 @@ export default function TransactionScreen() {
                 <ArrowDownToLine
                   size={20}
                   color={
-                    transactionType === 'in'
+                    transactionType === 'check_in'
                       ? colors.success
                       : colors.textSecondary
                   }
@@ -312,7 +313,7 @@ export default function TransactionScreen() {
                   style={{
                     ...typePresets.label,
                     color:
-                      transactionType === 'in'
+                      transactionType === 'check_in'
                         ? colors.success
                         : colors.textSecondary,
                   }}
@@ -322,10 +323,7 @@ export default function TransactionScreen() {
               </AnimatedPressable>
 
               <AnimatedPressable
-                onPress={() => {
-                  haptic('light');
-                  setTransactionType('out');
-                }}
+                onPress={() => setTransactionType('check_out')}
                 hapticPattern="light"
                 style={{
                   flex: 1,
@@ -336,12 +334,12 @@ export default function TransactionScreen() {
                   paddingVertical: spacing[3],
                   borderRadius: radii.md,
                   backgroundColor:
-                    transactionType === 'out'
+                    transactionType === 'check_out'
                       ? colors.errorBackground
                       : colors.surfaceSecondary,
-                  borderWidth: transactionType === 'out' ? 2 : 1,
+                  borderWidth: transactionType === 'check_out' ? 2 : 1,
                   borderColor:
-                    transactionType === 'out'
+                    transactionType === 'check_out'
                       ? colors.error
                       : colors.border,
                 }}
@@ -349,7 +347,7 @@ export default function TransactionScreen() {
                 <ArrowUpFromLine
                   size={20}
                   color={
-                    transactionType === 'out'
+                    transactionType === 'check_out'
                       ? colors.error
                       : colors.textSecondary
                   }
@@ -358,7 +356,7 @@ export default function TransactionScreen() {
                   style={{
                     ...typePresets.label,
                     color:
-                      transactionType === 'out'
+                      transactionType === 'check_out'
                         ? colors.error
                         : colors.textSecondary,
                   }}
@@ -369,7 +367,6 @@ export default function TransactionScreen() {
             </View>
           </View>
 
-          {/* Quantity Input */}
           <Input
             label="Quantity"
             value={quantity}
@@ -378,7 +375,6 @@ export default function TransactionScreen() {
             keyboardType="decimal-pad"
           />
 
-          {/* Notes Input */}
           <Input
             label="Notes (optional)"
             value={notes}
@@ -388,7 +384,6 @@ export default function TransactionScreen() {
           />
         </ScrollView>
 
-        {/* Submit Button */}
         <View
           style={{
             padding: spacing[4],
@@ -398,11 +393,7 @@ export default function TransactionScreen() {
           }}
         >
           <Button
-            title={
-              transactionType === 'in'
-                ? `Stock In ${quantity ? `x${quantity}` : ''}`
-                : `Stock Out ${quantity ? `x${quantity}` : ''}`
-            }
+            title={`${transactionType === 'check_in' ? 'Stock In' : 'Stock Out'}${quantity ? ` x${quantity}` : ''}`}
             onPress={handleSubmit}
             loading={submitting}
             disabled={!quantity || parseFloat(quantity) <= 0}

@@ -4,9 +4,11 @@ import {
   getPendingTransactions,
   updateTransactionStatus,
   removeTransaction,
-  cacheItems,
+  cacheItemsRaw,
+  clearItemCache,
   setSyncMetadata,
 } from '@/lib/db/operations';
+import type { TransactionType } from '@/lib/types';
 import type { PendingTransaction, CachedItem } from '@/lib/db/types';
 
 export interface SyncResult {
@@ -154,23 +156,74 @@ export async function refreshItemCache(
     throw new Error(`Failed to fetch items: ${error.message}`);
   }
 
-  const items: CachedItem[] = (data as SupabaseItemRow[]).map((row) => ({
-    id: row.id,
-    sku: row.sku,
-    name: row.name,
-    barcode: row.barcode,
-    current_stock: row.current_stock,
-    min_stock: row.min_stock,
-    max_stock: row.max_stock,
-    unit: row.unit,
-    unit_price: row.unit_price,
-    category_id: row.category_id,
-    category_name: row.category?.name ?? null,
-    quantity_decimals: 0, // Not stored in Supabase; default to integers
-    is_archived: false, // We only fetched non-archived items
-    updated_at: row.updated_at,
-  }));
+  const items: CachedItem[] = (data as SupabaseItemRow[]).map(
+    ({ category, ...fields }) => ({
+      ...fields,
+      category_name: category?.name ?? null,
+      quantity_decimals: 3,
+    }),
+  );
 
-  cacheItems(db, items);
-  setSyncMetadata(db, 'last_item_cache_refresh', new Date().toISOString());
+  db.execSync('BEGIN');
+  try {
+    clearItemCache(db);
+    cacheItemsRaw(db, items);
+    setSyncMetadata(db, 'last_item_cache_refresh', new Date().toISOString());
+    db.execSync('COMMIT');
+  } catch (err) {
+    db.execSync('ROLLBACK');
+    throw err;
+  }
+}
+
+/**
+ * Supabase row shape for transaction history queries.
+ */
+interface SupabaseTransactionRow {
+  id: string;
+  item_id: string;
+  transaction_type: string;
+  quantity: number;
+  notes: string | null;
+  server_timestamp: string;
+}
+
+export interface CompletedTransaction {
+  id: string;
+  item_id: string;
+  transaction_type: TransactionType;
+  quantity: number;
+  notes: string | null;
+  timestamp: string;
+  status: 'completed';
+}
+
+/**
+ * Fetch recent completed transactions from Supabase for the current user.
+ * Returns an empty array on network failure (graceful offline).
+ */
+export async function fetchRecentTransactions(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 50,
+): Promise<CompletedTransaction[]> {
+  const { data, error } = await supabase
+    .from('inv_transactions')
+    .select('id, item_id, transaction_type, quantity, notes, server_timestamp')
+    .eq('user_id', userId)
+    .order('server_timestamp', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return [];
+  }
+
+  return (data as SupabaseTransactionRow[]).map(
+    ({ server_timestamp, transaction_type, ...fields }) => ({
+      ...fields,
+      transaction_type: transaction_type as TransactionType,
+      timestamp: server_timestamp,
+      status: 'completed' as const,
+    }),
+  );
 }

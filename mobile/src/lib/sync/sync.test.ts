@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMockDatabase, type SQLiteDatabase } from '@/test/mocks/expo-sqlite';
 import { runMigrations } from '@/lib/db/migrations';
-import { enqueueTransaction, getPendingTransactions, getTransactionById, getSyncMetadata } from '@/lib/db/operations';
-import { processQueue, submitTransaction, refreshItemCache } from './sync';
+import { enqueueTransaction, getPendingTransactions, getTransactionById, getSyncMetadata, getAllCachedItems, cacheItems } from '@/lib/db/operations';
+import { processQueue, submitTransaction, refreshItemCache, fetchRecentTransactions } from './sync';
 import type { PendingTransaction } from '@/lib/db/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -217,6 +217,163 @@ describe('sync engine', () => {
       );
     });
 
+    it('should clear stale items before caching new ones', async () => {
+      // Pre-populate cache with a stale item
+      const { cacheItems, getCachedItem } = await import('@/lib/db/operations');
+      cacheItems(db as never, [
+        {
+          id: 'stale-item',
+          sku: 'STALE-001',
+          name: 'Stale Item',
+          barcode: null,
+          current_stock: 99,
+          min_stock: 0,
+          max_stock: null,
+          unit: 'pcs',
+          unit_price: null,
+          category_id: null,
+          category_name: null,
+          quantity_decimals: 3,
+          is_archived: true,
+          updated_at: '2026-01-01T00:00:00Z',
+        },
+      ]);
+
+      // Verify stale item exists
+      expect(getCachedItem(db as never, 'stale-item')).toBeTruthy();
+
+      const mockData = [
+        {
+          id: 'fresh-item',
+          sku: 'FRESH-001',
+          name: 'Fresh Item',
+          barcode: null,
+          current_stock: 10,
+          min_stock: 1,
+          max_stock: null,
+          unit: 'pcs',
+          unit_price: null,
+          category_id: null,
+          is_archived: false,
+          updated_at: '2026-01-15T00:00:00Z',
+          category: null,
+        },
+      ];
+
+      const supabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: mockData, error: null }),
+          }),
+        }),
+      } as unknown as SupabaseClient;
+
+      await refreshItemCache(db as never, supabase);
+
+      // Stale item should be removed
+      expect(getCachedItem(db as never, 'stale-item')).toBeNull();
+      // Fresh item should exist
+      expect(getCachedItem(db as never, 'fresh-item')).toBeTruthy();
+    });
+
+    it('should set quantity_decimals to 3 for cached items', async () => {
+      const mockData = [
+        {
+          id: 'item-dec',
+          sku: 'SKU-DEC',
+          name: 'Decimal Item',
+          barcode: null,
+          current_stock: 10,
+          min_stock: 1,
+          max_stock: null,
+          unit: 'kg',
+          unit_price: null,
+          category_id: null,
+          is_archived: false,
+          updated_at: '2026-01-15T00:00:00Z',
+          category: null,
+        },
+      ];
+
+      const supabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: mockData, error: null }),
+          }),
+        }),
+      } as unknown as SupabaseClient;
+
+      await refreshItemCache(db as never, supabase);
+
+      const { getCachedItem } = await import('@/lib/db/operations');
+      const cached = getCachedItem(db as never, 'item-dec');
+      expect(cached?.quantity_decimals).toBe(3);
+    });
+
+    it('should wrap clear+insert+metadata in a single transaction', async () => {
+      // Pre-populate cache
+      cacheItems(db as never, [
+        {
+          id: 'pre-item',
+          sku: 'PRE-001',
+          name: 'Pre Item',
+          barcode: null,
+          current_stock: 10,
+          min_stock: 1,
+          max_stock: null,
+          unit: 'pcs',
+          unit_price: null,
+          category_id: null,
+          category_name: null,
+          quantity_decimals: 3,
+          is_archived: false,
+          updated_at: '2026-01-01T00:00:00Z',
+        },
+      ]);
+
+      const mockData = [
+        {
+          id: 'new-item',
+          sku: 'NEW-001',
+          name: 'New Item',
+          barcode: null,
+          current_stock: 5,
+          min_stock: 1,
+          max_stock: null,
+          unit: 'pcs',
+          unit_price: null,
+          category_id: null,
+          is_archived: false,
+          updated_at: '2026-01-15T00:00:00Z',
+          category: null,
+        },
+      ];
+
+      const supabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: mockData, error: null }),
+          }),
+        }),
+      } as unknown as SupabaseClient;
+
+      const execSpy = vi.spyOn(db, 'execSync');
+
+      await refreshItemCache(db as never, supabase);
+
+      const calls = execSpy.mock.calls.map(c => c[0]);
+      expect(calls).toContain('BEGIN');
+      expect(calls).toContain('COMMIT');
+      expect(calls.indexOf('BEGIN')).toBeLessThan(calls.indexOf('COMMIT'));
+
+      // Old item gone, new item present
+      const { getCachedItem } = await import('@/lib/db/operations');
+      expect(getCachedItem(db as never, 'pre-item')).toBeNull();
+      expect(getCachedItem(db as never, 'new-item')).toBeTruthy();
+
+      execSpy.mockRestore();
+    });
+
     it('should handle items without a category', async () => {
       const mockData = [
         {
@@ -251,6 +408,92 @@ describe('sync engine', () => {
       expect(cached).toBeTruthy();
       expect(cached?.category_name).toBeNull();
       expect(cached?.barcode).toBeNull();
+    });
+  });
+
+  describe('fetchRecentTransactions', () => {
+    it('should fetch and map transactions from Supabase', async () => {
+      const mockData = [
+        {
+          id: 'tx-remote-1',
+          item_id: 'item-1',
+          transaction_type: 'check_in',
+          quantity: 10,
+          notes: 'Received shipment',
+          server_timestamp: '2026-01-15T12:00:00Z',
+        },
+        {
+          id: 'tx-remote-2',
+          item_id: 'item-2',
+          transaction_type: 'check_out',
+          quantity: 5,
+          notes: null,
+          server_timestamp: '2026-01-15T11:00:00Z',
+        },
+      ];
+
+      const supabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue({ data: mockData, error: null }),
+              }),
+            }),
+          }),
+        }),
+      } as unknown as SupabaseClient;
+
+      const result = await fetchRecentTransactions(supabase, 'user-123');
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 'tx-remote-1',
+        item_id: 'item-1',
+        transaction_type: 'check_in',
+        quantity: 10,
+        notes: 'Received shipment',
+        timestamp: '2026-01-15T12:00:00Z',
+        status: 'completed',
+      });
+      expect(result[1].status).toBe('completed');
+      expect(result[1].transaction_type).toBe('check_out');
+    });
+
+    it('should return empty array on Supabase error', async () => {
+      const supabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'Network error' } }),
+              }),
+            }),
+          }),
+        }),
+      } as unknown as SupabaseClient;
+
+      const result = await fetchRecentTransactions(supabase, 'user-123');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should pass correct query parameters', async () => {
+      const limitFn = vi.fn().mockResolvedValue({ data: [], error: null });
+      const orderFn = vi.fn().mockReturnValue({ limit: limitFn });
+      const eqFn = vi.fn().mockReturnValue({ order: orderFn });
+      const selectFn = vi.fn().mockReturnValue({ eq: eqFn });
+      const fromFn = vi.fn().mockReturnValue({ select: selectFn });
+
+      const supabase = { from: fromFn } as unknown as SupabaseClient;
+
+      await fetchRecentTransactions(supabase, 'user-456', 25);
+
+      expect(fromFn).toHaveBeenCalledWith('inv_transactions');
+      expect(selectFn).toHaveBeenCalledWith('id, item_id, transaction_type, quantity, notes, server_timestamp');
+      expect(eqFn).toHaveBeenCalledWith('user_id', 'user-456');
+      expect(orderFn).toHaveBeenCalledWith('server_timestamp', { ascending: false });
+      expect(limitFn).toHaveBeenCalledWith(25);
     });
   });
 });

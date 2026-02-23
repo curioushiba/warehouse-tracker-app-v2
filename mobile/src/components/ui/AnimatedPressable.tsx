@@ -11,7 +11,7 @@ import { haptic, type HapticPattern } from '@/lib/haptics';
 const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable);
 
 export interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
-  hapticPattern?: HapticPattern;
+  hapticPattern?: HapticPattern | 'none';
   scaleValue?: number;
   style?: ViewStyle;
   children: React.ReactNode;
@@ -42,7 +42,7 @@ export function AnimatedPressable({
 
   const handlePress = useCallback(
     (e: Parameters<NonNullable<PressableProps['onPress']>>[0]) => {
-      haptic(hapticPattern);
+      if (hapticPattern !== 'none') haptic(hapticPattern);
       onPress?.(e);
     },
     [hapticPattern, onPress],

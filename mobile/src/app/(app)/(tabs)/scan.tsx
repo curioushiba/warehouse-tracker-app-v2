@@ -3,7 +3,6 @@ import { View, Text, FlatList, Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useFocusEffect } from '@react-navigation/native';
 import {
   CameraView,
   useCameraPermissions,
@@ -18,9 +17,9 @@ import {
 import { randomUUID } from 'expo-crypto';
 import { useTheme } from '@/theme/ThemeContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
-  getAllCachedItems,
-  searchCachedItems,
+  searchCachedItemsLimited,
   getCachedItemByBarcode,
   getCachedItemBySku,
   enqueueTransaction,
@@ -41,6 +40,7 @@ import {
   getCartQuantity,
   type CartState,
 } from '@/lib/cart';
+import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -58,7 +58,6 @@ export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [allItems, setAllItems] = useState<CachedItem[]>([]);
   const [cart, setCart] = useState<CartState>(new Map());
   const [transactionType, setTransactionType] = useState<TransactionType>(
     params.type === 'check_out' ? 'check_out' : 'check_in',
@@ -68,14 +67,6 @@ export default function ScanScreen() {
   const [reviewVisible, setReviewVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Load all items on mount and when tab gains focus
-  useFocusEffect(
-    useCallback(() => {
-      const items = getAllCachedItems(db).filter((i) => !i.is_archived);
-      setAllItems(items);
-    }, [db]),
-  );
-
   // Update transaction type when navigated with param
   useEffect(() => {
     if (params.type === 'check_out' || params.type === 'check_in') {
@@ -83,14 +74,12 @@ export default function ScanScreen() {
     }
   }, [params.type]);
 
-  // Derive displayed items: search or show all
+  // Debounced search: only query DB after 300ms pause
+  const debouncedQuery = useDebounce(searchQuery.trim(), 300);
   const displayedItems = useMemo(() => {
-    const query = searchQuery.trim();
-    if (query.length >= 2) {
-      return searchCachedItems(db, query).filter((i) => !i.is_archived);
-    }
-    return allItems;
-  }, [searchQuery, db, allItems]);
+    if (debouncedQuery.length < 2) return [];
+    return searchCachedItemsLimited(db, debouncedQuery, 50);
+  }, [debouncedQuery, db]);
 
   const cartItemCount = getCartItemCount(cart);
   const cartTotalQty = getCartTotalQuantity(cart);
@@ -99,7 +88,6 @@ export default function ScanScreen() {
 
   const handleAddToCart = useCallback(
     (item: CachedItem) => {
-      haptic('light');
       setCart((prev) => addToCart(prev, item));
     },
     [],
@@ -329,11 +317,12 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: screenColors.scan }}
       edges={['top']}
     >
       <ScreenHeader
         title="Stock Transaction"
+        headerColor={screenColors.scan}
         rightAction={
           <AnimatedPressable
             onPress={handleToggleScanner}
@@ -341,130 +330,133 @@ export default function ScanScreen() {
           >
             <ScanLine
               size={24}
-              color={scanning ? colors.primary : colors.textTertiary}
+              color={scanning ? '#fff' : 'rgba(255,255,255,0.7)'}
             />
           </AnimatedPressable>
         }
       />
 
-      <View
-        style={{
-          paddingHorizontal: spacing[4],
-          marginBottom: spacing[3],
-        }}
-      >
-        <Input
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search by name, SKU, or barcode"
-          icon={<Search size={20} color={colors.iconSecondary} />}
-        />
-      </View>
-
-      {scanning && permission?.granted && (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View
           style={{
-            height: 200,
-            marginHorizontal: spacing[4],
-            borderRadius: radii.lg,
-            overflow: 'hidden',
+            paddingHorizontal: spacing[4],
             marginBottom: spacing[3],
           }}
         >
-          <CameraView
-            style={{ flex: 1 }}
-            barcodeScannerSettings={{
-              barcodeTypes: [
-                'qr',
-                'ean13',
-                'ean8',
-                'code128',
-                'code39',
-                'upc_a',
-                'upc_e',
-              ],
-            }}
-            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+          <Input
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search by name, SKU, or barcode"
+            icon={<Search size={20} color={colors.iconSecondary} />}
           />
-          {/* Scanner overlay */}
+        </View>
+
+        {scanning && permission?.granted && (
           <View
             style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              alignItems: 'center',
-              justifyContent: 'center',
+              height: 200,
+              marginHorizontal: spacing[4],
+              borderRadius: radii.lg,
+              overflow: 'hidden',
+              marginBottom: spacing[3],
             }}
           >
+            <CameraView
+              style={{ flex: 1 }}
+              barcodeScannerSettings={{
+                barcodeTypes: [
+                  'qr',
+                  'ean13',
+                  'ean8',
+                  'code128',
+                  'code39',
+                  'upc_a',
+                  'upc_e',
+                ],
+              }}
+              onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+            />
+            {/* Scanner overlay */}
             <View
               style={{
-                width: 160,
-                height: 160,
-                borderWidth: 2,
-                borderColor: colors.primary,
-                borderRadius: radii.lg,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
-          </View>
-        </View>
-      )}
-
-      <FlatList
-        data={displayedItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ListEmptyComponent={
-          <View
-            style={{
-              alignItems: 'center',
-              padding: spacing[8],
-              gap: spacing[3],
-            }}
-          >
-            <Package size={48} color={colors.textTertiary} />
-            <Text
-              style={{ ...typePresets.body, color: colors.textSecondary }}
             >
-              {searchQuery.trim().length >= 2
-                ? 'No items found'
-                : 'No items available'}
-            </Text>
+              <View
+                style={{
+                  width: 160,
+                  height: 160,
+                  borderWidth: 2,
+                  borderColor: colors.primary,
+                  borderRadius: radii.lg,
+                }}
+              />
+            </View>
           </View>
-        }
-        contentContainerStyle={{
-          paddingBottom: cartItemCount > 0 ? 80 : spacing[4],
-        }}
-        keyboardShouldPersistTaps="handled"
-      />
+        )}
 
-      {reviewVisible && (
-        <CartReviewSheet
-          visible={reviewVisible}
-          cart={cart}
-          transactionType={transactionType}
-          onChangeTransactionType={setTransactionType}
-          onUpdateQuantity={handleUpdateQuantity}
-          onUpdateNotes={handleUpdateNotes}
-          onRemoveItem={handleRemoveFromCart}
-          onConfirm={handleConfirmBatch}
-          onClose={() => setReviewVisible(false)}
-          submitting={submitting}
-        />
-      )}
-
-      {cartItemCount > 0 && !reviewVisible && (
-        <CartSummaryBar
-          itemCount={cartItemCount}
-          totalQuantity={cartTotalQty}
-          onReview={() => {
-            haptic('medium');
-            setReviewVisible(true);
+        <FlatList
+          data={displayedItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
+          ListEmptyComponent={
+            <View
+              style={{
+                alignItems: 'center',
+                padding: spacing[8],
+                gap: spacing[3],
+              }}
+            >
+              <Package size={48} color={colors.textTertiary} />
+              <Text
+                style={{ ...typePresets.body, color: colors.textSecondary }}
+              >
+                {searchQuery.trim().length >= 2
+                  ? 'No items found'
+                  : 'Search to find items'}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{
+            paddingBottom: cartItemCount > 0 ? 80 : spacing[4],
           }}
-          onClear={handleClearCart}
+          keyboardShouldPersistTaps="handled"
         />
-      )}
+
+        {reviewVisible && (
+          <CartReviewSheet
+            visible={reviewVisible}
+            cart={cart}
+            transactionType={transactionType}
+            onChangeTransactionType={setTransactionType}
+            onUpdateQuantity={handleUpdateQuantity}
+            onUpdateNotes={handleUpdateNotes}
+            onRemoveItem={handleRemoveFromCart}
+            onConfirm={handleConfirmBatch}
+            onClose={() => setReviewVisible(false)}
+            submitting={submitting}
+          />
+        )}
+
+        {cartItemCount > 0 && !reviewVisible && (
+          <CartSummaryBar
+            itemCount={cartItemCount}
+            totalQuantity={cartTotalQty}
+            onReview={() => setReviewVisible(true)}
+            onClear={handleClearCart}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createMockDatabase, type SQLiteDatabase } from '@/test/mocks/expo-sqlite';
 import { runMigrations } from './migrations';
 import {
@@ -14,7 +14,9 @@ import {
   getCachedItemByBarcode,
   getCachedItemBySku,
   searchCachedItems,
+  searchCachedItemsLimited,
   getAllCachedItems,
+  getCachedItemNames,
   clearItemCache,
   getSyncMetadata,
   setSyncMetadata,
@@ -48,7 +50,7 @@ function makeItem(overrides: Partial<CachedItem> = {}): CachedItem {
     unit_price: 9.99,
     category_id: 'cat-1',
     category_name: 'Category A',
-    quantity_decimals: 0,
+    quantity_decimals: 3,
     is_archived: false,
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -273,6 +275,39 @@ describe('SQLite operations', () => {
     });
   });
 
+  describe('searchCachedItemsLimited', () => {
+    beforeEach(() => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Frozen Chicken', sku: 'FC-001', barcode: 'BC-FC', is_archived: false }),
+        makeItem({ id: 'i2', name: 'Frozen Fish', sku: 'FF-002', barcode: 'BC-FF', is_archived: false }),
+        makeItem({ id: 'i3', name: 'Fresh Vegetables', sku: 'FV-003', barcode: 'BC-FV', is_archived: false }),
+        makeItem({ id: 'i4', name: 'Frozen Archived', sku: 'FA-004', barcode: 'BC-FA', is_archived: true }),
+      ]);
+    });
+
+    it('should respect LIMIT parameter', () => {
+      const results = searchCachedItemsLimited(db as never, 'Fro', 1);
+      expect(results).toHaveLength(1);
+    });
+
+    it('should default limit to 50', () => {
+      const results = searchCachedItemsLimited(db as never, 'Fro');
+      expect(results).toHaveLength(2);
+    });
+
+    it('should return fewer when fewer match', () => {
+      const results = searchCachedItemsLimited(db as never, 'Chicken', 50);
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Frozen Chicken');
+    });
+
+    it('should filter archived items', () => {
+      const results = searchCachedItemsLimited(db as never, 'Frozen');
+      expect(results.every(r => !r.is_archived)).toBe(true);
+      expect(results).toHaveLength(2);
+    });
+  });
+
   describe('getAllCachedItems', () => {
     it('should return all items sorted by name', () => {
       cacheItems(db as never, [
@@ -288,6 +323,25 @@ describe('SQLite operations', () => {
 
     it('should return empty array when cache is empty', () => {
       expect(getAllCachedItems(db as never)).toEqual([]);
+    });
+  });
+
+  describe('getCachedItemNames', () => {
+    it('should return a Map of id to name', () => {
+      cacheItems(db as never, [
+        makeItem({ id: 'i1', name: 'Alpha' }),
+        makeItem({ id: 'i2', name: 'Beta', sku: 'SKU-002', barcode: 'BC-002' }),
+      ]);
+
+      const names = getCachedItemNames(db as never, ['i1', 'i2']);
+      expect(names.get('i1')).toBe('Alpha');
+      expect(names.get('i2')).toBe('Beta');
+      expect(names.size).toBe(2);
+    });
+
+    it('should handle empty input', () => {
+      const names = getCachedItemNames(db as never, []);
+      expect(names.size).toBe(0);
     });
   });
 
@@ -341,6 +395,76 @@ describe('SQLite operations', () => {
       const cached = getCachedItem(db as never, 'item-1');
       expect(cached?.is_archived).toBe(true);
       expect(typeof cached?.is_archived).toBe('boolean');
+    });
+  });
+
+  // --- cacheItems transaction wrapping ---
+
+  describe('cacheItems transaction wrapping', () => {
+    it('should wrap inserts in BEGIN/COMMIT', () => {
+      const execSpy = vi.spyOn(db, 'execSync');
+      const items = [makeItem({ id: 'item-1' }), makeItem({ id: 'item-2', sku: 'SKU-002' })];
+
+      cacheItems(db as never, items);
+
+      const calls = execSpy.mock.calls.map(c => c[0]);
+      expect(calls).toContain('BEGIN');
+      expect(calls).toContain('COMMIT');
+      expect(calls.indexOf('BEGIN')).toBeLessThan(calls.indexOf('COMMIT'));
+      execSpy.mockRestore();
+    });
+
+    it('should atomically insert 100 items', () => {
+      const items = Array.from({ length: 100 }, (_, i) =>
+        makeItem({ id: `item-${i}`, sku: `SKU-${i}`, barcode: `BC-${i}` })
+      );
+
+      cacheItems(db as never, items);
+
+      const all = getAllCachedItems(db as never);
+      expect(all).toHaveLength(100);
+    });
+
+    it('should not insert anything when items array is empty', () => {
+      const execSpy = vi.spyOn(db, 'execSync');
+
+      cacheItems(db as never, []);
+
+      const calls = execSpy.mock.calls.map(c => c[0]);
+      expect(calls).not.toContain('BEGIN');
+      execSpy.mockRestore();
+    });
+  });
+
+  // --- SQLite indexes ---
+
+  describe('SQLite indexes', () => {
+    it('should create idx_item_cache_barcode index', () => {
+      const row = db.getFirstSync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_item_cache_barcode'"
+      );
+      expect(row?.name).toBe('idx_item_cache_barcode');
+    });
+
+    it('should create idx_item_cache_sku index', () => {
+      const row = db.getFirstSync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_item_cache_sku'"
+      );
+      expect(row?.name).toBe('idx_item_cache_sku');
+    });
+
+    it('should create idx_item_cache_name index', () => {
+      const row = db.getFirstSync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_item_cache_name'"
+      );
+      expect(row?.name).toBe('idx_item_cache_name');
+    });
+
+    it('should create idx_pending_transactions_status index', () => {
+      const row = db.getFirstSync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_pending_transactions_status'"
+      );
+      expect(row?.name).toBe('idx_pending_transactions_status');
     });
   });
 

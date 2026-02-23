@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS item_cache (
   unit_price REAL,
   category_id TEXT,
   category_name TEXT,
-  quantity_decimals INTEGER NOT NULL DEFAULT 0,
+  quantity_decimals INTEGER NOT NULL DEFAULT 3,
   is_archived INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );`;
@@ -34,8 +34,16 @@ CREATE TABLE IF NOT EXISTS sync_metadata (
   value TEXT NOT NULL
 );`;
 
+export const CREATE_INDEXES = `
+CREATE INDEX IF NOT EXISTS idx_item_cache_barcode ON item_cache(barcode);
+CREATE INDEX IF NOT EXISTS idx_item_cache_sku ON item_cache(sku);
+CREATE INDEX IF NOT EXISTS idx_item_cache_name ON item_cache(name);
+CREATE INDEX IF NOT EXISTS idx_pending_transactions_status ON pending_transactions(status);
+`;
+
 export const ALL_MIGRATIONS = [
   CREATE_PENDING_TRANSACTIONS,
   CREATE_ITEM_CACHE,
   CREATE_SYNC_METADATA,
+  CREATE_INDEXES,
 ];

@@ -21,12 +21,13 @@ import {
   formatQuantityDelta,
   type UnifiedTransaction,
 } from '@/lib/transactions';
+import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { haptic } from '@/lib/haptics';
+
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -256,66 +257,72 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: screenColors.history }}
       edges={['top']}
     >
       <ScreenHeader
         title="History"
+        headerColor={screenColors.history}
         rightAction={
           <AnimatedPressable
             onPress={() => {
-              haptic('light');
               /* future filter sheet */
             }}
             hapticPattern="light"
           >
-            <SlidersHorizontal size={22} color={colors.iconSecondary} />
+            <SlidersHorizontal size={22} color="#fff" />
           </AnimatedPressable>
         }
       />
 
-      <FlatList
-        data={grouped}
-        keyExtractor={(item) => item.date}
-        renderItem={renderItem}
-        keyboardDismissMode="on-drag"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-        ListHeaderComponent={
-          <View style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[3] }}>
-            <Input
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search SKU or product..."
-              icon={<Search size={18} color={colors.textTertiary} />}
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <FlatList
+          data={grouped}
+          keyExtractor={(item) => item.date}
+          renderItem={renderItem}
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
+          keyboardDismissMode="on-drag"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
             />
-          </View>
-        }
-        ListEmptyComponent={
-          isSearchActive ? (
-            <EmptyState
-              icon={<Search size={48} color={colors.textTertiary} />}
-              title="No Results"
-              message={`No transactions match "${searchQuery.trim()}". Try a different search term.`}
-            />
-          ) : (
-            <EmptyState
-              icon={<ClipboardList size={48} color={colors.textTertiary} />}
-              title="No Transactions"
-              message="Your transaction history will appear here once you start recording stock movements."
-            />
-          )
-        }
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: spacing[4],
-        }}
-      />
+          }
+          ListHeaderComponent={
+            <View style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[3] }}>
+              <Input
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search SKU or product..."
+                icon={<Search size={18} color={colors.textTertiary} />}
+              />
+            </View>
+          }
+          ListEmptyComponent={
+            isSearchActive ? (
+              <EmptyState
+                icon={<Search size={48} color={colors.textTertiary} />}
+                title="No Results"
+                message={`No transactions match "${searchQuery.trim()}". Try a different search term.`}
+              />
+            ) : (
+              <EmptyState
+                icon={<ClipboardList size={48} color={colors.textTertiary} />}
+                title="No Transactions"
+                message="Your transaction history will appear here once you start recording stock movements."
+              />
+            )
+          }
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: spacing[4],
+          }}
+        />
+      </View>
     </SafeAreaView>
   );
 }

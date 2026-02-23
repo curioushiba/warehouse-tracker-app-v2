@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { toBoolean, fromBoolean } from './conversions';
+import type { TransactionType } from '../types';
 import type { PendingTransaction, CachedItem } from './types';
 
 // --- Raw row types matching SQLite column formats ---
@@ -38,7 +39,7 @@ function toPendingTransaction(row: PendingTransactionRow): PendingTransaction {
   return {
     id: row.id,
     item_id: row.item_id,
-    transaction_type: row.transaction_type,
+    transaction_type: row.transaction_type as TransactionType,
     quantity: row.quantity,
     notes: row.notes,
     device_timestamp: row.device_timestamp,
@@ -119,7 +120,7 @@ export function clearAllTransactions(db: SQLiteDatabase): void {
 
 // --- Item cache operations ---
 
-export function cacheItems(db: SQLiteDatabase, items: CachedItem[]): void {
+export function cacheItemsRaw(db: SQLiteDatabase, items: CachedItem[]): void {
   for (const item of items) {
     db.runSync(
       `INSERT OR REPLACE INTO item_cache (id, sku, name, barcode, current_stock, min_stock, max_stock, unit, unit_price, category_id, category_name, quantity_decimals, is_archived, updated_at)
@@ -141,6 +142,18 @@ export function cacheItems(db: SQLiteDatabase, items: CachedItem[]): void {
         item.updated_at,
       ]
     );
+  }
+}
+
+export function cacheItems(db: SQLiteDatabase, items: CachedItem[]): void {
+  if (items.length === 0) return;
+  db.execSync('BEGIN');
+  try {
+    cacheItemsRaw(db, items);
+    db.execSync('COMMIT');
+  } catch (err) {
+    db.execSync('ROLLBACK');
+    throw err;
   }
 }
 
@@ -177,11 +190,31 @@ export function searchCachedItems(db: SQLiteDatabase, query: string): CachedItem
   return rows.map(toCachedItem);
 }
 
+export function searchCachedItemsLimited(db: SQLiteDatabase, query: string, limit = 50): CachedItem[] {
+  const pattern = `%${query}%`;
+  const rows = db.getAllSync<CachedItemRow>(
+    `SELECT * FROM item_cache
+     WHERE (name LIKE ? OR sku LIKE ? OR barcode LIKE ?) AND is_archived = 0
+     ORDER BY name ASC LIMIT ?`,
+    [pattern, pattern, pattern, limit]
+  );
+  return rows.map(toCachedItem);
+}
+
 export function getAllCachedItems(db: SQLiteDatabase): CachedItem[] {
   const rows = db.getAllSync<CachedItemRow>(
     'SELECT * FROM item_cache ORDER BY name ASC'
   );
   return rows.map(toCachedItem);
+}
+
+export function getCachedItemNames(db: SQLiteDatabase, itemIds: string[]): Map<string, string> {
+  const result = new Map<string, string>();
+  for (const id of itemIds) {
+    const row = db.getFirstSync<{ name: string }>('SELECT name FROM item_cache WHERE id = ?', [id]);
+    if (row) result.set(id, row.name);
+  }
+  return result;
 }
 
 export function clearItemCache(db: SQLiteDatabase): void {
