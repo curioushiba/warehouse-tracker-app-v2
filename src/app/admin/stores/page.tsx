@@ -6,11 +6,10 @@ import {
   Search,
   Edit,
   Trash2,
-  FolderOpen,
+  Store,
   Package,
   RefreshCw,
   AlertCircle,
-  ChevronRight,
 } from "lucide-react";
 import {
   Card,
@@ -38,43 +37,39 @@ import {
   FormErrorMessage,
   Skeleton,
   Alert,
-  Select,
 } from "@/components/ui";
 import {
-  getCategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getCategoryItemCounts,
-} from "@/lib/actions/categories";
-import type { Category, CategoryInsert, CategoryUpdate } from "@/lib/supabase/types";
-import { formatDateTime } from "@/lib/utils";
+  getStores,
+  createStore,
+  updateStore,
+  deleteStore,
+  getStoreItemCounts,
+} from "@/lib/actions/stores";
+import type { Store as StoreType, StoreInsert, StoreUpdate } from "@/lib/supabase/types";
 
-interface CategoryFormData {
+interface StoreFormData {
   name: string;
   description: string;
-  parent_id: string;
 }
 
-const initialFormData: CategoryFormData = {
+const initialFormData: StoreFormData = {
   name: "",
   description: "",
-  parent_id: "",
 };
 
-interface CategoryWithCount extends Category {
+interface StoreWithCount extends StoreType {
   itemCount: number;
 }
 
-export default function CategoriesPage() {
+export default function StoresPage() {
   // Data state
-  const [categories, setCategories] = React.useState<CategoryWithCount[]>([]);
+  const [stores, setStores] = React.useState<StoreWithCount[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Filter state
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
+  const [selectedStores, setSelectedStores] = React.useState<string[]>([]);
   const [sortConfig, setSortConfig] = React.useState<{
     key: string;
     direction: "asc" | "desc";
@@ -84,12 +79,12 @@ export default function CategoriesPage() {
   const [isAddEditModalOpen, setIsAddEditModalOpen] = React.useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = React.useState(false);
-  const [editingCategory, setEditingCategory] = React.useState<Category | null>(null);
-  const [categoryToDelete, setCategoryToDelete] = React.useState<CategoryWithCount | null>(null);
+  const [editingStore, setEditingStore] = React.useState<StoreType | null>(null);
+  const [storeToDelete, setStoreToDelete] = React.useState<StoreWithCount | null>(null);
 
   // Form state
-  const [formData, setFormData] = React.useState<CategoryFormData>(initialFormData);
-  const [formErrors, setFormErrors] = React.useState<Partial<CategoryFormData>>({});
+  const [formData, setFormData] = React.useState<StoreFormData>(initialFormData);
+  const [formErrors, setFormErrors] = React.useState<Partial<StoreFormData>>({});
   const [isSaving, setIsSaving] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
@@ -99,24 +94,24 @@ export default function CategoriesPage() {
       setIsLoading(true);
       setError(null);
 
-      const [categoriesResult, countsResult] = await Promise.all([
-        getCategories(),
-        getCategoryItemCounts(),
+      const [storesResult, countsResult] = await Promise.all([
+        getStores(),
+        getStoreItemCounts(),
       ]);
 
-      if (!categoriesResult.success) {
-        setError(categoriesResult.error || "Failed to load categories");
+      if (!storesResult.success) {
+        setError(storesResult.error || "Failed to load stores");
         return;
       }
 
-      // Add item counts to categories
+      // Add item counts to stores
       const itemCounts = countsResult.success ? countsResult.data : {};
-      const categoriesWithCounts: CategoryWithCount[] = categoriesResult.data.map((cat) => ({
-        ...cat,
-        itemCount: itemCounts[cat.id] || 0,
+      const storesWithCounts: StoreWithCount[] = storesResult.data.map((store) => ({
+        ...store,
+        itemCount: itemCounts[store.id] || 0,
       }));
 
-      setCategories(categoriesWithCounts);
+      setStores(storesWithCounts);
     } catch (err) {
       setError("An unexpected error occurred");
       console.error("Error fetching data:", err);
@@ -130,17 +125,17 @@ export default function CategoriesPage() {
     fetchData();
   }, [fetchData]);
 
-  // Filter and sort categories
-  const filteredCategories = React.useMemo(() => {
-    let result = [...categories];
+  // Filter and sort stores
+  const filteredStores = React.useMemo(() => {
+    let result = [...stores];
 
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
-        (cat) =>
-          cat.name.toLowerCase().includes(query) ||
-          cat.description?.toLowerCase().includes(query)
+        (store) =>
+          store.name.toLowerCase().includes(query) ||
+          store.description?.toLowerCase().includes(query)
       );
     }
 
@@ -167,14 +162,7 @@ export default function CategoriesPage() {
     }
 
     return result;
-  }, [categories, searchQuery, sortConfig]);
-
-  // Get parent category name
-  const getParentName = (parentId: string | null): string | null => {
-    if (!parentId) return null;
-    const parent = categories.find((c) => c.id === parentId);
-    return parent?.name || null;
-  };
+  }, [stores, searchQuery, sortConfig]);
 
   // Handlers
   const handleSort = (key: string) => {
@@ -188,34 +176,33 @@ export default function CategoriesPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedCategories(filteredCategories.map((cat) => cat.id));
+      setSelectedStores(filteredStores.map((store) => store.id));
     } else {
-      setSelectedCategories([]);
+      setSelectedStores([]);
     }
   };
 
-  const handleSelectCategory = (categoryId: string, checked: boolean) => {
+  const handleSelectStore = (storeId: string, checked: boolean) => {
     if (checked) {
-      setSelectedCategories([...selectedCategories, categoryId]);
+      setSelectedStores([...selectedStores, storeId]);
     } else {
-      setSelectedCategories(selectedCategories.filter((id) => id !== categoryId));
+      setSelectedStores(selectedStores.filter((id) => id !== storeId));
     }
   };
 
   // Modal handlers
   const handleOpenAddModal = () => {
-    setEditingCategory(null);
+    setEditingStore(null);
     setFormData(initialFormData);
     setFormErrors({});
     setIsAddEditModalOpen(true);
   };
 
-  const handleOpenEditModal = (category: Category) => {
-    setEditingCategory(category);
+  const handleOpenEditModal = (store: StoreType) => {
+    setEditingStore(store);
     setFormData({
-      name: category.name,
-      description: category.description || "",
-      parent_id: category.parent_id || "",
+      name: store.name,
+      description: store.description || "",
     });
     setFormErrors({});
     setIsAddEditModalOpen(true);
@@ -223,19 +210,19 @@ export default function CategoriesPage() {
 
   const handleCloseAddEditModal = () => {
     setIsAddEditModalOpen(false);
-    setEditingCategory(null);
+    setEditingStore(null);
     setFormData(initialFormData);
     setFormErrors({});
   };
 
-  const handleOpenDeleteModal = (category: CategoryWithCount) => {
-    setCategoryToDelete(category);
+  const handleOpenDeleteModal = (store: StoreWithCount) => {
+    setStoreToDelete(store);
     setIsDeleteModalOpen(true);
   };
 
   const handleCloseDeleteModal = () => {
     setIsDeleteModalOpen(false);
-    setCategoryToDelete(null);
+    setStoreToDelete(null);
   };
 
   const handleOpenBulkDeleteModal = () => {
@@ -248,12 +235,12 @@ export default function CategoriesPage() {
 
   // Form handlers
   const validateForm = (): boolean => {
-    const errors: Partial<CategoryFormData> = {};
+    const errors: Partial<StoreFormData> = {};
 
     if (!formData.name.trim()) {
-      errors.name = "Category name is required";
+      errors.name = "Store name is required";
     } else if (formData.name.length > 50) {
-      errors.name = "Category name must be 50 characters or less";
+      errors.name = "Store name must be 50 characters or less";
     }
 
     if (formData.description && formData.description.length > 200) {
@@ -270,15 +257,14 @@ export default function CategoriesPage() {
     setIsSaving(true);
 
     try {
-      if (editingCategory) {
+      if (editingStore) {
         // Update
-        const updateData: CategoryUpdate = {
+        const updateData: StoreUpdate = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          parent_id: formData.parent_id || null,
         };
 
-        const result = await updateCategory(editingCategory.id, updateData);
+        const result = await updateStore(editingStore.id, updateData);
 
         if (result.success) {
           await fetchData();
@@ -288,13 +274,12 @@ export default function CategoriesPage() {
         }
       } else {
         // Create
-        const insertData: CategoryInsert = {
+        const insertData: StoreInsert = {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          parent_id: formData.parent_id || null,
         };
 
-        const result = await createCategory(insertData);
+        const result = await createStore(insertData);
 
         if (result.success) {
           await fetchData();
@@ -305,19 +290,19 @@ export default function CategoriesPage() {
       }
     } catch (err) {
       setFormErrors({ name: "An unexpected error occurred" });
-      console.error("Error saving category:", err);
+      console.error("Error saving store:", err);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteConfirm = async () => {
-    if (!categoryToDelete) return;
+    if (!storeToDelete) return;
 
     setIsDeleting(true);
 
     try {
-      const result = await deleteCategory(categoryToDelete.id);
+      const result = await deleteStore(storeToDelete.id);
 
       if (result.success) {
         await fetchData();
@@ -327,8 +312,8 @@ export default function CategoriesPage() {
         handleCloseDeleteModal();
       }
     } catch (err) {
-      setError("Failed to delete category");
-      console.error("Error deleting category:", err);
+      setError("Failed to delete store");
+      console.error("Error deleting store:", err);
     } finally {
       setIsDeleting(false);
     }
@@ -338,22 +323,22 @@ export default function CategoriesPage() {
     setIsDeleting(true);
 
     try {
-      // Delete categories one by one (could be optimized with bulk delete endpoint)
+      // Delete stores one by one (could be optimized with bulk delete endpoint)
       const results = await Promise.all(
-        selectedCategories.map((id) => deleteCategory(id))
+        selectedStores.map((id) => deleteStore(id))
       );
 
       const failures = results.filter((r) => !r.success);
       if (failures.length > 0) {
-        setError(`Failed to delete ${failures.length} categories. Some may have items.`);
+        setError(`Failed to delete ${failures.length} stores. Some may have items.`);
       }
 
-      setSelectedCategories([]);
+      setSelectedStores([]);
       await fetchData();
       handleCloseBulkDeleteModal();
     } catch (err) {
-      setError("Failed to delete categories");
-      console.error("Error bulk deleting categories:", err);
+      setError("Failed to delete stores");
+      console.error("Error bulk deleting stores:", err);
     } finally {
       setIsDeleting(false);
     }
@@ -365,10 +350,10 @@ export default function CategoriesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground">
-            Categories
+            Stores
           </h1>
           <p className="text-foreground-muted text-sm mt-1">
-            Manage inventory categories and organization
+            Manage your stores
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -385,7 +370,7 @@ export default function CategoriesPage() {
             leftIcon={<Plus className="w-4 h-4" />}
             onClick={handleOpenAddModal}
           >
-            Add Category
+            Add Store
           </Button>
         </div>
       </div>
@@ -401,7 +386,7 @@ export default function CategoriesPage() {
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex-1 max-w-md">
           <SearchInput
-            placeholder="Search categories..."
+            placeholder="Search stores..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onClear={() => setSearchQuery("")}
@@ -410,12 +395,12 @@ export default function CategoriesPage() {
       </div>
 
       {/* Selected Items Actions */}
-      {selectedCategories.length > 0 && (
+      {selectedStores.length > 0 && (
         <Card variant="filled" size="sm">
           <CardBody>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
-                {selectedCategories.length} categor{selectedCategories.length > 1 ? "ies" : "y"} selected
+                {selectedStores.length} store{selectedStores.length > 1 ? "s" : ""} selected
               </span>
               <Button
                 variant="danger"
@@ -429,7 +414,7 @@ export default function CategoriesPage() {
         </Card>
       )}
 
-      {/* Categories Table */}
+      {/* Stores Table */}
       <Card variant="elevated" className="overflow-hidden">
         <CardBody className="p-0">
           <Table variant="simple" size="md">
@@ -438,15 +423,15 @@ export default function CategoriesPage() {
                 <TableHead className="w-12">
                   <Checkbox
                     isChecked={
-                      selectedCategories.length === filteredCategories.length &&
-                      filteredCategories.length > 0
+                      selectedStores.length === filteredStores.length &&
+                      filteredStores.length > 0
                     }
                     isIndeterminate={
-                      selectedCategories.length > 0 &&
-                      selectedCategories.length < filteredCategories.length
+                      selectedStores.length > 0 &&
+                      selectedStores.length < filteredStores.length
                     }
                     onChange={(e) => handleSelectAll(e.target.checked)}
-                    aria-label="Select all categories"
+                    aria-label="Select all stores"
                   />
                 </TableHead>
                 <TableHead
@@ -456,9 +441,8 @@ export default function CategoriesPage() {
                   }
                   onSort={() => handleSort("name")}
                 >
-                  Category Name
+                  Name
                 </TableHead>
-                <TableHead>Parent</TableHead>
                 <TableHead
                   sortable
                   sortDirection={
@@ -477,22 +461,22 @@ export default function CategoriesPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 5 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
                     ))}
                   </TableRow>
                 ))
-              ) : filteredCategories.length === 0 ? (
+              ) : filteredStores.length === 0 ? (
                 <TableEmpty
-                  title={searchQuery ? "No categories found" : "No categories yet"}
+                  title={searchQuery ? "No stores found" : "No stores yet"}
                   description={
                     searchQuery
                       ? "Try adjusting your search"
-                      : "Add your first category to organize your inventory"
+                      : "Add your first store to organize your inventory"
                   }
-                  icon={<FolderOpen className="w-12 h-12" />}
+                  icon={<Store className="w-12 h-12" />}
                   action={
                     searchQuery ? (
                       <Button
@@ -509,72 +493,61 @@ export default function CategoriesPage() {
                         leftIcon={<Plus className="w-4 h-4" />}
                         onClick={handleOpenAddModal}
                       >
-                        Add Category
+                        Add Store
                       </Button>
                     )
                   }
-                  colSpan={6}
+                  colSpan={5}
                 />
               ) : (
-                filteredCategories.map((category) => {
-                  const isSelected = selectedCategories.includes(category.id);
-                  const parentName = getParentName(category.parent_id);
+                filteredStores.map((store) => {
+                  const isSelected = selectedStores.includes(store.id);
 
                   return (
-                    <TableRow key={category.id} isSelected={isSelected}>
+                    <TableRow key={store.id} isSelected={isSelected}>
                       <TableCell>
                         <Checkbox
                           isChecked={isSelected}
                           onChange={(e) =>
-                            handleSelectCategory(category.id, e.target.checked)
+                            handleSelectStore(store.id, e.target.checked)
                           }
-                          aria-label={`Select ${category.name}`}
+                          aria-label={`Select ${store.name}`}
                         />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                            <FolderOpen className="w-5 h-5 text-primary" />
+                            <Store className="w-5 h-5 text-primary" />
                           </div>
                           <span className="font-medium text-foreground">
-                            {category.name}
+                            {store.name}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {parentName ? (
-                          <div className="flex items-center gap-1 text-sm text-foreground-muted">
-                            <ChevronRight className="w-4 h-4" />
-                            {parentName}
-                          </div>
-                        ) : (
-                          <span className="text-foreground-muted">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
                         <Badge colorScheme="primary" variant="subtle" size="sm">
                           <Package className="w-3 h-3 mr-1" />
-                          {category.itemCount}
+                          {store.itemCount}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-foreground-muted max-w-xs truncate">
-                        {category.description || "-"}
+                        {store.description || "-"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <IconButton
                             icon={<Edit className="w-4 h-4" />}
-                            aria-label="Edit category"
+                            aria-label="Edit store"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleOpenEditModal(category)}
+                            onClick={() => handleOpenEditModal(store)}
                           />
                           <IconButton
                             icon={<Trash2 className="w-4 h-4" />}
-                            aria-label="Delete category"
+                            aria-label="Delete store"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleOpenDeleteModal(category)}
+                            onClick={() => handleOpenDeleteModal(store)}
                             className="text-error hover:bg-error-light"
                           />
                         </div>
@@ -592,25 +565,25 @@ export default function CategoriesPage() {
       {!isLoading && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-foreground-muted">
-            Showing {filteredCategories.length} of {categories.length} categories
+            Showing {filteredStores.length} of {stores.length} stores
           </p>
         </div>
       )}
 
-      {/* Add/Edit Category Modal */}
+      {/* Add/Edit Store Modal */}
       <Modal
         isOpen={isAddEditModalOpen}
         onClose={handleCloseAddEditModal}
         size="sm"
       >
         <ModalHeader showCloseButton onClose={handleCloseAddEditModal}>
-          {editingCategory ? "Edit Category" : "Add Category"}
+          {editingStore ? "Edit Store" : "Add Store"}
         </ModalHeader>
         <ModalBody className="space-y-4">
           <FormControl isRequired isInvalid={!!formErrors.name}>
-            <FormLabel>Category Name</FormLabel>
+            <FormLabel>Store Name</FormLabel>
             <Input
-              placeholder="e.g. Animal Feed"
+              placeholder="e.g. Main Warehouse"
               value={formData.name}
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
@@ -620,21 +593,6 @@ export default function CategoriesPage() {
             {formErrors.name && (
               <FormErrorMessage>{formErrors.name}</FormErrorMessage>
             )}
-          </FormControl>
-
-          <FormControl>
-            <FormLabel>Parent Category</FormLabel>
-            <Select
-              options={[
-                { value: "", label: "None (Top Level)" },
-                ...categories
-                  .filter((c) => c.id !== editingCategory?.id)
-                  .map((c) => ({ value: c.id, label: c.name })),
-              ]}
-              value={formData.parent_id}
-              onChange={(value) => setFormData({ ...formData, parent_id: value })}
-              placeholder="Select parent category..."
-            />
           </FormControl>
 
           <FormControl isInvalid={!!formErrors.description}>
@@ -663,7 +621,7 @@ export default function CategoriesPage() {
             isLoading={isSaving}
             disabled={isSaving}
           >
-            {editingCategory ? "Save Changes" : "Add Category"}
+            {editingStore ? "Save Changes" : "Add Store"}
           </Button>
         </ModalFooter>
       </Modal>
@@ -675,7 +633,7 @@ export default function CategoriesPage() {
         size="sm"
       >
         <ModalHeader showCloseButton onClose={handleCloseDeleteModal}>
-          Delete Category
+          Delete Store
         </ModalHeader>
         <ModalBody>
           <div className="text-center">
@@ -684,12 +642,12 @@ export default function CategoriesPage() {
             </div>
             <p className="text-foreground mb-2">
               Are you sure you want to delete{" "}
-              <strong>&ldquo;{categoryToDelete?.name}&rdquo;</strong>?
+              <strong>&ldquo;{storeToDelete?.name}&rdquo;</strong>?
             </p>
-            {categoryToDelete?.itemCount && categoryToDelete.itemCount > 0 ? (
+            {storeToDelete?.itemCount && storeToDelete.itemCount > 0 ? (
               <p className="text-sm text-error">
-                This category has {categoryToDelete.itemCount} item
-                {categoryToDelete.itemCount > 1 ? "s" : ""}. Please move or delete them first.
+                This store has {storeToDelete.itemCount} item
+                {storeToDelete.itemCount > 1 ? "s" : ""}. Please move or delete them first.
               </p>
             ) : (
               <p className="text-sm text-foreground-muted">
@@ -706,7 +664,7 @@ export default function CategoriesPage() {
             variant="danger"
             onClick={handleDeleteConfirm}
             isLoading={isDeleting}
-            disabled={isDeleting || (categoryToDelete?.itemCount ?? 0) > 0}
+            disabled={isDeleting || (storeToDelete?.itemCount ?? 0) > 0}
           >
             Delete
           </Button>
@@ -720,7 +678,7 @@ export default function CategoriesPage() {
         size="sm"
       >
         <ModalHeader showCloseButton onClose={handleCloseBulkDeleteModal}>
-          Delete Categories
+          Delete Stores
         </ModalHeader>
         <ModalBody>
           <div className="text-center">
@@ -729,11 +687,11 @@ export default function CategoriesPage() {
             </div>
             <p className="text-foreground mb-2">
               Are you sure you want to delete{" "}
-              <strong>{selectedCategories.length}</strong> categor
-              {selectedCategories.length > 1 ? "ies" : "y"}?
+              <strong>{selectedStores.length}</strong> store
+              {selectedStores.length > 1 ? "s" : ""}?
             </p>
             <p className="text-sm text-foreground-muted">
-              Categories with items cannot be deleted.
+              Stores with items cannot be deleted.
             </p>
           </div>
         </ModalBody>
@@ -747,7 +705,7 @@ export default function CategoriesPage() {
             isLoading={isDeleting}
             disabled={isDeleting}
           >
-            Delete {selectedCategories.length} Categor{selectedCategories.length > 1 ? "ies" : "y"}
+            Delete {selectedStores.length} Store{selectedStores.length > 1 ? "s" : ""}
           </Button>
         </ModalFooter>
       </Modal>

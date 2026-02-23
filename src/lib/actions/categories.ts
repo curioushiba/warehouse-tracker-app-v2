@@ -114,11 +114,12 @@ export async function deleteCategory(id: string): Promise<ActionResult<void>> {
   try {
     const supabase = await createClient()
 
-    // First check if there are any items in this category
+    // First check if there are any active (non-archived) items in this category
     const { count, error: countError } = await supabase
       .from('inv_items')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
+      .eq('is_archived', false)
 
     if (countError) {
       return failure(countError.message)
@@ -204,6 +205,35 @@ export async function getOrCreateCategory(name: string, description?: string): P
     return success(created)
   } catch (err) {
     return failure('Failed to get or create category')
+  }
+}
+
+/**
+ * Get item counts for all categories (non-archived items only)
+ */
+export async function getCategoryItemCounts(): Promise<ActionResult<Record<string, number>>> {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('inv_items')
+      .select('id, category_id')
+      .eq('is_archived', false)
+
+    if (error) {
+      return failure(error.message)
+    }
+
+    const counts: Record<string, number> = {}
+    for (const item of data as Array<{ id: string; category_id: string | null }>) {
+      if (item.category_id) {
+        counts[item.category_id] = (counts[item.category_id] ?? 0) + 1
+      }
+    }
+
+    return success(counts)
+  } catch (err) {
+    return failure('Failed to get category item counts')
   }
 }
 

@@ -36,6 +36,7 @@ export {
   updateCategory,
   deleteCategory,
   getCategoryItemCount,
+  getCategoryItemCounts,
 } from './categories'
 
 // Locations Actions
@@ -88,6 +89,17 @@ export {
   getUnreadAlertCount,
 } from './alerts'
 
+// Stores Actions
+export {
+  getStores,
+  getStoreById,
+  createStore,
+  updateStore,
+  deleteStore,
+  getStoreItemCount,
+  getStoreItemCounts,
+} from './stores'
+
 // Dashboard Actions
 export {
   getDashboardData,
@@ -96,6 +108,7 @@ export {
   getCriticalStockDetails,
   getTotalItemsBreakdown,
   getTodayTransactionsBreakdown,
+  getStoreItemsBreakdown,
   type DashboardStats,
   type DashboardData,
   type PriorityLevel,
@@ -109,6 +122,8 @@ export {
   type TopActiveItem,
   type EmployeeActivity,
   type TodayTransactionsBreakdown,
+  type StoreBreakdown,
+  type StoreItemsBreakdown,
 } from './dashboard'
 
 // Sync Errors Actions
