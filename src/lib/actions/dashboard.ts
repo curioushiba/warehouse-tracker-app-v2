@@ -537,3 +537,108 @@ export async function getTodayTransactionsBreakdown(): Promise<ActionResult<Toda
     return failure(error instanceof Error ? error.message : 'Failed to fetch transactions breakdown')
   }
 }
+
+// ============================================================================
+// Store Breakdown
+// ============================================================================
+
+export interface ProblematicItem {
+  id: string
+  name: string
+  sku: string
+  currentStock: number
+  minStock: number
+  unit: string
+  level: 'critical' | 'low'
+}
+
+export interface StoreBreakdown {
+  id: string | null
+  name: string
+  count: number
+  lowStockCount: number      // items where 0 < current_stock < min_stock
+  criticalStockCount: number // items where current_stock = 0
+  problematicItems: ProblematicItem[]
+}
+
+export interface StoreItemsBreakdown {
+  stores: StoreBreakdown[]
+  totalActiveCount: number
+}
+
+/**
+ * Get breakdown of items by store
+ */
+export async function getStoreItemsBreakdown(): Promise<ActionResult<StoreItemsBreakdown>> {
+  try {
+    const supabase = createAdminClient()
+
+    const [itemsResult, storesResult] = await Promise.all([
+      supabase
+        .from('inv_items')
+        .select('id, name, sku, store_id, current_stock, min_stock, unit')
+        .eq('is_archived', false),
+      supabase.from('inv_stores').select('id, name'),
+    ])
+
+    if (itemsResult.error) {
+      return failure(itemsResult.error.message)
+    }
+
+    const items = (itemsResult.data ?? []) as { id: string; name: string; sku: string; store_id: string | null; current_stock: number; min_stock: number; unit: string }[]
+    const stores = (storesResult.data ?? []) as { id: string; name: string }[]
+
+    // Accumulate count + stock health + problematic items per store
+    const storeAccum = new Map<string | null, { count: number; lowStockCount: number; criticalStockCount: number; problematicItems: ProblematicItem[] }>()
+    for (const item of items) {
+      const storeId = item.store_id
+      const acc = storeAccum.get(storeId) ?? { count: 0, lowStockCount: 0, criticalStockCount: 0, problematicItems: [] }
+      acc.count++
+      if (item.current_stock === 0) {
+        acc.criticalStockCount++
+        acc.problematicItems.push({ id: item.id, name: item.name, sku: item.sku, currentStock: item.current_stock, minStock: item.min_stock, unit: item.unit, level: 'critical' })
+      } else if (item.current_stock > 0 && item.current_stock < item.min_stock) {
+        acc.lowStockCount++
+        acc.problematicItems.push({ id: item.id, name: item.name, sku: item.sku, currentStock: item.current_stock, minStock: item.min_stock, unit: item.unit, level: 'low' })
+      }
+      storeAccum.set(storeId, acc)
+    }
+
+    // Build store breakdown with names
+    const storeNameMap = new Map<string, string>()
+    for (const store of stores) {
+      storeNameMap.set(store.id, store.name)
+    }
+
+    const storeBreakdown: StoreBreakdown[] = []
+    storeAccum.forEach((acc, storeId) => {
+      // Sort problematic items: critical first, then low, then by currentStock ascending
+      acc.problematicItems.sort((a, b) => {
+        if (a.level !== b.level) return a.level === 'critical' ? -1 : 1
+        return a.currentStock - b.currentStock
+      })
+      storeBreakdown.push({
+        id: storeId,
+        name: storeId ? storeNameMap.get(storeId) ?? 'Unknown' : 'No Store',
+        count: acc.count,
+        lowStockCount: acc.lowStockCount,
+        criticalStockCount: acc.criticalStockCount,
+        problematicItems: acc.problematicItems,
+      })
+    })
+
+    // Sort: prioritize stores with problems
+    storeBreakdown.sort((a, b) =>
+      b.criticalStockCount - a.criticalStockCount
+      || b.lowStockCount - a.lowStockCount
+      || b.count - a.count
+    )
+
+    return success({
+      stores: storeBreakdown,
+      totalActiveCount: items.length,
+    })
+  } catch (error) {
+    return failure(error instanceof Error ? error.message : 'Failed to fetch store items breakdown')
+  }
+}
