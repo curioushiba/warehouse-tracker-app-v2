@@ -24,8 +24,9 @@ import { ImageUpload } from "@/components/items";
 import { createItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import { getLocations } from "@/lib/actions/locations";
+import { getStores } from "@/lib/actions/stores";
 import { useOfflineItemSync } from "@/hooks";
-import type { Category, Location, ItemInsert } from "@/lib/supabase/types";
+import type { Category, Location, Store, ItemInsert } from "@/lib/supabase/types";
 import { useSettings } from "@/contexts/SettingsContext";
 
 interface ItemFormData {
@@ -34,6 +35,7 @@ interface ItemFormData {
   barcode: string;
   description: string;
   category_id: string;
+  store_id: string;
   location_id: string;
   unit: string;
   current_stock: string;
@@ -73,6 +75,7 @@ export default function NewItemPage() {
 
   // Data state
   const [categories, setCategories] = React.useState<Category[]>([]);
+  const [stores, setStores] = React.useState<Store[]>([]);
   const [locations, setLocations] = React.useState<Location[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -85,6 +88,7 @@ export default function NewItemPage() {
     barcode: "",
     description: "",
     category_id: preselectedCategory,
+    store_id: "",
     location_id: "",
     unit: "pcs",
     current_stock: "0",
@@ -104,12 +108,14 @@ export default function NewItemPage() {
       try {
         setIsLoading(true);
 
-        const [categoriesResult, locationsResult] = await Promise.all([
+        const [categoriesResult, storesResult, locationsResult] = await Promise.all([
           getCategories(),
+          getStores(),
           getLocations(),
         ]);
 
         setCategories(categoriesResult.success ? categoriesResult.data : []);
+        setStores(storesResult.success ? storesResult.data : []);
         setLocations(locationsResult.success ? locationsResult.data.filter((l) => l.is_active) : []);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -183,6 +189,7 @@ export default function NewItemPage() {
       barcode: formData.barcode.trim() || null,
       description: formData.description.trim() || null,
       category_id: formData.category_id || null,
+      store_id: formData.store_id || null,
       location_id: formData.location_id || null,
       unit: formData.unit,
       current_stock: parseFloat(formData.current_stock),
@@ -496,6 +503,18 @@ export default function NewItemPage() {
                     ]}
                     value={formData.category_id}
                     onChange={(value) => updateField("category_id", value)}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Store</FormLabel>
+                  <Select
+                    options={[
+                      { value: "", label: "No store" },
+                      ...stores.map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    value={formData.store_id}
+                    onChange={(value) => updateField("store_id", value)}
                   />
                 </FormControl>
 

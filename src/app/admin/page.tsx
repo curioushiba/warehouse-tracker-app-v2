@@ -12,7 +12,7 @@ import {
   CardBody,
   Button,
 } from "@/components/ui";
-import { RecentTransactionsPanel } from "@/components/dashboard";
+import { RecentTransactionsPanel, StoresPanel } from "@/components/dashboard";
 import { getDashboardData, getRecentActivity } from "@/lib/actions";
 import type { RecentTransaction } from "@/components/dashboard/RecentTransactionsPanel";
 import { DashboardClient } from "./DashboardClient";
@@ -89,6 +89,9 @@ export default async function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Items by Store */}
+      <StoresPanel />
 
       {/* Recent Transactions */}
       <RecentTransactionsPanel initialData={recentTransactions} />

@@ -9,6 +9,9 @@ export type { CostEditModalProps } from "./CostEditModal";
 export { CategoryAssignmentModal } from "./CategoryAssignmentModal";
 export type { CategoryAssignmentModalProps } from "./CategoryAssignmentModal";
 
+export { StoreAssignmentModal } from "./StoreAssignmentModal";
+export type { StoreAssignmentModalProps } from "./StoreAssignmentModal";
+
 export { ThresholdAdjustmentModal } from "./ThresholdAdjustmentModal";
 export type { ThresholdAdjustmentModalProps } from "./ThresholdAdjustmentModal";
 

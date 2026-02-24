@@ -115,6 +115,24 @@ export interface Database {
           is_active?: boolean
         }
       }
+      inv_stores: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+        }
+      }
       inv_items: {
         Row: {
           id: string
@@ -123,6 +141,7 @@ export interface Database {
           description: string | null
           category_id: string | null
           location_id: string | null
+          store_id: string | null
           unit: string
           current_stock: number
           min_stock: number
@@ -142,6 +161,7 @@ export interface Database {
           description?: string | null
           category_id?: string | null
           location_id?: string | null
+          store_id?: string | null
           unit?: string
           current_stock?: number
           min_stock?: number
@@ -160,6 +180,7 @@ export interface Database {
           description?: string | null
           category_id?: string | null
           location_id?: string | null
+          store_id?: string | null
           unit?: string
           current_stock?: number
           min_stock?: number
@@ -366,6 +387,10 @@ export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 export type Category = Database['public']['Tables']['inv_categories']['Row']
 export type CategoryInsert = Database['public']['Tables']['inv_categories']['Insert']
 export type CategoryUpdate = Database['public']['Tables']['inv_categories']['Update']
+
+export type Store = Database['public']['Tables']['inv_stores']['Row']
+export type StoreInsert = Database['public']['Tables']['inv_stores']['Insert']
+export type StoreUpdate = Database['public']['Tables']['inv_stores']['Update']
 
 export type Location = Database['public']['Tables']['locations']['Row']
 export type LocationInsert = Database['public']['Tables']['locations']['Insert']

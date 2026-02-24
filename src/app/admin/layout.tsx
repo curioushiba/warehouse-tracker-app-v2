@@ -11,6 +11,7 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/admin": { title: "Dashboard", subtitle: "Overview of your inventory" },
   "/admin/items": { title: "Items", subtitle: "Manage inventory items" },
   "/admin/categories": { title: "Categories", subtitle: "Organize your inventory" },
+  "/admin/stores": { title: "Stores", subtitle: "Manage your stores" },
   "/admin/locations": { title: "Locations", subtitle: "Manage storage locations" },
   "/admin/transactions": { title: "Transactions", subtitle: "View all movements" },
   "/admin/stock-takes": { title: "Stock Takes", subtitle: "Inventory audits" },

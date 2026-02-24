@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Package,
   FolderTree,
+  Store,
   MapPin,
   ArrowLeftRight,
   Users,
@@ -47,6 +48,7 @@ const navSections: NavSection[] = [
     items: [
       { label: "Items", href: "/admin/items", icon: Package },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
+      { label: "Stores", href: "/admin/stores", icon: Store },
       { label: "Locations", href: "/admin/locations", icon: MapPin },
     ],
   },

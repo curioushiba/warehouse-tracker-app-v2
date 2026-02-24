@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Wrench,
   Trash2,
+  Store as StoreIcon,
 } from "lucide-react";
 import {
   Card,
@@ -36,6 +37,7 @@ import { ItemImage } from "@/components/items";
 import { getItemById } from "@/lib/actions/items";
 import { getCategoryById } from "@/lib/actions/categories";
 import { getLocationById } from "@/lib/actions/locations";
+import { getStoreById } from "@/lib/actions/stores";
 import { getTransactionsWithDetails, type TransactionWithDetails } from "@/lib/actions/transactions";
 import type { TransactionType, SyncStatus } from "@/lib/supabase/types";
 import { formatCurrency, formatDateTime, getStockLevel } from "@/lib/utils";
@@ -91,11 +93,13 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
 
   const categoryPromise = item.category_id ? getCategoryById(item.category_id) : Promise.resolve(null);
   const locationPromise = item.location_id ? getLocationById(item.location_id) : Promise.resolve(null);
+  const storePromise = item.store_id ? getStoreById(item.store_id) : Promise.resolve(null);
   const transactionsPromise = getTransactionsWithDetails({ itemId }, { limit: 11 });
 
-  const [categoryResult, locationResult, transactionsResult] = await Promise.all([
+  const [categoryResult, locationResult, storeResult, transactionsResult] = await Promise.all([
     categoryPromise,
     locationPromise,
+    storePromise,
     transactionsPromise,
   ]);
 
@@ -103,6 +107,8 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
     categoryResult && categoryResult.success ? categoryResult.data : null;
   const location =
     locationResult && locationResult.success ? locationResult.data : null;
+  const store =
+    storeResult && storeResult.success ? storeResult.data : null;
   const transactions = transactionsResult.success ? transactionsResult.data : [];
 
   const stockLevel = getStockLevel(item.current_stock, item.min_stock ?? 0, item.max_stock ?? 100);
@@ -221,7 +227,7 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
       </Card>
 
       {/* Metadata Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Category */}
         <Card variant="elevated">
           <CardBody className="p-4">
@@ -233,6 +239,23 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
                 <p className="text-xs text-foreground-muted uppercase tracking-wider">Category</p>
                 <p className="font-medium text-foreground">
                   {category?.name || "Uncategorized"}
+                </p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Store */}
+        <Card variant="elevated">
+          <CardBody className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-warning-50 rounded-lg flex items-center justify-center">
+                <StoreIcon className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted uppercase tracking-wider">Store</p>
+                <p className="font-medium text-foreground">
+                  {store?.name || "No store"}
                 </p>
               </div>
             </div>

@@ -25,6 +25,7 @@ import {
   ClickableTableCell,
   PhotoUploadModal,
   CategoryAssignmentModal,
+  StoreAssignmentModal,
   StockAdjustmentModal,
   ThresholdAdjustmentModal,
   CostEditModal,
@@ -59,6 +60,7 @@ import {
 import { StockLevelBadge } from "@/components/ui";
 import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
+import { getStores } from "@/lib/actions/stores";
 import {
   applyPendingOperationsToItems,
   type PendingOperationType,
@@ -72,7 +74,7 @@ import {
   categoryToCachedCategory,
 } from "@/lib/offline/db";
 import { useOfflineItemSync } from "@/hooks";
-import type { Item, Category } from "@/lib/supabase/types";
+import type { Item, Category, Store } from "@/lib/supabase/types";
 import { formatCurrency, getStockLevel } from "@/lib/utils";
 import type { StockLevel } from "@/lib/utils";
 
@@ -91,6 +93,16 @@ function getCategoryColor(name: string): typeof CATEGORY_COLORS[number] {
     hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
   }
   return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
+}
+
+const STORE_COLORS = ["warning", "secondary", "info", "success", "primary"] as const;
+
+function getStoreColor(name: string): typeof STORE_COLORS[number] {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return STORE_COLORS[Math.abs(hash) % STORE_COLORS.length];
 }
 
 function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
@@ -121,6 +133,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   // Data state
   const [items, setItems] = React.useState<Item[]>([]);
   const [categories, setCategories] = React.useState<Category[]>([]);
+  const [stores, setStores] = React.useState<Store[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -137,6 +150,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   // Filter state (synced to server)
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState(lockedCategoryId || "");
+  const [storeFilter, setStoreFilter] = React.useState("");
   const [stockFilter, setStockFilter] = React.useState("");
 
   // Debounced search for server-side filtering
@@ -156,6 +170,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   // Quick action modal state
   const [photoModalItem, setPhotoModalItem] = React.useState<Item | null>(null);
   const [categoryModalItem, setCategoryModalItem] = React.useState<Item | null>(null);
+  const [storeModalItem, setStoreModalItem] = React.useState<Item | null>(null);
   const [stockModalItem, setStockModalItem] = React.useState<Item | null>(null);
   const [thresholdModalItem, setThresholdModalItem] = React.useState<Item | null>(null);
   const [costModalItem, setCostModalItem] = React.useState<Item | null>(null);
@@ -170,6 +185,12 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
     return map;
   }, [categories]);
 
+  const storeMap = React.useMemo(() => {
+    const map = new Map<string, Store>();
+    stores.forEach((s) => map.set(s.id, s));
+    return map;
+  }, [stores]);
+
   // Summary counts for the summary bar
   const stockSummary = React.useMemo(() => {
     let critical = 0;
@@ -183,7 +204,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   }, [items]);
 
   // Check if any filters are active
-  const hasActiveFilters = debouncedSearch || (!lockedCategoryId && categoryFilter) || stockFilter;
+  const hasActiveFilters = debouncedSearch || (!lockedCategoryId && categoryFilter) || storeFilter || stockFilter;
 
   // Debounce search input
   React.useEffect(() => {
@@ -197,7 +218,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   // Reset page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, stockFilter]);
+  }, [categoryFilter, storeFilter, stockFilter]);
 
   // Fetch data with server-side pagination, with offline fallback
   const fetchData = React.useCallback(async () => {
@@ -238,6 +259,10 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
           filteredItems = filteredItems.filter(item => item.category_id === effectiveCategoryFilter);
         }
 
+        if (storeFilter) {
+          filteredItems = filteredItems.filter(item => item.store_id === storeFilter);
+        }
+
         if (stockFilter) {
           filteredItems = filteredItems.filter(item => {
             const level = getStockLevel(item.current_stock, item.min_stock, item.max_stock || 0);
@@ -264,12 +289,14 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
         pageSize: itemsPerPage,
         search: debouncedSearch || undefined,
         categoryId: effectiveCategoryFilter || undefined,
+        storeId: storeFilter || undefined,
         stockLevel: stockFilter as PaginatedItemFilters['stockLevel'] || undefined,
       };
 
-      const [itemsResult, categoriesResult] = await Promise.all([
+      const [itemsResult, categoriesResult, storesResult] = await Promise.all([
         getItemsPaginated(filters),
         getCategories(),
+        getStores(),
       ]);
 
       if (itemsResult.success) {
@@ -293,6 +320,10 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
         cacheCategories(categoriesResult.data.map(categoryToCachedCategory)).catch(console.error);
       }
 
+      if (storesResult.success && storesResult.data) {
+        setStores(storesResult.data);
+      }
+
       setIsInitialLoad(false);
     } catch (err) {
       if (!navigator.onLine) {
@@ -303,7 +334,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
     } finally {
       setIsLoading(false);
     }
-  }, [isOnline, currentPage, itemsPerPage, debouncedSearch, categoryFilter, stockFilter, lockedCategoryId]);
+  }, [isOnline, currentPage, itemsPerPage, debouncedSearch, categoryFilter, storeFilter, stockFilter, lockedCategoryId]);
 
   React.useEffect(() => {
     fetchData();
@@ -327,6 +358,10 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
           aValue = categoryMap.get(a.category_id || "")?.name?.toLowerCase() || "";
           bValue = categoryMap.get(b.category_id || "")?.name?.toLowerCase() || "";
           break;
+        case "store":
+          aValue = storeMap.get(a.store_id || "")?.name?.toLowerCase() || "";
+          bValue = storeMap.get(b.store_id || "")?.name?.toLowerCase() || "";
+          break;
         case "current_stock":
           aValue = a.current_stock;
           bValue = b.current_stock;
@@ -346,7 +381,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
     });
 
     return result;
-  }, [items, sortConfig, categoryMap]);
+  }, [items, sortConfig, categoryMap, storeMap]);
 
   const displayItems = sortedItems;
 
@@ -490,11 +525,12 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   };
 
   const handleExport = () => {
-    const headers = ["SKU", "Name", "Category", "Stock", "Unit", "Price"];
+    const headers = ["SKU", "Name", "Category", "Store", "Stock", "Unit", "Price"];
     const rows = displayItems.map((item) => [
       item.sku,
       item.name,
       categoryMap.get(item.category_id || "")?.name || "",
+      storeMap.get(item.store_id || "")?.name || "",
       item.current_stock.toString(),
       item.unit,
       (item.unit_price || 0).toString(),
@@ -523,6 +559,11 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   const categoryOptions = categories.map((cat) => ({
     value: cat.id,
     label: cat.name,
+  }));
+
+  const storeOptions = stores.map((s) => ({
+    value: s.id,
+    label: s.name,
   }));
 
   const stockOptions = [
@@ -657,6 +698,14 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
               />
             )}
             <Select
+              options={[{ value: "", label: "All Stores" }, ...storeOptions]}
+              value={storeFilter}
+              onChange={setStoreFilter}
+              placeholder="Store"
+              isClearable
+              className="w-40"
+            />
+            <Select
               options={[{ value: "", label: "All Status" }, ...stockOptions]}
               value={stockFilter}
               onChange={setStockFilter}
@@ -762,6 +811,15 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
               <TableHead
                 sortable
                 sortDirection={
+                  sortConfig?.key === "store" ? sortConfig.direction : null
+                }
+                onSort={() => handleSort("store")}
+              >
+                Store
+              </TableHead>
+              <TableHead
+                sortable
+                sortDirection={
                   sortConfig?.key === "current_stock" ? sortConfig.direction : null
                 }
                 onSort={() => handleSort("current_stock")}
@@ -795,13 +853,14 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
                       onClick={() => {
                         setSearchQuery("");
                         if (!lockedCategoryId) setCategoryFilter("");
+                        setStoreFilter("");
                         setStockFilter("");
                       }}
                     >
                       Clear All Filters
                     </Button>
                   }
-                  colSpan={lockedCategoryId ? 6 : 7}
+                  colSpan={lockedCategoryId ? 7 : 8}
                 />
               ) : (
                 <TableEmpty
@@ -815,7 +874,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
                       </Button>
                     </Link>
                   }
-                  colSpan={lockedCategoryId ? 6 : 7}
+                  colSpan={lockedCategoryId ? 7 : 8}
                 />
               )
             ) : (
@@ -905,6 +964,16 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
                         </ClickableTableCell>
                       </TableCell>
                     )}
+                    <TableCell>
+                      <ClickableTableCell
+                        onClick={() => setStoreModalItem(item)}
+                        ariaLabel={`Change store for ${item.name}`}
+                      >
+                        <Badge colorScheme={getStoreColor(item.store_id ? storeMap.get(item.store_id)?.name || "No Store" : "No Store")} variant="subtle" size="sm">
+                          {item.store_id ? storeMap.get(item.store_id)?.name || "No Store" : "No Store"}
+                        </Badge>
+                      </ClickableTableCell>
+                    </TableCell>
                     <TableCell>
                       <ClickableTableCell
                         onClick={() => setStockModalItem(item)}
@@ -1130,6 +1199,16 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
           onClose={() => setCategoryModalItem(null)}
           item={categoryModalItem}
           categories={categories}
+          onSuccess={handleQuickActionSuccess}
+        />
+      )}
+
+      {storeModalItem && (
+        <StoreAssignmentModal
+          isOpen={!!storeModalItem}
+          onClose={() => setStoreModalItem(null)}
+          item={storeModalItem}
+          stores={stores}
           onSuccess={handleQuickActionSuccess}
         />
       )}

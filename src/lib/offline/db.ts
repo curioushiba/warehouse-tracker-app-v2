@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { TransactionType, ItemUpdate, ItemInsert, Item, Category } from '@/lib/supabase/types'
+import type { TransactionType, ItemUpdate, ItemInsert, Item, Category, Store } from '@/lib/supabase/types'
 
 // Offline transaction queue item
 export interface QueuedTransaction {
@@ -26,6 +26,7 @@ export interface CachedItem {
   description?: string
   categoryId?: string
   locationId?: string
+  storeId?: string
   unit: string
   currentStock: number
   minStock: number
@@ -113,6 +114,14 @@ export interface CachedCategory {
   createdAt: string
 }
 
+// Cached store for offline access
+export interface CachedStore {
+  id: string
+  name: string
+  description?: string
+  createdAt: string
+}
+
 // Database schema
 interface InventoryDB extends DBSchema {
   transactionQueue: {
@@ -177,10 +186,14 @@ interface InventoryDB extends DBSchema {
     key: string
     value: CachedCategory
   }
+  storesCache: {
+    key: string
+    value: CachedStore
+  }
 }
 
 const DB_NAME = 'inventory-tracker-offline'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 let dbPromise: Promise<IDBPDatabase<InventoryDB>> | null = null
 
@@ -259,6 +272,13 @@ export async function getDB(): Promise<IDBPDatabase<InventoryDB>> {
         if (oldVersion < 4) {
           if (!db.objectStoreNames.contains('categoriesCache')) {
             db.createObjectStore('categoriesCache', { keyPath: 'id' })
+          }
+        }
+
+        // Version 5: Add stores cache
+        if (oldVersion < 5) {
+          if (!db.objectStoreNames.contains('storesCache')) {
+            db.createObjectStore('storesCache', { keyPath: 'id' })
           }
         }
       },
@@ -829,6 +849,7 @@ export async function applyPendingOperationsToItems<T extends { id: string; is_a
       description: create.itemData.description ?? null,
       category_id: create.itemData.category_id ?? null,
       location_id: create.itemData.location_id ?? null,
+      store_id: create.itemData.store_id ?? null,
       unit: create.itemData.unit || 'pcs',
       current_stock: create.itemData.current_stock ?? 0,
       min_stock: create.itemData.min_stock ?? 0,
@@ -908,6 +929,27 @@ export async function clearCategoriesCache(): Promise<void> {
   await db.clear('categoriesCache')
 }
 
+// Stores Cache Operations
+export async function cacheStores(stores: CachedStore[]): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('storesCache', 'readwrite')
+  await tx.store.clear()
+  await Promise.all([
+    ...stores.map(store => tx.store.put(store)),
+    tx.done,
+  ])
+}
+
+export async function getAllCachedStores(): Promise<CachedStore[]> {
+  const db = await getDB()
+  return db.getAll('storesCache')
+}
+
+export async function clearStoresCache(): Promise<void> {
+  const db = await getDB()
+  await db.clear('storesCache')
+}
+
 // Conversion helpers: CachedItem <-> Item
 export function cachedItemToItem(cached: CachedItem): Item {
   return {
@@ -917,6 +959,7 @@ export function cachedItemToItem(cached: CachedItem): Item {
     description: cached.description ?? null,
     category_id: cached.categoryId ?? null,
     location_id: cached.locationId ?? null,
+    store_id: cached.storeId ?? null,
     unit: cached.unit,
     current_stock: cached.currentStock,
     min_stock: cached.minStock,
@@ -939,6 +982,7 @@ export function itemToCachedItem(item: Item): CachedItem {
     description: item.description ?? undefined,
     categoryId: item.category_id ?? undefined,
     locationId: item.location_id ?? undefined,
+    storeId: item.store_id ?? undefined,
     unit: item.unit,
     currentStock: item.current_stock,
     minStock: item.min_stock,
@@ -970,5 +1014,24 @@ export function categoryToCachedCategory(category: Category): CachedCategory {
     description: category.description ?? undefined,
     parentId: category.parent_id ?? undefined,
     createdAt: category.created_at,
+  }
+}
+
+// Conversion helpers: CachedStore <-> Store
+export function cachedStoreToStore(cached: CachedStore): Store {
+  return {
+    id: cached.id,
+    name: cached.name,
+    description: cached.description ?? null,
+    created_at: cached.createdAt,
+  }
+}
+
+export function storeToCachedStore(store: Store): CachedStore {
+  return {
+    id: store.id,
+    name: store.name,
+    description: store.description ?? undefined,
+    createdAt: store.created_at,
   }
 }

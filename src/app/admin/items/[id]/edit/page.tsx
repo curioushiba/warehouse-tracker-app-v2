@@ -23,7 +23,8 @@ import { ImageUpload } from "@/components/items";
 import { getItemById, updateItem } from "@/lib/actions/items";
 import { getCategories } from "@/lib/actions/categories";
 import { getLocations } from "@/lib/actions/locations";
-import type { Item, Category, Location, ItemUpdate } from "@/lib/supabase/types";
+import { getStores } from "@/lib/actions/stores";
+import type { Item, Category, Location, Store, ItemUpdate } from "@/lib/supabase/types";
 import { useSettings } from "@/contexts/SettingsContext";
 
 interface ItemFormData {
@@ -32,6 +33,7 @@ interface ItemFormData {
   barcode: string;
   description: string;
   category_id: string;
+  store_id: string;
   location_id: string;
   unit: string;
   current_stock: string;
@@ -63,6 +65,7 @@ export default function EditItemPage() {
   // Data state
   const [item, setItem] = React.useState<Item | null>(null);
   const [categories, setCategories] = React.useState<Category[]>([]);
+  const [stores, setStores] = React.useState<Store[]>([]);
   const [locations, setLocations] = React.useState<Location[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -74,6 +77,7 @@ export default function EditItemPage() {
     barcode: "",
     description: "",
     category_id: "",
+    store_id: "",
     location_id: "",
     unit: "pcs",
     current_stock: "0",
@@ -93,6 +97,7 @@ export default function EditItemPage() {
       barcode: i.barcode || "",
       description: i.description || "",
       category_id: i.category_id || "",
+      store_id: i.store_id || "",
       location_id: i.location_id || "",
       unit: i.unit,
       current_stock: i.current_stock.toString(),
@@ -110,9 +115,10 @@ export default function EditItemPage() {
         setIsLoading(true);
         setError(null);
 
-        const [itemResult, categoriesResult, locationsResult] = await Promise.all([
+        const [itemResult, categoriesResult, storesResult, locationsResult] = await Promise.all([
           getItemById(itemId),
           getCategories(),
+          getStores(),
           getLocations(),
         ]);
 
@@ -123,6 +129,7 @@ export default function EditItemPage() {
 
         setItem(itemResult.data);
         setCategories(categoriesResult.success ? categoriesResult.data : []);
+        setStores(storesResult.success ? storesResult.data : []);
         setLocations(locationsResult.success ? locationsResult.data.filter((l) => l.is_active) : []);
 
         // Populate form
@@ -200,6 +207,7 @@ export default function EditItemPage() {
         barcode: formData.barcode.trim() || null,
         description: formData.description.trim() || null,
         category_id: formData.category_id || null,
+        store_id: formData.store_id || null,
         location_id: formData.location_id || null,
         unit: formData.unit,
         current_stock: parseFloat(formData.current_stock),
@@ -464,6 +472,18 @@ export default function EditItemPage() {
                     ]}
                     value={formData.category_id}
                     onChange={(value) => updateField("category_id", value)}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Store</FormLabel>
+                  <Select
+                    options={[
+                      { value: "", label: "No store" },
+                      ...stores.map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    value={formData.store_id}
+                    onChange={(value) => updateField("store_id", value)}
                   />
                 </FormControl>
 
