@@ -1,36 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import { View, FlatList, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { randomUUID } from 'expo-crypto';
-import { ChefHat, Search, X } from 'lucide-react-native';
+import { ChefHat, Search } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
+import { usePendingDelta } from '@/hooks/usePendingDelta';
 import {
   getAllCommissaryItems,
   searchCommissaryItems,
   getTodaysTargets,
   getTodaysProductions,
-  enqueueProduction,
 } from '@/lib/db/operations';
-import type { CachedItem, CachedTarget, PendingProduction } from '@/lib/db/types';
+import { createQuickProduction } from '@/lib/quick-production';
+import type { CachedItem } from '@/lib/db/types';
 import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ProduceItemCard } from '@/components/production/ProduceItemCard';
 import { haptic } from '@/lib/haptics';
 
 interface ItemWithContext extends CachedItem {
@@ -40,18 +30,14 @@ interface ItemWithContext extends CachedItem {
 
 export default function ProduceScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typePresets, radii } = useTheme();
+  const navigation = useNavigation();
+  const { colors, spacing } = useTheme();
   const { user } = useAuth();
   const { syncNow } = useSyncQueue();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<ItemWithContext[]>([]);
-  const [selectedItem, setSelectedItem] = useState<ItemWithContext | null>(null);
-  const [quantity, setQuantity] = useState('');
-  const [wasteQuantity, setWasteQuantity] = useState('');
-  const [wasteReason, setWasteReason] = useState('');
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadItems = useCallback(() => {
     try {
@@ -88,241 +74,168 @@ export default function ProduceScreen() {
     loadItems();
   }, [loadItems]);
 
-  const handleSelectItem = useCallback((item: ItemWithContext) => {
-    haptic('light');
-    setSelectedItem(item);
-    setQuantity('');
-    setWasteQuantity('');
-    setWasteReason('');
-    setNotes('');
-  }, []);
-
-  const handleCancel = useCallback(() => {
-    setSelectedItem(null);
-    setQuantity('');
-    setWasteQuantity('');
-    setWasteReason('');
-    setNotes('');
-  }, []);
-
-  const handleSubmit = useCallback(async () => {
-    if (!selectedItem || !user) return;
-
-    const qty = parseFloat(quantity);
-    if (isNaN(qty) || qty <= 0) {
-      Alert.alert('Invalid Quantity', 'Please enter a valid quantity greater than 0.');
-      return;
-    }
-
-    const waste = wasteQuantity ? parseFloat(wasteQuantity) : 0;
-    if (wasteQuantity && (isNaN(waste) || waste < 0)) {
-      Alert.alert('Invalid Waste', 'Please enter a valid waste quantity.');
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const production: PendingProduction = {
-        id: randomUUID(),
-        item_id: selectedItem.id,
-        quantity_produced: qty,
-        waste_quantity: waste,
-        waste_reason: waste > 0 ? wasteReason || null : null,
-        notes: notes.trim() || null,
-        device_timestamp: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        status: 'pending',
-      };
-
-      enqueueProduction(db, production);
+  const handleConfirmProduction = useCallback(
+    (itemId: string, quantity: number, type: 'produce' | 'correct') => {
+      if (!user) return;
       haptic('success');
-      void syncNow();
-
-      setSelectedItem(null);
-      setQuantity('');
-      setWasteQuantity('');
-      setWasteReason('');
-      setNotes('');
-      loadItems();
-    } catch {
-      Alert.alert('Error', 'Failed to save production log. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  }, [selectedItem, user, quantity, wasteQuantity, wasteReason, notes, db, syncNow, loadItems]);
-
-  const renderItemCard = useCallback(
-    ({ item }: { item: ItemWithContext }) => {
-      const progress = item.target_today > 0
-        ? Math.min(item.produced_today / item.target_today, 1)
-        : 0;
-
-      return (
-        <AnimatedPressable
-          onPress={() => handleSelectItem(item)}
-          hapticPattern="light"
-          style={{ marginHorizontal: spacing[4], marginBottom: spacing[2] }}
-        >
-          <Card>
-            <View style={{ gap: spacing[2] }}>
-              <Text style={{ ...typePresets.label, color: colors.text }}>
-                {item.name}
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ ...typePresets.bodySmall, color: colors.textSecondary }}>
-                  Stock: {item.current_stock} {item.unit}
-                </Text>
-                <Text style={{ ...typePresets.bodySmall, color: colors.textSecondary }}>
-                  Target: {item.produced_today} / {item.target_today} {item.unit}
-                </Text>
-              </View>
-              {item.target_today > 0 && (
-                <View
-                  style={{
-                    height: 6,
-                    borderRadius: radii.full,
-                    backgroundColor: colors.surfaceSecondary,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <View
-                    style={{
-                      height: '100%',
-                      width: `${progress * 100}%`,
-                      borderRadius: radii.full,
-                      backgroundColor: progress >= 1 ? colors.success : colors.primary,
-                    }}
-                  />
-                </View>
-              )}
-            </View>
-          </Card>
-        </AnimatedPressable>
+      createQuickProduction(db, { itemId, direction: type, quantity });
+      // Optimistically update produced_today
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          const delta = type === 'produce' ? quantity : -quantity;
+          return { ...item, produced_today: item.produced_today + delta };
+        }),
       );
+      void syncNow();
     },
-    [spacing, typePresets, colors, radii, handleSelectItem],
+    [db, user, syncNow],
   );
 
-  if (selectedItem) {
-    const waste = parseFloat(wasteQuantity);
-    const showWasteReason = !isNaN(waste) && waste > 0;
+  const {
+    activeItemId,
+    delta,
+    increment,
+    decrement,
+    confirm,
+    cancel,
+    hasPending,
+    getDisplayProduced,
+  } = usePendingDelta(handleConfirmProduction);
 
-    return (
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: screenColors.produce }}
-        edges={['top']}
-      >
-        <ScreenHeader title="Log Production" headerColor={screenColors.produce} />
+  // Guard navigation away with pending delta
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      if (!hasPending()) return;
+      Alert.alert(
+        'Unsaved Changes',
+        'You have an unconfirmed production change.',
+        [
+          { text: 'Submit', style: 'default', onPress: () => confirm() },
+          { text: 'Discard', style: 'destructive', onPress: () => cancel() },
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation, hasPending, confirm, cancel]);
 
-        <KeyboardAvoidingView
-          style={{ flex: 1, backgroundColor: colors.background }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <ScrollView
-            contentContainerStyle={{ padding: spacing[4], gap: spacing[4] }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Item Info */}
-            <Card variant="elevated">
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: spacing[2],
-                }}
-              >
-                <Text style={{ ...typePresets.title, color: colors.text }}>
-                  {selectedItem.name}
-                </Text>
-                <AnimatedPressable onPress={handleCancel} hapticPattern="light">
-                  <X size={24} color={colors.textSecondary} />
-                </AnimatedPressable>
-              </View>
-              <Text style={{ ...typePresets.bodySmall, color: colors.textSecondary }}>
-                Current Stock: {selectedItem.current_stock} {selectedItem.unit}
-              </Text>
-              {selectedItem.target_today > 0 && (
-                <Text
-                  style={{
-                    ...typePresets.bodySmall,
-                    color: colors.textSecondary,
-                    marginTop: spacing[1],
-                  }}
-                >
-                  Today: {selectedItem.produced_today} / {selectedItem.target_today}{' '}
-                  {selectedItem.unit} produced
-                </Text>
-              )}
-            </Card>
+  const handleRefresh = useCallback(async () => {
+    if (hasPending()) {
+      Alert.alert(
+        'Unsaved Changes',
+        'You have an unconfirmed production change.',
+        [
+          {
+            text: 'Submit & Refresh',
+            style: 'default',
+            onPress: async () => {
+              confirm();
+              setRefreshing(true);
+              await syncNow();
+              loadItems();
+              setRefreshing(false);
+            },
+          },
+          {
+            text: 'Discard & Refresh',
+            style: 'destructive',
+            onPress: async () => {
+              cancel();
+              setRefreshing(true);
+              await syncNow();
+              loadItems();
+              setRefreshing(false);
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+      return;
+    }
 
-            {/* Production Form */}
-            <Card>
-              <View style={{ gap: spacing[4] }}>
-                <Input
-                  label="Quantity Produced"
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  placeholder="Enter quantity"
-                  keyboardType="numeric"
-                />
+    setRefreshing(true);
+    await syncNow();
+    loadItems();
+    setRefreshing(false);
+  }, [syncNow, loadItems, hasPending, confirm, cancel]);
 
-                <Input
-                  label="Waste Quantity (optional)"
-                  value={wasteQuantity}
-                  onChangeText={setWasteQuantity}
-                  placeholder="0"
-                  keyboardType="numeric"
-                />
+  const showCrossItemAlert = useCallback(
+    (itemId: string, change: 1 | -1) => {
+      Alert.alert(
+        'Pending Change',
+        'Another item has an unconfirmed production change.',
+        [
+          {
+            text: 'Submit',
+            style: 'default',
+            onPress: () => {
+              confirm();
+              if (change === 1) increment(itemId);
+              else decrement(itemId);
+            },
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              cancel();
+              if (change === 1) increment(itemId);
+              else decrement(itemId);
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    },
+    [confirm, cancel, increment, decrement],
+  );
 
-                {showWasteReason && (
-                  <Input
-                    label="Waste Reason"
-                    value={wasteReason}
-                    onChangeText={setWasteReason}
-                    placeholder="Why was there waste?"
-                  />
-                )}
+  const handleQuickProduce = useCallback(
+    (itemId: string) => {
+      haptic('light');
+      const result = increment(itemId);
+      if (result === 'needs-resolve') {
+        showCrossItemAlert(itemId, 1);
+      }
+    },
+    [increment, showCrossItemAlert],
+  );
 
-                <Input
-                  label="Notes (optional)"
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Additional notes..."
-                  multiline
-                />
+  const handleQuickCorrect = useCallback(
+    (itemId: string) => {
+      haptic('light');
+      const result = decrement(itemId);
+      if (result === 'needs-resolve') {
+        showCrossItemAlert(itemId, -1);
+      }
+    },
+    [decrement, showCrossItemAlert],
+  );
 
-                <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-                  <View style={{ flex: 1 }}>
-                    <Button
-                      title="Cancel"
-                      onPress={handleCancel}
-                      variant="secondary"
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Button
-                      title="Submit"
-                      onPress={handleSubmit}
-                      variant="primary"
-                      loading={submitting}
-                    />
-                  </View>
-                </View>
-              </View>
-            </Card>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    );
-  }
+  const renderItem = useCallback(
+    ({ item }: { item: ItemWithContext }) => {
+      const itemDelta = activeItemId === item.id ? delta : undefined;
+      const itemDisplayProduced =
+        activeItemId === item.id
+          ? getDisplayProduced(item.id, item.produced_today)
+          : undefined;
+
+      return (
+        <ProduceItemCard
+          item={item}
+          target={item.target_today}
+          produced={item.produced_today}
+          displayProduced={itemDisplayProduced}
+          pendingDelta={itemDelta}
+          onIncrement={handleQuickProduce}
+          onDecrement={handleQuickCorrect}
+          onConfirm={confirm}
+          onCancel={cancel}
+        />
+      );
+    },
+    [handleQuickProduce, handleQuickCorrect, activeItemId, delta, getDisplayProduced, confirm, cancel],
+  );
 
   return (
     <SafeAreaView
@@ -345,7 +258,14 @@ export default function ProduceScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          renderItem={renderItemCard}
+          renderItem={renderItem}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
           ListEmptyComponent={
             <EmptyState
               icon={<ChefHat size={48} color={colors.textTertiary} />}
