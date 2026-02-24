@@ -27,6 +27,7 @@ const createMockItem = (id: string, overrides?: Partial<Item>): Item => ({
   image_url: null,
   is_archived: false,
   is_commissary: false,
+  is_priority: false,
   version: 1,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',

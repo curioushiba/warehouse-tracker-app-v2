@@ -37,6 +37,7 @@ export interface CachedItem {
   version: number
   isArchived?: boolean
   isCommissary?: boolean
+  isPriority?: boolean
   isOfflineCreated?: boolean // Flag for items created offline
   updatedAt: string
 }
@@ -970,6 +971,7 @@ export function cachedItemToItem(cached: CachedItem): Item {
     image_url: cached.imageUrl ?? null,
     is_archived: cached.isArchived ?? false,
     is_commissary: cached.isCommissary ?? false,
+    is_priority: cached.isPriority ?? false,
     version: cached.version,
     created_at: cached.updatedAt,
     updated_at: cached.updatedAt,
@@ -995,6 +997,7 @@ export function itemToCachedItem(item: Item): CachedItem {
     version: item.version,
     isArchived: item.is_archived,
     isCommissary: item.is_commissary,
+    isPriority: item.is_priority,
     updatedAt: item.updated_at,
   }
 }

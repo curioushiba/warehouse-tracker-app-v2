@@ -151,6 +151,7 @@ export interface Database {
           image_url: string | null
           is_archived: boolean
           is_commissary: boolean
+          is_priority: boolean
           version: number
           created_at: string
           updated_at: string
@@ -172,6 +173,7 @@ export interface Database {
           image_url?: string | null
           is_archived?: boolean
           is_commissary?: boolean
+          is_priority?: boolean
           version?: number
           created_at?: string
           updated_at?: string
@@ -192,6 +194,7 @@ export interface Database {
           image_url?: string | null
           is_archived?: boolean
           is_commissary?: boolean
+          is_priority?: boolean
           version?: number
           updated_at?: string
         }
@@ -371,6 +374,7 @@ export interface Database {
           min_stock: number
           max_stock: number | null
           unit: string
+          is_priority: boolean
           daily_consumption_rate: number
           days_of_stock: number | null
           deficit: number

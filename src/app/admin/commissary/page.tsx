@@ -9,6 +9,7 @@ import {
   Plus,
   AlertCircle,
   CheckCircle2,
+  Star,
 } from "lucide-react";
 import {
   Card,
@@ -44,6 +45,7 @@ import {
   getProductionLogs,
   submitProduction,
   getCommissaryItems,
+  togglePriorityFlag,
 } from "@/lib/actions/commissary";
 import type { ProductionRecommendation, Item } from "@/lib/supabase/types";
 import type {
@@ -132,6 +134,9 @@ export default function CommissaryPage() {
   >({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  // Priority toggle state
+  const [togglingPriority, setTogglingPriority] = React.useState<Set<string>>(new Set());
 
   // ---------- Data fetching ----------
 
@@ -258,13 +263,37 @@ export default function CommissaryPage() {
     }
   };
 
+  // ---------- Priority toggle handler ----------
+
+  const handleTogglePriority = async (itemId: string, currentValue: boolean) => {
+    setTogglingPriority(prev => new Set(prev).add(itemId));
+    try {
+      const result = await togglePriorityFlag(itemId, !currentValue);
+      if (result.success) {
+        await fetchData();
+      } else {
+        setError(result.error || "Failed to update priority");
+      }
+    } finally {
+      setTogglingPriority(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  };
+
   // ---------- Derived data for priority items ----------
 
   const priorityItems = React.useMemo(() => {
     return recommendations
-      .filter((r) => r.has_explicit_target || r.suggested_quantity > 0)
+      .filter((r) => r.is_priority || r.has_explicit_target || r.suggested_quantity > 0)
       .sort((a, b) => {
-        // Explicit targets first, then sort by priority descending
+        // Starred/priority items always first
+        if (a.is_priority !== b.is_priority) {
+          return a.is_priority ? -1 : 1;
+        }
+        // Explicit targets next
         if (a.has_explicit_target !== b.has_explicit_target) {
           return a.has_explicit_target ? -1 : 1;
         }
@@ -480,9 +509,34 @@ export default function CommissaryPage() {
                     {/* Item header row */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePriority(item.item_id, item.is_priority)}
+                          disabled={togglingPriority.has(item.item_id)}
+                          className="flex-shrink-0 p-0.5 rounded hover:bg-background-secondary transition-colors disabled:opacity-50"
+                          title={item.is_priority ? "Unstar essential item" : "Star as essential item"}
+                        >
+                          <Star
+                            className={cn(
+                              "w-4 h-4",
+                              item.is_priority
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-foreground-muted"
+                            )}
+                          />
+                        </button>
                         <span className="font-medium text-foreground">
                           {item.name}
                         </span>
+                        {item.is_priority && (
+                          <Badge
+                            colorScheme="warning"
+                            variant="subtle"
+                            size="sm"
+                          >
+                            ESSENTIAL
+                          </Badge>
+                        )}
                         {item.has_explicit_target ? (
                           <Badge
                             colorScheme="info"
@@ -560,6 +614,94 @@ export default function CommissaryPage() {
               })}
             </div>
           )}
+        </CardBody>
+      </Card>
+
+      {/* All Commissary Items */}
+      <Card variant="elevated" className="overflow-hidden">
+        <CardHeader
+          title="All Commissary Items"
+          subtitle="Star essential items to pin them to the top of the priority list"
+          action={
+            <Badge colorScheme="neutral" variant="subtle" size="sm">
+              {commissaryItems.length} items
+            </Badge>
+          }
+        />
+        <CardBody className="p-0">
+          <Table variant="simple" size="md">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12"></TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Unit</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : commissaryItems.length === 0 ? (
+                <TableEmpty
+                  title="No commissary items"
+                  description="Mark items as commissary from the Items page"
+                  icon={<ChefHat className="w-12 h-12" />}
+                  colSpan={5}
+                />
+              ) : (
+                [...commissaryItems]
+                  .sort((a, b) => {
+                    if (a.is_priority !== b.is_priority) return a.is_priority ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePriority(item.id, item.is_priority)}
+                          disabled={togglingPriority.has(item.id)}
+                          className="flex-shrink-0 p-1 rounded hover:bg-background-secondary transition-colors disabled:opacity-50"
+                          title={item.is_priority ? "Unstar essential item" : "Star as essential item"}
+                        >
+                          <Star
+                            className={cn(
+                              "w-4 h-4",
+                              item.is_priority
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-foreground-muted"
+                            )}
+                          />
+                        </button>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium text-foreground">{item.name}</span>
+                      </TableCell>
+                      <TableCell className="text-foreground-muted">
+                        {item.sku || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium text-foreground">
+                          {item.current_stock}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-foreground-muted">
+                        {item.unit}
+                      </TableCell>
+                    </TableRow>
+                  ))
+              )}
+            </TableBody>
+          </Table>
         </CardBody>
       </Card>
 

@@ -140,6 +140,7 @@ export {
   getCommissaryDashboardData,
   getCommissaryAnalytics,
   toggleCommissaryFlag,
+  togglePriorityFlag,
   getCommissaryItems,
   type ProductionLogWithDetails,
   type ProductionLogFilters,

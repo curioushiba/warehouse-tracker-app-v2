@@ -477,6 +477,7 @@ export async function getProductionRecommendations(): Promise<ActionResult<Produ
     const { data, error } = await supabase
       .from('inv_production_recommendations')
       .select('*')
+      .order('is_priority', { ascending: false })
       .order('priority', { ascending: false })
 
     if (error) return failure(error.message)
@@ -709,6 +710,33 @@ export async function toggleCommissaryFlag(
     return success(data as Item)
   } catch {
     return failure('Failed to update commissary flag')
+  }
+}
+
+export async function togglePriorityFlag(
+  itemId: string,
+  isPriority: boolean
+): Promise<ActionResult<Item>> {
+  try {
+    const auth = await requireAdmin()
+    if (auth.error) return failure(auth.error)
+
+    const supabase = createAdminClient()
+
+    const { data, error } = await (supabase.from('inv_items') as any)
+      .update({ is_priority: isPriority })
+      .eq('id', itemId)
+      .eq('is_commissary', true)
+      .select()
+      .single()
+
+    if (error) return failure(error.message)
+
+    revalidatePath('/admin/items')
+    revalidatePath('/admin/commissary')
+    return success(data as Item)
+  } catch {
+    return failure('Failed to update priority flag')
   }
 }
 
