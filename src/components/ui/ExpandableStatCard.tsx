@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   AlertCircle,
   ArrowLeftRight,
+  ChefHat,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,13 +17,15 @@ export type IconName =
   | "package"
   | "alert-triangle"
   | "alert-circle"
-  | "arrow-left-right";
+  | "arrow-left-right"
+  | "chef-hat";
 
 const iconMap: Record<IconName, LucideIcon> = {
   package: Package,
   "alert-triangle": AlertTriangle,
   "alert-circle": AlertCircle,
   "arrow-left-right": ArrowLeftRight,
+  "chef-hat": ChefHat,
 };
 
 export const colors: Record<

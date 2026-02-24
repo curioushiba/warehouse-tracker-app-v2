@@ -25,5 +25,6 @@ export interface CachedItem {
   category_name: string | null;
   quantity_decimals: number;
   is_archived: boolean;
+  is_commissary: boolean;
   updated_at: string;
 }

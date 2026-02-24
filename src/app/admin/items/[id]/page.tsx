@@ -16,6 +16,7 @@ import {
   Wrench,
   Trash2,
   Store as StoreIcon,
+  ChefHat,
 } from "lucide-react";
 import {
   Card,
@@ -133,6 +134,11 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
               {item.is_archived && (
                 <Badge colorScheme="neutral" size="sm">
                   Archived
+                </Badge>
+              )}
+              {item.is_commissary && (
+                <Badge colorScheme="secondary" size="sm" leftIcon={<ChefHat className="w-3.5 h-3.5" />}>
+                  Commissary
                 </Badge>
               )}
             </div>

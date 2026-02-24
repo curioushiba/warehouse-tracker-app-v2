@@ -30,6 +30,7 @@ interface CachedItemRow {
   category_name: string | null;
   quantity_decimals: number;
   is_archived: number;
+  is_commissary: number;
   updated_at: string;
 }
 
@@ -63,6 +64,7 @@ function toCachedItem(row: CachedItemRow): CachedItem {
     category_name: row.category_name,
     quantity_decimals: row.quantity_decimals,
     is_archived: toBoolean(row.is_archived),
+    is_commissary: toBoolean(row.is_commissary),
     updated_at: row.updated_at,
   };
 }
@@ -123,8 +125,8 @@ export function clearAllTransactions(db: SQLiteDatabase): void {
 export function cacheItemsRaw(db: SQLiteDatabase, items: CachedItem[]): void {
   for (const item of items) {
     db.runSync(
-      `INSERT OR REPLACE INTO item_cache (id, sku, name, barcode, current_stock, min_stock, max_stock, unit, unit_price, category_id, category_name, quantity_decimals, is_archived, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO item_cache (id, sku, name, barcode, current_stock, min_stock, max_stock, unit, unit_price, category_id, category_name, quantity_decimals, is_archived, is_commissary, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.sku,
@@ -139,6 +141,7 @@ export function cacheItemsRaw(db: SQLiteDatabase, items: CachedItem[]): void {
         item.category_name,
         item.quantity_decimals,
         fromBoolean(item.is_archived),
+        fromBoolean(item.is_commissary),
         item.updated_at,
       ]
     );

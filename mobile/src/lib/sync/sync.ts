@@ -134,6 +134,7 @@ interface SupabaseItemRow {
   unit_price: number | null;
   category_id: string | null;
   is_archived: boolean;
+  is_commissary: boolean;
   updated_at: string;
   category: { name: string } | null;
 }

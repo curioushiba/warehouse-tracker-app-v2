@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS item_cache (
   category_name TEXT,
   quantity_decimals INTEGER NOT NULL DEFAULT 3,
   is_archived INTEGER NOT NULL DEFAULT 0,
+  is_commissary INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );`;
 

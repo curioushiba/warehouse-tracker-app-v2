@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "PackTrack Commissary",
+    "slug": "packtrack-commissary",
+    "scheme": "packtrack-commissary",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#D97706"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#D97706"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.packtrack.commissary",
+      "versionCode": 1,
+      "permissions": []
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "44bd0532-b30c-4929-a8c2-25525103647c"
+      }
+    },
+    "owner": "halfcrazyph"
+  }
+}

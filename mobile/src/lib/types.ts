@@ -41,6 +41,7 @@ export interface Item {
   unit_price: number | null;
   barcode: string | null;
   is_archived: boolean;
+  is_commissary: boolean;
   version: number;
   created_at: string;
   updated_at: string;

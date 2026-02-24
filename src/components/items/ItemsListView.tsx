@@ -14,6 +14,7 @@ import {
   Clock,
   CloudOff,
   Archive,
+  ChefHat,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -152,6 +153,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   const [categoryFilter, setCategoryFilter] = React.useState(lockedCategoryId || "");
   const [storeFilter, setStoreFilter] = React.useState("");
   const [stockFilter, setStockFilter] = React.useState("");
+  const [commissaryFilter, setCommissaryFilter] = React.useState("");
 
   // Debounced search for server-side filtering
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
@@ -204,7 +206,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   }, [items]);
 
   // Check if any filters are active
-  const hasActiveFilters = debouncedSearch || (!lockedCategoryId && categoryFilter) || storeFilter || stockFilter;
+  const hasActiveFilters = debouncedSearch || (!lockedCategoryId && categoryFilter) || storeFilter || stockFilter || commissaryFilter;
 
   // Debounce search input
   React.useEffect(() => {
@@ -218,7 +220,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   // Reset page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, storeFilter, stockFilter]);
+  }, [categoryFilter, storeFilter, stockFilter, commissaryFilter]);
 
   // Fetch data with server-side pagination, with offline fallback
   const fetchData = React.useCallback(async () => {
@@ -291,6 +293,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
         categoryId: effectiveCategoryFilter || undefined,
         storeId: storeFilter || undefined,
         stockLevel: stockFilter as PaginatedItemFilters['stockLevel'] || undefined,
+        isCommissary: commissaryFilter ? commissaryFilter === "true" : undefined,
       };
 
       const [itemsResult, categoriesResult, storesResult] = await Promise.all([
@@ -334,7 +337,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
     } finally {
       setIsLoading(false);
     }
-  }, [isOnline, currentPage, itemsPerPage, debouncedSearch, categoryFilter, storeFilter, stockFilter, lockedCategoryId]);
+  }, [isOnline, currentPage, itemsPerPage, debouncedSearch, categoryFilter, storeFilter, stockFilter, commissaryFilter, lockedCategoryId]);
 
   React.useEffect(() => {
     fetchData();
@@ -713,6 +716,18 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
               isClearable
               className="w-40"
             />
+            <Select
+              options={[
+                { value: "", label: "All Types" },
+                { value: "true", label: "Commissary" },
+                { value: "false", label: "Non-Commissary" },
+              ]}
+              value={commissaryFilter}
+              onChange={setCommissaryFilter}
+              placeholder="Item Type"
+              isClearable
+              className="w-40"
+            />
           </div>
         </div>
 
@@ -855,6 +870,7 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
                         if (!lockedCategoryId) setCategoryFilter("");
                         setStoreFilter("");
                         setStockFilter("");
+                        setCommissaryFilter("");
                       }}
                     >
                       Clear All Filters
@@ -943,6 +959,11 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
                             {hasPendingArchive && (
                               <Badge colorScheme="error" variant="subtle" size="xs" leftIcon={<Archive className="w-3 h-3" />}>
                                 Pending Delete
+                              </Badge>
+                            )}
+                            {item.is_commissary && (
+                              <Badge colorScheme="secondary" variant="subtle" size="xs" leftIcon={<ChefHat className="w-3 h-3" />}>
+                                Commissary
                               </Badge>
                             )}
                           </div>

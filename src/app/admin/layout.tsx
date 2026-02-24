@@ -21,6 +21,10 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/admin/notifications": { title: "Notifications", subtitle: "Alerts and updates" },
   "/admin/help": { title: "Help & Support", subtitle: "Documentation and resources" },
   "/admin/sync-errors": { title: "Sync Errors", subtitle: "Failed offline transactions" },
+  "/admin/commissary": { title: "Commissary", subtitle: "Production tracking and targets" },
+  "/admin/commissary/targets": { title: "Production Targets", subtitle: "Manage daily production goals" },
+  "/admin/commissary/production": { title: "Production History", subtitle: "View production log records" },
+  "/admin/commissary/analytics": { title: "Production Analytics", subtitle: "Performance metrics and insights" },
 };
 
 export default function AdminLayoutWrapper({

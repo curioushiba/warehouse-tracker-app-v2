@@ -36,6 +36,7 @@ export interface CachedItem {
   imageUrl?: string
   version: number
   isArchived?: boolean
+  isCommissary?: boolean
   isOfflineCreated?: boolean // Flag for items created offline
   updatedAt: string
 }
@@ -968,6 +969,7 @@ export function cachedItemToItem(cached: CachedItem): Item {
     barcode: cached.barcode ?? null,
     image_url: cached.imageUrl ?? null,
     is_archived: cached.isArchived ?? false,
+    is_commissary: cached.isCommissary ?? false,
     version: cached.version,
     created_at: cached.updatedAt,
     updated_at: cached.updatedAt,
@@ -992,6 +994,7 @@ export function itemToCachedItem(item: Item): CachedItem {
     imageUrl: item.image_url ?? undefined,
     version: item.version,
     isArchived: item.is_archived,
+    isCommissary: item.is_commissary,
     updatedAt: item.updated_at,
   }
 }

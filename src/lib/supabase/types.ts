@@ -10,7 +10,7 @@ export type UserRole = 'admin' | 'employee'
 export type LocationType = 'warehouse' | 'storefront' | 'storage' | 'office'
 export type TransactionType = 'check_in' | 'check_out' | 'transfer' | 'adjustment' | 'write_off' | 'return'
 export type SyncStatus = 'synced' | 'pending' | 'error'
-export type AlertType = 'low_stock' | 'expiring' | 'audit_required' | 'system' | 'user'
+export type AlertType = 'low_stock' | 'expiring' | 'audit_required' | 'system' | 'user' | 'production_target_unmet'
 export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical'
 export type SyncErrorStatus = 'pending' | 'resolved' | 'dismissed'
 
@@ -150,6 +150,7 @@ export interface Database {
           barcode: string | null
           image_url: string | null
           is_archived: boolean
+          is_commissary: boolean
           version: number
           created_at: string
           updated_at: string
@@ -170,6 +171,7 @@ export interface Database {
           barcode?: string | null
           image_url?: string | null
           is_archived?: boolean
+          is_commissary?: boolean
           version?: number
           created_at?: string
           updated_at?: string
@@ -189,6 +191,7 @@ export interface Database {
           barcode?: string | null
           image_url?: string | null
           is_archived?: boolean
+          is_commissary?: boolean
           version?: number
           updated_at?: string
         }
@@ -286,8 +289,100 @@ export interface Database {
           resolved_at?: string | null
         }
       }
+      inv_production_logs: {
+        Row: {
+          id: string
+          item_id: string
+          quantity_produced: number
+          expected_quantity: number | null
+          waste_quantity: number
+          waste_reason: string | null
+          status: 'completed' | 'cancelled'
+          user_id: string
+          notes: string | null
+          device_timestamp: string
+          event_timestamp: string
+          server_timestamp: string
+          idempotency_key: string | null
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          quantity_produced: number
+          expected_quantity?: number | null
+          waste_quantity?: number
+          waste_reason?: string | null
+          status?: 'completed' | 'cancelled'
+          user_id: string
+          notes?: string | null
+          device_timestamp: string
+          event_timestamp?: string
+          server_timestamp?: string
+          idempotency_key?: string | null
+        }
+        Update: {
+          status?: 'completed' | 'cancelled'
+          notes?: string | null
+        }
+      }
+      inv_production_targets: {
+        Row: {
+          id: string
+          item_id: string
+          target_quantity: number
+          target_date: string | null
+          priority: number
+          is_recurring: boolean
+          day_of_week: number | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          target_quantity: number
+          target_date?: string | null
+          priority?: number
+          is_recurring?: boolean
+          day_of_week?: number | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          item_id?: string
+          target_quantity?: number
+          target_date?: string | null
+          priority?: number
+          is_recurring?: boolean
+          day_of_week?: number | null
+          notes?: string | null
+        }
+      }
     }
-    Views: {}
+    Views: {
+      inv_production_recommendations: {
+        Row: {
+          item_id: string
+          name: string
+          sku: string
+          current_stock: number
+          min_stock: number
+          max_stock: number | null
+          unit: string
+          daily_consumption_rate: number
+          days_of_stock: number | null
+          deficit: number
+          target_today: number
+          priority: number
+          has_explicit_target: boolean
+          produced_today: number
+          remaining_target: number
+          suggested_quantity: number
+        }
+      }
+    }
     Functions: {
       generate_sku: {
         Args: Record<string, never>
@@ -343,6 +438,33 @@ export interface Database {
           version: number
           created_at: string
           updated_at: string
+        }[]
+      }
+      submit_production: {
+        Args: {
+          p_item_id: string
+          p_quantity_produced: number
+          p_user_id: string
+          p_device_timestamp: string
+          p_idempotency_key?: string | null
+          p_waste_quantity?: number
+          p_waste_reason?: string | null
+          p_notes?: string | null
+        }
+        Returns: {
+          id: string
+          item_id: string
+          quantity_produced: number
+          expected_quantity: number | null
+          waste_quantity: number
+          waste_reason: string | null
+          status: string
+          user_id: string
+          notes: string | null
+          device_timestamp: string
+          event_timestamp: string
+          server_timestamp: string
+          idempotency_key: string | null
         }[]
       }
       submit_transaction: {
@@ -409,3 +531,13 @@ export type AlertInsert = Database['public']['Tables']['alerts']['Insert']
 export type SyncError = Database['public']['Tables']['sync_errors']['Row']
 export type SyncErrorInsert = Database['public']['Tables']['sync_errors']['Insert']
 export type SyncErrorUpdate = Database['public']['Tables']['sync_errors']['Update']
+
+export type ProductionLog = Database['public']['Tables']['inv_production_logs']['Row']
+export type ProductionLogInsert = Database['public']['Tables']['inv_production_logs']['Insert']
+export type ProductionLogUpdate = Database['public']['Tables']['inv_production_logs']['Update']
+
+export type ProductionTarget = Database['public']['Tables']['inv_production_targets']['Row']
+export type ProductionTargetInsert = Database['public']['Tables']['inv_production_targets']['Insert']
+export type ProductionTargetUpdate = Database['public']['Tables']['inv_production_targets']['Update']
+
+export type ProductionRecommendation = Database['public']['Views']['inv_production_recommendations']['Row']

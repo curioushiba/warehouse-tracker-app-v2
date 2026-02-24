@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Package } from "lucide-react";
+import { ArrowLeft, Save, Package, ChefHat } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -18,6 +18,7 @@ import {
   FormHelperText,
   Skeleton,
   Alert,
+  Switch,
 } from "@/components/ui";
 import { ImageUpload } from "@/components/items";
 import { getItemById, updateItem } from "@/lib/actions/items";
@@ -41,6 +42,7 @@ interface ItemFormData {
   max_stock: string;
   unit_price: string;
   image_url: string | null;
+  is_commissary: boolean;
 }
 
 const UNIT_OPTIONS = [
@@ -85,6 +87,7 @@ export default function EditItemPage() {
     max_stock: "",
     unit_price: "0",
     image_url: null,
+    is_commissary: false,
   });
   const [formErrors, setFormErrors] = React.useState<Partial<Record<keyof ItemFormData, string>>>({});
   const [isSaving, setIsSaving] = React.useState(false);
@@ -105,6 +108,7 @@ export default function EditItemPage() {
       max_stock: i.max_stock?.toString() || "",
       unit_price: (i.unit_price ?? 0).toString(),
       image_url: i.image_url || null,
+      is_commissary: i.is_commissary ?? false,
     });
   }, []);
 
@@ -215,6 +219,7 @@ export default function EditItemPage() {
         max_stock: formData.max_stock ? parseFloat(formData.max_stock) : null,
         unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
         image_url: formData.image_url,
+        is_commissary: formData.is_commissary,
       };
 
       const result = await updateItem(itemId, updateData, item?.version);
@@ -498,6 +503,17 @@ export default function EditItemPage() {
                     onChange={(value) => updateField("location_id", value)}
                   />
                 </FormControl>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <ChefHat className="w-4 h-4 text-foreground-muted" />
+                    <FormLabel className="mb-0">Commissary Item</FormLabel>
+                  </div>
+                  <Switch
+                    checked={formData.is_commissary}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, is_commissary: e.target.checked }))}
+                  />
+                </div>
               </CardBody>
             </Card>
 

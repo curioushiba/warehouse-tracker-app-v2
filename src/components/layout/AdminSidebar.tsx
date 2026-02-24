@@ -19,6 +19,7 @@ import {
   ChevronRight,
   LogOut,
   HelpCircle,
+  ChefHat,
 } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import { Tooltip } from "@/components/ui";
@@ -50,6 +51,7 @@ const navSections: NavSection[] = [
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
       { label: "Stores", href: "/admin/stores", icon: Store },
       { label: "Locations", href: "/admin/locations", icon: MapPin },
+      { label: "Commissary", href: "/admin/commissary", icon: ChefHat },
     ],
   },
   {

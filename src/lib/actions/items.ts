@@ -13,6 +13,7 @@ export interface ItemFilters {
   locationId?: string
   storeId?: string
   isArchived?: boolean
+  isCommissary?: boolean
   search?: string
   stockLevel?: 'critical' | 'low' | 'normal' | 'overstocked'
 }
@@ -44,6 +45,11 @@ export async function getItems(filters?: ItemFilters): Promise<ActionResult<Item
     // Apply store filter
     if (filters?.storeId) {
       query = query.eq('store_id', filters.storeId)
+    }
+
+    // Apply commissary filter
+    if (filters?.isCommissary !== undefined) {
+      query = query.eq('is_commissary', filters.isCommissary)
     }
 
     // Apply search filter
@@ -108,6 +114,12 @@ export async function getItemsPaginated(
     if (filters?.storeId) {
       countQuery = countQuery.eq('store_id', filters.storeId)
       dataQuery = dataQuery.eq('store_id', filters.storeId)
+    }
+
+    // Apply commissary filter
+    if (filters?.isCommissary !== undefined) {
+      countQuery = countQuery.eq('is_commissary', filters.isCommissary)
+      dataQuery = dataQuery.eq('is_commissary', filters.isCommissary)
     }
 
     // Apply search filter (server-side)
