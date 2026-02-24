@@ -50,6 +50,31 @@ describe('createQuickTransaction', () => {
     expect(tx.notes).toBe('Quick -1');
   });
 
+  it('should accept a custom quantity', () => {
+    const tx = createQuickTransaction(db as never, { itemId: 'item-1', type: 'check_in', quantity: 5 });
+    expect(tx.quantity).toBe(5);
+
+    const pending = getPendingTransactions(db as never);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].quantity).toBe(5);
+  });
+
+  it('should set notes to "Quick +N" for check_in with custom quantity', () => {
+    const tx = createQuickTransaction(db as never, { itemId: 'item-1', type: 'check_in', quantity: 3 });
+    expect(tx.notes).toBe('Quick +3');
+  });
+
+  it('should set notes to "Quick -N" for check_out with custom quantity', () => {
+    const tx = createQuickTransaction(db as never, { itemId: 'item-1', type: 'check_out', quantity: 7 });
+    expect(tx.notes).toBe('Quick -7');
+  });
+
+  it('should default quantity to 1 when not specified', () => {
+    const tx = createQuickTransaction(db as never, { itemId: 'item-1', type: 'check_in' });
+    expect(tx.quantity).toBe(1);
+    expect(tx.notes).toBe('Quick +1');
+  });
+
   it('should set status to pending', () => {
     const tx = createQuickTransaction(db as never, { itemId: 'item-1', type: 'check_in' });
     expect(tx.status).toBe('pending');

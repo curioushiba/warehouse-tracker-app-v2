@@ -3,7 +3,7 @@
     "name": "PackTrack",
     "slug": "packtrack",
     "scheme": "packtrack",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -19,7 +19,12 @@
         "backgroundColor": "#15803D"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.packtrack.mobile"
+      "package": "com.packtrack.mobile",
+      "versionCode": 2,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -31,6 +36,13 @@
           "cameraPermission": "Allow PackTrack to use your camera to scan barcodes and QR codes."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "44bd0532-b30c-4929-a8c2-25525103647c"
+      }
+    },
+    "owner": "halfcrazyph"
   }
 }

@@ -8,16 +8,14 @@ import {
 } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 
-export interface InputProps {
+export interface InputProps
+  extends Omit<TextInputProps, 'value' | 'onChangeText' | 'placeholder' | 'style'> {
   label?: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   error?: string;
   icon?: React.ReactNode;
-  keyboardType?: TextInputProps['keyboardType'];
-  secureTextEntry?: boolean;
-  multiline?: boolean;
   disabled?: boolean;
 }
 
@@ -32,6 +30,7 @@ export function Input({
   secureTextEntry,
   multiline,
   disabled,
+  ...rest
 }: InputProps) {
   const { colors, spacing, radii, typePresets, fontFamily } = useTheme();
   const [focused, setFocused] = useState(false);
@@ -83,6 +82,7 @@ export function Input({
           onFocus={handleFocus}
           onBlur={handleBlur}
           textAlignVertical={multiline ? 'top' : 'center'}
+          {...rest}
           style={{
             flex: 1,
             color: colors.text,

@@ -64,6 +64,18 @@ export const palette = {
   black: '#000000',
 } as const;
 
+// -- Screen header colors (Wildlife Reserve Parks palette) ------------------
+
+export const screenColors = {
+  home:        '#01722f', // Forest primary
+  scan:        '#0077b6', // Aquatic primary
+  history:     '#1a1a3e', // Nocturnal primary
+  profile:     '#2d6a4f', // Jungle primary
+  batchReview: '#c9a227', // Nocturnal accent
+  syncErrors:  '#e63946', // Aviary primary
+  transaction: '#ff8c00', // Forest accent
+} as const;
+
 // -- Semantic colors --------------------------------------------------------
 
 export interface SemanticColors {

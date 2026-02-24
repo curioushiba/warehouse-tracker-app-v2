@@ -19,6 +19,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
+import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { SectionHeader } from '@/components/layout/SectionHeader';
 import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator';
@@ -86,12 +87,13 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: screenColors.profile }}
       edges={['top']}
     >
-      <ScreenHeader title="Profile" />
+      <ScreenHeader title="Profile" headerColor={screenColors.profile} />
 
       <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing[4], gap: spacing[4] }}
       >
         {/* Profile Card */}

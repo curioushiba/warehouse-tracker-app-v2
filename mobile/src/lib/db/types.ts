@@ -1,7 +1,9 @@
+import type { TransactionType } from '../types';
+
 export interface PendingTransaction {
   id: string;
   item_id: string;
-  transaction_type: string;
+  transaction_type: TransactionType;
   quantity: number;
   notes: string | null;
   device_timestamp: string;

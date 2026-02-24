@@ -10,6 +10,10 @@ export type TransactionType =
 
 export type SyncErrorStatus = 'pending' | 'resolved' | 'dismissed';
 
+export function isStockInType(type: TransactionType): boolean {
+  return type === 'check_in' || type === 'return';
+}
+
 export interface Profile {
   id: string;
   username: string;

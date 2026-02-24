@@ -19,17 +19,19 @@ import {
   updateTransactionStatus,
 } from '@/lib/db/operations';
 import type { PendingTransaction } from '@/lib/db/types';
+import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { isStockInType } from '@/lib/types';
 import { haptic } from '@/lib/haptics';
 
 export default function SyncErrorsScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typePresets, radii } = useTheme();
+  const { colors, spacing, typePresets } = useTheme();
   const { profile } = useAuth();
   const { isSyncing, syncNow } = useSyncQueue();
   const [failedTransactions, setFailedTransactions] = useState<
@@ -53,10 +55,11 @@ export default function SyncErrorsScreen() {
   if (profile?.role !== 'admin') {
     return (
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: colors.background }}
+        style={{ flex: 1, backgroundColor: screenColors.syncErrors }}
         edges={['top']}
       >
-        <ScreenHeader title="Sync Errors" />
+        <ScreenHeader title="Sync Errors" headerColor={screenColors.syncErrors} />
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
         <EmptyState
           icon={<ShieldAlert size={48} color={colors.textTertiary} />}
           title="Access Denied"
@@ -66,6 +69,7 @@ export default function SyncErrorsScreen() {
             onPress: () => router.back(),
           }}
         />
+        </View>
       </SafeAreaView>
     );
   }
@@ -125,9 +129,7 @@ export default function SyncErrorsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: PendingTransaction }) => {
-      const isIn =
-        item.transaction_type === 'in' ||
-        item.transaction_type === 'check_in';
+      const isIn = isStockInType(item.transaction_type);
 
       return (
         <Card
@@ -203,11 +205,12 @@ export default function SyncErrorsScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: screenColors.syncErrors }}
       edges={['top']}
     >
       <ScreenHeader
         title="Sync Errors"
+        headerColor={screenColors.syncErrors}
         rightAction={
           <AnimatedPressable
             onPress={() => router.back()}
@@ -216,7 +219,7 @@ export default function SyncErrorsScreen() {
             <Text
               style={{
                 ...typePresets.bodySmall,
-                color: colors.primary,
+                color: '#fff',
                 fontWeight: '600',
               }}
             >
@@ -226,46 +229,48 @@ export default function SyncErrorsScreen() {
         }
       />
 
-      <FlatList
-        data={failedTransactions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ListEmptyComponent={
-          <EmptyState
-            icon={<AlertCircle size={48} color={colors.success} />}
-            title="No Sync Errors"
-            message="All transactions have been processed successfully."
-            action={{
-              label: 'Go Back',
-              onPress: () => router.back(),
-            }}
-          />
-        }
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: spacing[2],
-          paddingBottom: spacing[4],
-        }}
-      />
-
-      {failedTransactions.length > 0 && (
-        <View
-          style={{
-            padding: spacing[4],
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            backgroundColor: colors.surface,
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <FlatList
+          data={failedTransactions}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<AlertCircle size={48} color={colors.success} />}
+              title="No Sync Errors"
+              message="All transactions have been processed successfully."
+              action={{
+                label: 'Go Back',
+                onPress: () => router.back(),
+              }}
+            />
+          }
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingTop: spacing[2],
+            paddingBottom: spacing[4],
           }}
-        >
-          <Button
-            title={`Retry All (${failedTransactions.length})`}
-            onPress={handleRetryAll}
-            loading={isSyncing}
-            icon={<RefreshCw size={18} color={colors.textInverse} />}
-            size="lg"
-          />
-        </View>
-      )}
+        />
+
+        {failedTransactions.length > 0 && (
+          <View
+            style={{
+              padding: spacing[4],
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              backgroundColor: colors.surface,
+            }}
+          >
+            <Button
+              title={`Retry All (${failedTransactions.length})`}
+              onPress={handleRetryAll}
+              loading={isSyncing}
+              icon={<RefreshCw size={18} color={colors.textInverse} />}
+              size="lg"
+            />
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }

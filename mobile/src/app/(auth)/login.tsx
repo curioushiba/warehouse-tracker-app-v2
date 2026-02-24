@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Package, Mail, Lock } from 'lucide-react-native';
+import { Package, User, Lock } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/Input';
@@ -17,15 +17,15 @@ import { Button } from '@/components/ui/Button';
 export default function LoginScreen() {
   const { colors, spacing, typePresets } = useTheme();
   const { signIn, loading, error } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSignIn = useCallback(async () => {
     setLocalError(null);
 
-    if (!email.trim()) {
-      setLocalError('Email is required');
+    if (!username.trim()) {
+      setLocalError('Username is required');
       return;
     }
     if (!password) {
@@ -34,12 +34,12 @@ export default function LoginScreen() {
     }
 
     try {
-      await signIn(email.trim(), password);
+      await signIn(username.trim(), password);
       router.replace('/(app)/(tabs)');
     } catch {
       // Error is handled by AuthContext and displayed below
     }
-  }, [email, password, signIn]);
+  }, [username, password, signIn]);
 
   const displayError = localError ?? error;
 
@@ -87,12 +87,16 @@ export default function LoginScreen() {
 
           <View style={{ gap: spacing[4] }}>
             <Input
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              icon={<Mail size={20} color={colors.iconSecondary} />}
+              label="Username"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Enter your username"
+              keyboardType="default"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username"
+              returnKeyType="next"
+              icon={<User size={20} color={colors.iconSecondary} />}
             />
 
             <Input
@@ -101,6 +105,10 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               placeholder="Enter your password"
               secureTextEntry
+              autoCapitalize="none"
+              autoComplete="password"
+              returnKeyType="done"
+              onSubmitEditing={handleSignIn}
               icon={<Lock size={20} color={colors.iconSecondary} />}
             />
 

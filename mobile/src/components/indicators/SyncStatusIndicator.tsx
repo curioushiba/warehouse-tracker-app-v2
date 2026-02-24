@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
+import { formatRelativeTime } from '@/lib/format';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 export interface SyncStatusIndicatorProps {
@@ -16,9 +17,15 @@ export function SyncStatusIndicator({
 }: SyncStatusIndicatorProps) {
   const { colors, spacing, radii, typePresets } = useTheme();
 
+  const rowStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  };
+
   if (isSyncing) {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+      <View style={rowStyle}>
         <LoadingSpinner size="sm" />
         <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
           Syncing...
@@ -29,7 +36,7 @@ export function SyncStatusIndicator({
 
   if (pendingCount > 0) {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+      <View style={rowStyle}>
         <View
           style={{
             backgroundColor: colors.warning,
@@ -59,7 +66,7 @@ export function SyncStatusIndicator({
   }
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+    <View style={rowStyle}>
       <View
         style={{
           width: 8,
@@ -69,7 +76,7 @@ export function SyncStatusIndicator({
         }}
       />
       <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
-        {lastSyncTime ? `Synced ${lastSyncTime}` : 'Up to date'}
+        {lastSyncTime ? `Synced ${formatRelativeTime(lastSyncTime)}` : 'Up to date'}
       </Text>
     </View>
   );

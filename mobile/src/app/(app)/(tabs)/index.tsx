@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, FlatList, RefreshControl, Alert } from 'react-native';
+import { router, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
@@ -13,6 +13,7 @@ import {
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSyncQueue } from '@/hooks/useSyncQueue';
+import { usePendingDelta } from '@/hooks/usePendingDelta';
 import { getPendingTransactions } from '@/lib/db/operations';
 import type { CachedItem } from '@/lib/db/types';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +21,7 @@ import { fetchRecentTransactions } from '@/lib/sync';
 import { mergeTransactions } from '@/lib/transactions';
 import { getRecentlyAccessedItems } from '@/lib/recently-accessed';
 import { createQuickTransaction } from '@/lib/quick-transaction';
+import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { SectionHeader } from '@/components/layout/SectionHeader';
 import { Card } from '@/components/ui/Card';
@@ -30,11 +32,39 @@ import { haptic } from '@/lib/haptics';
 
 export default function HomeScreen() {
   const db = useSQLiteContext();
+  const navigation = useNavigation();
   const { colors, spacing, typePresets, radii, shadows } = useTheme();
   const { user } = useAuth();
   const { pendingCount, syncNow } = useSyncQueue();
   const [recentItems, setRecentItems] = useState<CachedItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  const handleConfirmTransaction = useCallback(
+    (itemId: string, quantity: number, type: 'check_in' | 'check_out') => {
+      haptic('success');
+      createQuickTransaction(db, { itemId, type, quantity });
+      setRecentItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          const delta = type === 'check_in' ? quantity : -quantity;
+          return { ...item, current_stock: item.current_stock + delta };
+        }),
+      );
+      void syncNow();
+    },
+    [db, syncNow],
+  );
+
+  const {
+    activeItemId,
+    delta,
+    increment,
+    decrement,
+    confirm,
+    cancel,
+    hasPending,
+    getDisplayStock,
+  } = usePendingDelta(handleConfirmTransaction);
 
   const loadData = useCallback(async () => {
     try {
@@ -57,12 +87,64 @@ export default function HomeScreen() {
     void loadData();
   }, [loadData, pendingCount]);
 
+  // Guard navigation away with pending delta
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      if (!hasPending()) return;
+
+      // Can't prevent navigation in expo-router, so show alert to submit/discard
+      Alert.alert(
+        'Unsaved Changes',
+        'You have an unconfirmed quantity change.',
+        [
+          { text: 'Submit', style: 'default', onPress: () => confirm() },
+          { text: 'Discard', style: 'destructive', onPress: () => cancel() },
+        ],
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasPending, confirm, cancel]);
+
   const handleRefresh = useCallback(async () => {
+    if (hasPending()) {
+      Alert.alert(
+        'Unsaved Changes',
+        'You have an unconfirmed quantity change.',
+        [
+          {
+            text: 'Submit & Refresh',
+            style: 'default',
+            onPress: async () => {
+              confirm();
+              setRefreshing(true);
+              await syncNow();
+              await loadData();
+              setRefreshing(false);
+            },
+          },
+          {
+            text: 'Discard & Refresh',
+            style: 'destructive',
+            onPress: async () => {
+              cancel();
+              setRefreshing(true);
+              await syncNow();
+              await loadData();
+              setRefreshing(false);
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+      return;
+    }
+
     setRefreshing(true);
     await syncNow();
     await loadData();
     setRefreshing(false);
-  }, [syncNow, loadData]);
+  }, [syncNow, loadData, hasPending, confirm, cancel]);
 
   const navigateToScan = useCallback(
     (type: 'check_in' | 'check_out') => {
@@ -72,43 +154,85 @@ export default function HomeScreen() {
     [],
   );
 
+  const showCrossItemAlert = useCallback(
+    (itemId: string, change: 1 | -1) => {
+      Alert.alert(
+        'Pending Change',
+        'Another item has an unconfirmed change.',
+        [
+          {
+            text: 'Submit',
+            style: 'default',
+            onPress: () => {
+              confirm();
+              // Now apply the new item's change
+              if (change === 1) {
+                increment(itemId);
+              } else {
+                decrement(itemId);
+              }
+            },
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              cancel();
+              if (change === 1) {
+                increment(itemId);
+              } else {
+                decrement(itemId);
+              }
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    },
+    [confirm, cancel, increment, decrement],
+  );
+
   const handleQuickIn = useCallback(
     (itemId: string) => {
-      haptic('success');
-      createQuickTransaction(db, { itemId, type: 'check_in' });
-      setRecentItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId ? { ...item, current_stock: item.current_stock + 1 } : item,
-        ),
-      );
-      void syncNow();
+      haptic('light');
+      const result = increment(itemId);
+      if (result === 'needs-resolve') {
+        showCrossItemAlert(itemId, 1);
+      }
     },
-    [db, syncNow],
+    [increment, showCrossItemAlert],
   );
 
   const handleQuickOut = useCallback(
     (itemId: string) => {
-      haptic('warning');
-      createQuickTransaction(db, { itemId, type: 'check_out' });
-      setRecentItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId ? { ...item, current_stock: item.current_stock - 1 } : item,
-        ),
-      );
-      void syncNow();
+      haptic('light');
+      const result = decrement(itemId);
+      if (result === 'needs-resolve') {
+        showCrossItemAlert(itemId, -1);
+      }
     },
-    [db, syncNow],
+    [decrement, showCrossItemAlert],
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: CachedItem }) => (
-      <InventoryItemCard
-        item={item}
-        onQuickIn={handleQuickIn}
-        onQuickOut={handleQuickOut}
-      />
-    ),
-    [handleQuickIn, handleQuickOut],
+    ({ item }: { item: CachedItem }) => {
+      const itemDelta = activeItemId === item.id ? delta : undefined;
+      const itemDisplayStock =
+        activeItemId === item.id ? getDisplayStock(item.id, item.current_stock) : undefined;
+
+      return (
+        <InventoryItemCard
+          item={item}
+          onQuickIn={handleQuickIn}
+          onQuickOut={handleQuickOut}
+          pendingDelta={itemDelta}
+          displayStock={itemDisplayStock}
+          onConfirm={confirm}
+          onCancel={cancel}
+        />
+      );
+    },
+    [handleQuickIn, handleQuickOut, activeItemId, delta, getDisplayStock, confirm, cancel],
   );
 
   const listHeader = (
@@ -205,30 +329,32 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      <ScreenHeader title="PackTrack" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: screenColors.home }} edges={['top']}>
+      <ScreenHeader title="PackTrack" headerColor={screenColors.home} />
 
-      <FlatList
-        data={recentItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={
-          <EmptyState
-            icon={<Package size={48} color={colors.textTertiary} />}
-            title="No items yet"
-            message="Scan an item or receive stock to get started"
-          />
-        }
-        contentContainerStyle={{ paddingBottom: spacing[4] }}
-      />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <FlatList
+          data={recentItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<Package size={48} color={colors.textTertiary} />}
+              title="No items yet"
+              message="Scan an item or receive stock to get started"
+            />
+          }
+          contentContainerStyle={{ paddingBottom: spacing[4] }}
+        />
+      </View>
     </SafeAreaView>
   );
 }
