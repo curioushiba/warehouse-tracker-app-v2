@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 
 export interface SectionHeaderProps {
   title: string;
@@ -8,7 +9,7 @@ export interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title, action }: SectionHeaderProps) {
-  const { colors, spacing, typePresets } = useTheme();
+  const { colors, spacing, typePresets, touchTarget } = useTheme();
 
   return (
     <View
@@ -20,11 +21,24 @@ export function SectionHeader({ title, action }: SectionHeaderProps) {
         paddingVertical: spacing[2],
       }}
     >
-      <Text style={{ ...typePresets.label, color: colors.textSecondary }}>
+      <Text
+        style={{ ...typePresets.label, color: colors.textSecondary }}
+        accessibilityRole="header"
+      >
         {title}
       </Text>
       {action && (
-        <Pressable onPress={action.onPress}>
+        <AnimatedPressable
+          onPress={action.onPress}
+          hapticPattern="light"
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          style={{
+            minHeight: touchTarget.minHeight,
+            paddingHorizontal: spacing[2],
+            justifyContent: 'center',
+          }}
+        >
           <Text
             style={{
               ...typePresets.bodySmall,
@@ -34,7 +48,7 @@ export function SectionHeader({ title, action }: SectionHeaderProps) {
           >
             {action.label}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       )}
     </View>
   );

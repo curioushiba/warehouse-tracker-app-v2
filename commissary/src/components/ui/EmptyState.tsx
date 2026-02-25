@@ -21,6 +21,7 @@ export function EmptyState({ icon, title, message, action }: EmptyStateProps) {
         justifyContent: 'center',
         padding: spacing[8],
       }}
+      accessibilityLabel={`${title}. ${message}`}
     >
       <View style={{ marginBottom: spacing[4] }}>{icon}</View>
       <Text

@@ -4,8 +4,10 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -115,7 +117,7 @@ export default function AuthProvider({
         if (cancelled) return;
 
         if (!userProfile.is_active) {
-          await supabase?.auth.signOut();
+          await supabase?.auth.signOut().catch(() => {});
           setError('Account is deactivated');
           return;
         }
@@ -124,7 +126,7 @@ export default function AuthProvider({
         setError(null);
       } catch {
         if (cancelled) return;
-        await supabase?.auth.signOut();
+        await supabase?.auth.signOut().catch(() => {});
         setError('Failed to load user profile');
       } finally {
         if (!cancelled) {
@@ -139,6 +141,30 @@ export default function AuthProvider({
       cancelled = true;
     };
   }, [user, authReady]);
+
+  // Effect 3: Re-check profile on app foreground to enforce deactivation promptly
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  useEffect(() => {
+    function handleAppStateChange(nextState: AppStateStatus): void {
+      if (nextState !== 'active' || !userRef.current || !supabase) return;
+
+      fetchProfile(userRef.current.id)
+        .then((p) => {
+          if (!p.is_active) {
+            supabase?.auth.signOut().catch(() => {});
+            setError('Account is deactivated');
+          }
+        })
+        .catch(() => {
+          // Non-critical — will retry next foreground event
+        });
+    }
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   const signIn = useCallback(
     async (username: string, password: string): Promise<void> => {

@@ -7,10 +7,15 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { hapticSelection } from '@/lib/haptics';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 export default function TabsLayout() {
   const { colors, shadows } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsiveLayout();
+
+  const tabBarHeight = isTablet ? 72 : 64;
 
   return (
     <Tabs
@@ -19,7 +24,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
-          height: 64 + insets.bottom,
+          height: tabBarHeight + insets.bottom,
           paddingBottom: insets.bottom,
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
@@ -38,6 +43,7 @@ export default function TabsLayout() {
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
+        listeners={{ tabPress: () => hapticSelection() }}
       />
       <Tabs.Screen
         name="produce"
@@ -47,6 +53,7 @@ export default function TabsLayout() {
             <ChefHat size={size} color={color} />
           ),
         }}
+        listeners={{ tabPress: () => hapticSelection() }}
       />
       <Tabs.Screen
         name="profile"
@@ -56,6 +63,7 @@ export default function TabsLayout() {
             <UserCircle size={size} color={color} />
           ),
         }}
+        listeners={{ tabPress: () => hapticSelection() }}
       />
     </Tabs>
   );

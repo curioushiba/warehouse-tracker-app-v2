@@ -13,6 +13,7 @@ export const fontFamily = {
   bodyMedium: 'WorkSans-Medium',
   bodySemiBold: 'WorkSans-SemiBold',
   bodyBold: 'WorkSans-Bold',
+  mono: 'monospace',
 } as const;
 
 // -- Color palette ----------------------------------------------------------

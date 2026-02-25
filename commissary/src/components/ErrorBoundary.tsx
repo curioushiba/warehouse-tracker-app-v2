@@ -1,5 +1,84 @@
 import React, { Component, type ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
+import { lightColors, spacing, radii, typePresets } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeContext';
+import { AnimatedPressable } from './ui/AnimatedPressable';
+import type { SemanticColors } from '@/theme/tokens';
+
+// Functional fallback component that tries useTheme(), falls back to lightColors
+function ErrorFallback({
+  error,
+  onRetry,
+}: {
+  error: Error | null;
+  onRetry: () => void;
+}) {
+  let colors: SemanticColors;
+  try {
+    const theme = useTheme();
+    colors = theme.colors;
+  } catch {
+    colors = lightColors;
+  }
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: spacing[6],
+        backgroundColor: colors.background,
+      }}
+    >
+      <Text
+        style={{
+          ...typePresets.title,
+          color: colors.text,
+          marginBottom: spacing[2],
+        }}
+        accessibilityRole="header"
+      >
+        Something went wrong
+      </Text>
+      <Text
+        style={{
+          ...typePresets.bodySmall,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: spacing[6],
+        }}
+      >
+        {error?.message ?? 'An unexpected error occurred'}
+      </Text>
+      <AnimatedPressable
+        onPress={onRetry}
+        hapticPattern="light"
+        accessibilityRole="button"
+        accessibilityLabel="Retry"
+        style={{
+          backgroundColor: colors.primary,
+          paddingHorizontal: spacing[6],
+          paddingVertical: spacing[3],
+          borderRadius: radii.md,
+          minHeight: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text
+          style={{
+            ...typePresets.body,
+            color: colors.textInverse,
+            fontWeight: '600',
+          }}
+        >
+          Retry
+        </Text>
+      </AnimatedPressable>
+    </View>
+  );
+}
 
 interface Props {
   children: ReactNode;
@@ -31,51 +110,10 @@ export class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>
-            {this.state.error?.message ?? 'An unexpected error occurred'}
-          </Text>
-          <Pressable style={styles.button} onPress={this.handleRetry}>
-            <Text style={styles.buttonText}>Retry</Text>
-          </Pressable>
-        </View>
+        <ErrorFallback error={this.state.error} onRetry={this.handleRetry} />
       );
     }
 
     return this.props.children;
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  message: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  button: {
-    backgroundColor: '#D97706',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

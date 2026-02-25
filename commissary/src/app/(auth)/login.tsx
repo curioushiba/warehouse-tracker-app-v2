@@ -13,6 +13,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 
 export default function LoginScreen() {
   const { colors, spacing, typePresets } = useTheme();
@@ -57,6 +58,7 @@ export default function LoginScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
+          <ResponsiveContainer maxWidth={480}>
           <View style={{ alignItems: 'center', marginBottom: spacing[12] }}>
             <View
               style={{
@@ -131,6 +133,7 @@ export default function LoginScreen() {
               size="lg"
             />
           </View>
+          </ResponsiveContainer>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

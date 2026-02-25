@@ -10,8 +10,9 @@ import {
   getAllCommissaryItems,
   getTodaysTargets,
   getTodaysProductions,
+  getPendingProductionsToday,
 } from '@/lib/db/operations';
-import type { CachedTarget, CachedProduction } from '@/lib/db/types';
+import type { CachedTarget } from '@/lib/db/types';
 import { screenColors } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { SectionHeader } from '@/components/layout/SectionHeader';
@@ -20,7 +21,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncStatusIndicator } from '@/components/indicators/SyncStatusIndicator';
 import { ProductionItemCard } from '@/components/production/ProductionItemCard';
 import type { PriorityLevel } from '@/lib/types';
-import type { CachedItem } from '@/lib/db/types';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 
 interface DashboardItem {
   id: string;
@@ -57,6 +59,7 @@ function formatDate(): string {
 export default function DashboardScreen() {
   const db = useSQLiteContext();
   const { colors, spacing, typePresets, radii } = useTheme();
+  const layout = useResponsiveLayout();
   const { user } = useAuth();
   const { pendingCount, isSyncing, lastSyncTime, syncNow } = useSyncQueue();
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
@@ -76,6 +79,13 @@ export default function DashboardScreen() {
 
       const productionMap = new Map<string, number>();
       for (const p of productions) {
+        const existing = productionMap.get(p.item_id) ?? 0;
+        productionMap.set(p.item_id, existing + p.quantity_produced);
+      }
+
+      // Merge pending (unsynchronised) productions so counts survive refresh
+      const pending = getPendingProductionsToday(db);
+      for (const p of pending) {
         const existing = productionMap.get(p.item_id) ?? 0;
         productionMap.set(p.item_id, existing + p.quantity_produced);
       }
@@ -124,13 +134,13 @@ export default function DashboardScreen() {
   const totalProduced = dashboardItems.reduce((sum, item) => sum + item.produced, 0);
 
   const listHeader = (
-    <View>
+    <ResponsiveContainer maxWidth={layout.contentMaxWidth}>
       {/* Summary Cards */}
       <View
         style={{
           flexDirection: 'row',
           gap: spacing[3],
-          paddingHorizontal: spacing[4],
+          paddingHorizontal: layout.contentPadding,
           marginBottom: spacing[4],
         }}
       >
@@ -199,12 +209,16 @@ export default function DashboardScreen() {
       {dashboardItems.length > 0 && (
         <SectionHeader title="Priority Items" />
       )}
-    </View>
+    </ResponsiveContainer>
   );
 
   const renderItem = useCallback(
     ({ item }: { item: DashboardItem }) => (
-      <View style={{ paddingHorizontal: spacing[4], marginBottom: spacing[2] }}>
+      <View style={{
+        flex: 1,
+        paddingHorizontal: layout.listColumns > 1 ? 0 : layout.contentPadding,
+        marginBottom: spacing[2],
+      }}>
         <ProductionItemCard
           item={{
             id: item.id,
@@ -221,7 +235,7 @@ export default function DashboardScreen() {
         />
       </View>
     ),
-    [spacing],
+    [spacing, layout],
   );
 
   return (
@@ -247,6 +261,14 @@ export default function DashboardScreen() {
           data={dashboardItems}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          numColumns={layout.listColumns}
+          key={String(layout.listColumns)}
+          {...(layout.listColumns > 1 && {
+            columnWrapperStyle: {
+              gap: layout.gutterWidth,
+              paddingHorizontal: layout.contentPadding,
+            },
+          })}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

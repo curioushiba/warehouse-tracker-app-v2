@@ -13,6 +13,7 @@ import {
   searchCommissaryItems,
   getTodaysTargets,
   getTodaysProductions,
+  getPendingProductionsToday,
 } from '@/lib/db/operations';
 import { createQuickProduction } from '@/lib/quick-production';
 import type { CachedItem } from '@/lib/db/types';
@@ -22,6 +23,8 @@ import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ProduceItemCard } from '@/components/production/ProduceItemCard';
 import { haptic } from '@/lib/haptics';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 
 interface ItemWithContext extends CachedItem {
   target_today: number;
@@ -32,6 +35,7 @@ export default function ProduceScreen() {
   const db = useSQLiteContext();
   const navigation = useNavigation();
   const { colors, spacing } = useTheme();
+  const layout = useResponsiveLayout();
   const { user } = useAuth();
   const { syncNow } = useSyncQueue();
 
@@ -54,6 +58,13 @@ export default function ProduceScreen() {
 
       const productionMap = new Map<string, number>();
       for (const p of productions) {
+        const existing = productionMap.get(p.item_id) ?? 0;
+        productionMap.set(p.item_id, existing + p.quantity_produced);
+      }
+
+      // Merge pending (unsynchronised) productions so counts survive refresh
+      const pending = getPendingProductionsToday(db);
+      for (const p of pending) {
         const existing = productionMap.get(p.item_id) ?? 0;
         productionMap.set(p.item_id, existing + p.quantity_produced);
       }
@@ -103,21 +114,15 @@ export default function ProduceScreen() {
     getDisplayProduced,
   } = usePendingDelta(handleConfirmProduction);
 
-  // Guard navigation away with pending delta
+  // Auto-submit pending delta when navigating away (blur fires after tab switch,
+  // so Alert would appear on the wrong screen — auto-submit is the correct UX)
   useEffect(() => {
     const unsubscribe = navigation.addListener('blur', () => {
       if (!hasPending()) return;
-      Alert.alert(
-        'Unsaved Changes',
-        'You have an unconfirmed production change.',
-        [
-          { text: 'Submit', style: 'default', onPress: () => confirm() },
-          { text: 'Discard', style: 'destructive', onPress: () => cancel() },
-        ],
-      );
+      confirm();
     });
     return unsubscribe;
-  }, [navigation, hasPending, confirm, cancel]);
+  }, [navigation, hasPending, confirm]);
 
   const handleRefresh = useCallback(async () => {
     if (hasPending()) {
@@ -221,20 +226,25 @@ export default function ProduceScreen() {
           : undefined;
 
       return (
-        <ProduceItemCard
-          item={item}
-          target={item.target_today}
-          produced={item.produced_today}
-          displayProduced={itemDisplayProduced}
-          pendingDelta={itemDelta}
-          onIncrement={handleQuickProduce}
-          onDecrement={handleQuickCorrect}
-          onConfirm={confirm}
-          onCancel={cancel}
-        />
+        <View style={{
+          flex: 1,
+          paddingHorizontal: layout.listColumns > 1 ? 0 : layout.contentPadding,
+        }}>
+          <ProduceItemCard
+            item={item}
+            target={item.target_today}
+            produced={item.produced_today}
+            displayProduced={itemDisplayProduced}
+            pendingDelta={itemDelta}
+            onIncrement={handleQuickProduce}
+            onDecrement={handleQuickCorrect}
+            onConfirm={confirm}
+            onCancel={cancel}
+          />
+        </View>
       );
     },
-    [handleQuickProduce, handleQuickCorrect, activeItemId, delta, getDisplayProduced, confirm, cancel],
+    [handleQuickProduce, handleQuickCorrect, activeItemId, delta, getDisplayProduced, confirm, cancel, layout],
   );
 
   return (
@@ -246,19 +256,30 @@ export default function ProduceScreen() {
 
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Search */}
-        <View style={{ padding: spacing[4], paddingBottom: spacing[2] }}>
+        <ResponsiveContainer maxWidth={layout.contentMaxWidth} style={{ padding: spacing[4], paddingBottom: spacing[2] }}>
           <Input
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search items..."
             icon={<Search size={20} color={colors.iconSecondary} />}
           />
-        </View>
+        </ResponsiveContainer>
 
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          numColumns={layout.listColumns}
+          key={String(layout.listColumns)}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          {...(layout.listColumns > 1 && {
+            columnWrapperStyle: {
+              gap: layout.gutterWidth,
+              paddingHorizontal: layout.contentPadding,
+            },
+          })}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase-types';
 import {
   getPendingProductions,
   updateProductionStatus,
@@ -11,9 +12,11 @@ import {
   cacheProductionsRaw,
   clearProductionCache,
   setSyncMetadata,
+  storeLocalSyncError,
+  getLocalSyncErrors,
+  removeLocalSyncError,
 } from '@/lib/db/operations';
 import type { PendingProduction, CachedItem, CachedTarget, CachedProduction } from '@/lib/db/types';
-import { toBoolean } from '@/lib/db/conversions';
 
 export interface SyncResult {
   synced: number;
@@ -26,7 +29,7 @@ export interface SyncResult {
  * Uses production.id as the idempotency key so retries are safe.
  */
 export async function submitProduction(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   production: PendingProduction,
   userId: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -39,7 +42,7 @@ export async function submitProduction(
     p_waste_quantity: production.waste_quantity || null,
     p_waste_reason: production.waste_reason || null,
     p_notes: production.notes || null,
-  } as never);
+  });
 
   if (error) {
     // Idempotent duplicate — treat as success
@@ -51,29 +54,60 @@ export async function submitProduction(
 
 /**
  * Record a failed production to the sync_errors table for admin review.
+ * Falls back to local SQLite storage if the Supabase insert fails (e.g. offline).
  */
 async function recordSyncError(
-  supabase: SupabaseClient,
+  db: SQLiteDatabase,
+  supabase: SupabaseClient<Database>,
   production: PendingProduction,
   errorMessage: string,
   userId: string,
 ): Promise<void> {
-  await supabase.from('sync_errors').insert({
-    transaction_data: {
-      type: 'production',
-      id: production.id,
-      item_id: production.item_id,
-      quantity_produced: production.quantity_produced,
-      waste_quantity: production.waste_quantity,
-      waste_reason: production.waste_reason,
-      notes: production.notes,
-      device_timestamp: production.device_timestamp,
-      user_id: userId,
-      idempotency_key: production.id,
-    },
+  const transactionData = {
+    type: 'production',
+    id: production.id,
+    item_id: production.item_id,
+    quantity_produced: production.quantity_produced,
+    waste_quantity: production.waste_quantity,
+    waste_reason: production.waste_reason,
+    notes: production.notes,
+    device_timestamp: production.device_timestamp,
+    user_id: userId,
+    idempotency_key: production.id,
+  };
+
+  const { error } = await supabase.from('sync_errors').insert({
+    transaction_data: transactionData,
     error_message: errorMessage,
     user_id: userId,
-  } as never);
+  });
+
+  if (error) {
+    // Supabase insert failed (likely offline) — store locally
+    storeLocalSyncError(db, production.id, transactionData, errorMessage, userId);
+  }
+}
+
+/**
+ * Flush locally stored sync errors to Supabase.
+ * Called during syncNow to upload errors that were saved while offline.
+ */
+export async function flushLocalSyncErrors(
+  db: SQLiteDatabase,
+  supabase: SupabaseClient<Database>,
+): Promise<void> {
+  const localErrors = getLocalSyncErrors(db);
+  for (const err of localErrors) {
+    const { error } = await supabase.from('sync_errors').insert({
+      transaction_data: err.transactionData,
+      error_message: err.errorMessage,
+      user_id: err.userId,
+    });
+
+    if (!error) {
+      removeLocalSyncError(db, err.id);
+    }
+  }
 }
 
 /**
@@ -87,7 +121,7 @@ async function recordSyncError(
  */
 export async function processQueue(
   db: SQLiteDatabase,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<SyncResult> {
   const pending = getPendingProductions(db);
@@ -107,10 +141,17 @@ export async function processQueue(
     } else {
       const errorMsg = result.error ?? 'Unknown error';
       updateProductionStatus(db, p.id, 'failed');
-      await recordSyncError(supabase, p, errorMsg, userId);
+      await recordSyncError(db, supabase, p, errorMsg, userId);
       errors.push(errorMsg);
       failed++;
     }
+  }
+
+  // Attempt to flush any locally stored sync errors
+  try {
+    await flushLocalSyncErrors(db, supabase);
+  } catch {
+    // Non-critical — will retry next sync
   }
 
   return { synced, failed, errors };
@@ -141,7 +182,7 @@ interface SupabaseItemRow {
  */
 export async function refreshItemCache(
   db: SQLiteDatabase,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
 ): Promise<void> {
   // Fetch only commissary items
   const { data, error } = await supabase
@@ -152,7 +193,8 @@ export async function refreshItemCache(
 
   if (error) throw new Error(`Failed to fetch items: ${error.message}`);
 
-  const items: CachedItem[] = (data as unknown as SupabaseItemRow[]).map(({ category, ...fields }) => ({
+  // The joined category relationship returns as a nested object
+  const items: CachedItem[] = (data as SupabaseItemRow[]).map(({ category, ...fields }) => ({
     ...fields,
     category_name: category?.name ?? null,
   }));
@@ -170,37 +212,26 @@ export async function refreshItemCache(
 }
 
 /**
- * Supabase row shape for production target queries.
- */
-interface SupabaseTargetRow {
-  id: string;
-  item_id: string;
-  target_quantity: number;
-  target_date: string;
-  priority: number;
-  notes: string | null;
-}
-
-/**
  * Refresh the local target cache from Supabase.
  * Fetches today's production targets.
  */
 export async function refreshTargetCache(
   db: SQLiteDatabase,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
 ): Promise<void> {
   const today = new Date().toISOString().split('T')[0];
   const dayOfWeek = new Date().getDay(); // 0=Sun, matches EXTRACT(DOW)
 
   // Fetch explicit targets for today + recurring targets for today's weekday
-  const { data, error } = await (supabase.from('inv_production_targets') as any)
+  const { data, error } = await supabase
+    .from('inv_production_targets')
     .select('id, item_id, target_quantity, target_date, priority, notes, is_recurring, day_of_week')
     .or(`target_date.eq.${today},and(is_recurring.eq.true,day_of_week.eq.${dayOfWeek})`);
 
   if (error) throw new Error(`Failed to fetch targets: ${error.message}`);
 
   // Deduplicate: explicit targets (target_date set) take priority over recurring
-  const rawRows = data as (SupabaseTargetRow & { is_recurring: boolean; day_of_week: number | null })[];
+  const rawRows = data;
   const explicitItems = new Set(
     rawRows.filter((r) => !r.is_recurring).map((r) => r.item_id),
   );
@@ -229,26 +260,16 @@ export async function refreshTargetCache(
 }
 
 /**
- * Supabase row shape for production log queries.
- */
-interface SupabaseProductionRow {
-  id: string;
-  item_id: string;
-  quantity_produced: number;
-  event_timestamp: string;
-  status: string;
-}
-
-/**
  * Refresh the local production cache from Supabase.
  * Fetches today's completed production logs.
  */
 export async function refreshProductionCache(
   db: SQLiteDatabase,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
 ): Promise<void> {
   const today = new Date().toISOString().split('T')[0];
-  const { data, error } = await (supabase.from('inv_production_logs') as any)
+  const { data, error } = await supabase
+    .from('inv_production_logs')
     .select('id, item_id, quantity_produced, event_timestamp, status')
     .gte('event_timestamp', `${today}T00:00:00`)
     .lt('event_timestamp', `${today}T23:59:59.999`)
@@ -256,7 +277,7 @@ export async function refreshProductionCache(
 
   if (error) throw new Error(`Failed to fetch production logs: ${error.message}`);
 
-  const productions: CachedProduction[] = (data as SupabaseProductionRow[]).map((row) => ({
+  const productions: CachedProduction[] = data.map((row) => ({
     id: row.id,
     item_id: row.item_id,
     quantity_produced: row.quantity_produced,
@@ -280,7 +301,7 @@ export async function refreshProductionCache(
  */
 export async function refreshAllCaches(
   db: SQLiteDatabase,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
 ): Promise<void> {
   await refreshItemCache(db, supabase);
   await refreshTargetCache(db, supabase);

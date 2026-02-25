@@ -54,6 +54,7 @@ export function AnimatedPressable({
       onPressOut={handlePressOut}
       onPress={handlePress}
       disabled={disabled}
+      accessibilityRole="button"
       style={[animatedStyle, style]}
       {...rest}
     >

@@ -51,6 +51,15 @@ CREATE TABLE IF NOT EXISTS sync_metadata (
   value TEXT NOT NULL
 );`;
 
+export const CREATE_LOCAL_SYNC_ERRORS = `
+CREATE TABLE IF NOT EXISTS local_sync_errors (
+  id TEXT PRIMARY KEY,
+  transaction_data TEXT NOT NULL,
+  error_message TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`;
+
 export const CREATE_INDEXES = `
 CREATE INDEX IF NOT EXISTS idx_item_cache_name ON item_cache(name);
 CREATE INDEX IF NOT EXISTS idx_item_cache_sku ON item_cache(sku);
@@ -65,5 +74,6 @@ export const ALL_MIGRATIONS = [
   CREATE_TARGET_CACHE,
   CREATE_PRODUCTION_CACHE,
   CREATE_SYNC_METADATA,
+  CREATE_LOCAL_SYNC_ERRORS,
   CREATE_INDEXES,
 ];

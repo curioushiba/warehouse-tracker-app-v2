@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import type { CachedProduction } from '@/lib/db/types';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 
 interface ProductionDetail extends CachedProduction {
   item_name?: string;
@@ -19,7 +20,7 @@ interface ProductionDetail extends CachedProduction {
 export default function ProductionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
-  const { colors, spacing, typePresets, radii } = useTheme();
+  const { colors, spacing, typePresets, radii, fontFamily } = useTheme();
   const [production, setProduction] = useState<ProductionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +82,13 @@ export default function ProductionDetailScreen() {
             gap: spacing[3],
           }}
         >
-          <AnimatedPressable onPress={() => router.back()} hapticPattern="light">
+          <AnimatedPressable
+            onPress={() => router.back()}
+            hapticPattern="light"
+            style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <ArrowLeft size={24} color={colors.text} />
           </AnimatedPressable>
           <Text style={{ ...typePresets.heading, color: colors.text }}>
@@ -119,29 +126,38 @@ export default function ProductionDetailScreen() {
       edges={['top']}
     >
       {/* Header */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: spacing[4],
-          gap: spacing[3],
-          backgroundColor: screenColors.productionDetail,
-          borderBottomLeftRadius: radii.lg,
-          borderBottomRightRadius: radii.lg,
-        }}
-      >
-        <AnimatedPressable onPress={() => router.back()} hapticPattern="light">
-          <ArrowLeft size={24} color={colors.textInverse} />
-        </AnimatedPressable>
-        <Text style={{ ...typePresets.heading, color: colors.textInverse }}>
-          Production Detail
-        </Text>
-      </View>
+      <ResponsiveContainer maxWidth={560}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: spacing[4],
+            gap: spacing[3],
+            backgroundColor: screenColors.productionDetail,
+            borderBottomLeftRadius: radii.lg,
+            borderBottomRightRadius: radii.lg,
+          }}
+        >
+          <AnimatedPressable
+            onPress={() => router.back()}
+            hapticPattern="light"
+            style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
+            <ArrowLeft size={24} color={colors.textInverse} />
+          </AnimatedPressable>
+          <Text style={{ ...typePresets.heading, color: colors.textInverse }}>
+            Production Detail
+          </Text>
+        </View>
+      </ResponsiveContainer>
 
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing[4], gap: spacing[4] }}
       >
+        <ResponsiveContainer maxWidth={560} style={{ gap: spacing[4] }}>
         {/* Status + Timestamp */}
         <Card variant="elevated">
           <View style={{ gap: spacing[3] }}>
@@ -188,7 +204,7 @@ export default function ProductionDetailScreen() {
               style={{
                 ...typePresets.bodySmall,
                 color: colors.text,
-                fontFamily: 'monospace',
+                fontFamily: fontFamily.mono,
               }}
               selectable
             >
@@ -207,7 +223,7 @@ export default function ProductionDetailScreen() {
               style={{
                 ...typePresets.bodySmall,
                 color: colors.text,
-                fontFamily: 'monospace',
+                fontFamily: fontFamily.mono,
               }}
               selectable
             >
@@ -215,6 +231,7 @@ export default function ProductionDetailScreen() {
             </Text>
           </View>
         </Card>
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );

@@ -19,7 +19,7 @@ export interface ProduceItemCardProps {
   onCancel?: () => void;
 }
 
-export function ProduceItemCard({
+function ProduceItemCardInner({
   item,
   target,
   produced,
@@ -37,10 +37,10 @@ export function ProduceItemCard({
   const progress = target > 0 ? Math.min(shownProduced / target, 1) : 0;
   const progressColor = progress >= 1 ? colors.success : colors.primary;
 
-  const BUTTON_SIZE = 36;
+  const BUTTON_SIZE = 48;
 
   return (
-    <View style={{ marginHorizontal: spacing[4], marginBottom: spacing[2] }}>
+    <View style={{ marginBottom: spacing[2] }}>
       <Card
         variant="elevated"
         style={isPending ? {
@@ -73,6 +73,7 @@ export function ProduceItemCard({
             <AnimatedPressable
               onPress={() => onDecrement(item.id)}
               hapticPattern="light"
+              accessibilityLabel={`Decrease ${item.name} production`}
               style={{
                 width: BUTTON_SIZE,
                 height: BUTTON_SIZE,
@@ -83,7 +84,7 @@ export function ProduceItemCard({
                 justifyContent: 'center',
               }}
             >
-              <Minus size={18} color={colors.error} />
+              <Minus size={20} color={colors.error} />
             </AnimatedPressable>
 
             <View style={{ alignItems: 'center', minWidth: 48 }}>
@@ -113,6 +114,7 @@ export function ProduceItemCard({
             <AnimatedPressable
               onPress={() => onIncrement(item.id)}
               hapticPattern="light"
+              accessibilityLabel={`Increase ${item.name} production`}
               style={{
                 width: BUTTON_SIZE,
                 height: BUTTON_SIZE,
@@ -122,7 +124,7 @@ export function ProduceItemCard({
                 justifyContent: 'center',
               }}
             >
-              <Plus size={18} color={colors.textInverse} />
+              <Plus size={20} color={colors.textInverse} />
             </AnimatedPressable>
           </View>
         </View>
@@ -169,8 +171,9 @@ export function ProduceItemCard({
                 <AnimatedPressable
                   onPress={onCancel}
                   hapticPattern="warning"
+                  accessibilityLabel="Cancel production change"
                   style={{
-                    height: 36,
+                    minHeight: 48,
                     paddingHorizontal: spacing[3],
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -188,8 +191,9 @@ export function ProduceItemCard({
                 <AnimatedPressable
                   onPress={onConfirm}
                   hapticPattern="success"
+                  accessibilityLabel="Confirm production change"
                   style={{
-                    height: 36,
+                    minHeight: 48,
                     paddingHorizontal: spacing[4],
                     borderRadius: radii.full,
                     backgroundColor: colors.success,
@@ -199,7 +203,7 @@ export function ProduceItemCard({
                     gap: spacing[1],
                   }}
                 >
-                  <Check size={16} color={colors.textInverse} />
+                  <Check size={18} color={colors.textInverse} />
                   <Text style={{
                     ...typePresets.bodySmall,
                     fontWeight: '700',
@@ -216,3 +220,20 @@ export function ProduceItemCard({
     </View>
   );
 }
+
+export const ProduceItemCard = React.memo(ProduceItemCardInner, (prev, next) => {
+  return (
+    prev.item.id === next.item.id &&
+    prev.item.name === next.item.name &&
+    prev.item.unit === next.item.unit &&
+    prev.item.current_stock === next.item.current_stock &&
+    prev.target === next.target &&
+    prev.produced === next.produced &&
+    prev.displayProduced === next.displayProduced &&
+    prev.pendingDelta === next.pendingDelta &&
+    prev.onIncrement === next.onIncrement &&
+    prev.onDecrement === next.onDecrement &&
+    prev.onConfirm === next.onConfirm &&
+    prev.onCancel === next.onCancel
+  );
+});

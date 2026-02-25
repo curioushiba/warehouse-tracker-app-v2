@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { useSQLiteContext } from 'expo-sqlite';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,11 +30,12 @@ export function createSyncQueueManager(deps: {
   getDb: () => import('expo-sqlite').SQLiteDatabase;
   getSupabase: () => import('@supabase/supabase-js').SupabaseClient;
   getUserId: () => string | undefined;
+  getIsActive: () => boolean;
   checkOnline: () => Promise<boolean>;
   onStateChange: (patch: Partial<SyncQueueState>) => void;
   getState: () => SyncQueueState;
 }) {
-  const { getDb, getSupabase, getUserId, checkOnline, onStateChange, getState } = deps;
+  const { getDb, getSupabase, getUserId, getIsActive, checkOnline, onStateChange, getState } = deps;
 
   function refreshCount(): void {
     try {
@@ -56,6 +58,11 @@ export function createSyncQueueManager(deps: {
   async function syncNow(): Promise<void> {
     const userId = getUserId();
     if (!userId) return;
+
+    if (!getIsActive()) {
+      onStateChange({ error: 'Account is deactivated' });
+      return;
+    }
 
     const state = getState();
     if (state.isSyncing) return;
@@ -133,7 +140,7 @@ export function createSyncQueueManager(deps: {
  */
 export function useSyncQueue(): UseSyncQueueReturn {
   const db = useSQLiteContext();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const [state, setState] = useState<SyncQueueState>({
     pendingCount: 0,
@@ -145,6 +152,9 @@ export function useSyncQueue(): UseSyncQueueReturn {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
+
   const manager = useRef(
     createSyncQueueManager({
       getDb: () => db,
@@ -153,6 +163,7 @@ export function useSyncQueue(): UseSyncQueueReturn {
         return supabase;
       },
       getUserId: () => user?.id,
+      getIsActive: () => profileRef.current?.is_active ?? false,
       checkOnline: checkOnlineStatus,
       onStateChange: (patch) =>
         setState((prev) => ({ ...prev, ...patch })),
@@ -184,6 +195,16 @@ export function useSyncQueue(): UseSyncQueueReturn {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
+  }, [manager, user?.id]);
+
+  // Auto-sync when network connectivity is restored
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((netState) => {
+      if (netState.isConnected && user?.id) {
+        void manager.syncNow();
+      }
+    });
+    return unsubscribe;
   }, [manager, user?.id]);
 
   const syncNow = useCallback(() => manager.syncNow(), [manager]);

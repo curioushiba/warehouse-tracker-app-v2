@@ -82,6 +82,8 @@ export function Input({
           onFocus={handleFocus}
           onBlur={handleBlur}
           textAlignVertical={multiline ? 'top' : 'center'}
+          accessibilityLabel={label ?? placeholder}
+          accessibilityState={{ disabled: !!disabled }}
           {...rest}
           style={{
             flex: 1,

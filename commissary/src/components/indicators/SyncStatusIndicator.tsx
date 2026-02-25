@@ -25,7 +25,11 @@ export function SyncStatusIndicator({
 
   if (isSyncing) {
     return (
-      <View style={rowStyle}>
+      <View
+        style={rowStyle}
+        accessibilityLiveRegion="polite"
+        accessibilityLabel="Syncing in progress"
+      >
         <LoadingSpinner size="sm" />
         <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
           Syncing...
@@ -36,7 +40,11 @@ export function SyncStatusIndicator({
 
   if (pendingCount > 0) {
     return (
-      <View style={rowStyle}>
+      <View
+        style={rowStyle}
+        accessibilityLiveRegion="polite"
+        accessibilityLabel={`${pendingCount} item${pendingCount === 1 ? '' : 's'} pending sync`}
+      >
         <View
           style={{
             backgroundColor: colors.warning,
@@ -65,8 +73,16 @@ export function SyncStatusIndicator({
     );
   }
 
+  const syncLabel = lastSyncTime
+    ? `Synced ${formatRelativeTime(lastSyncTime)}`
+    : 'Up to date';
+
   return (
-    <View style={rowStyle}>
+    <View
+      style={rowStyle}
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={syncLabel}
+    >
       <View
         style={{
           width: 8,
@@ -76,7 +92,7 @@ export function SyncStatusIndicator({
         }}
       />
       <Text style={{ ...typePresets.caption, color: colors.textSecondary }}>
-        {lastSyncTime ? `Synced ${formatRelativeTime(lastSyncTime)}` : 'Up to date'}
+        {syncLabel}
       </Text>
     </View>
   );

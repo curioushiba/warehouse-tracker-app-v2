@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { radii } from '@/theme/tokens';
 
 export interface ScreenHeaderProps {
   title: string;
@@ -11,10 +10,10 @@ export interface ScreenHeaderProps {
 }
 
 export function ScreenHeader({ title, subtitle, rightAction, headerColor }: ScreenHeaderProps) {
-  const { colors, spacing, typePresets } = useTheme();
+  const { colors, spacing, typePresets, radii } = useTheme();
 
-  const titleColor = headerColor ? '#FFFFFF' : colors.text;
-  const subtitleColor = headerColor ? 'rgba(255,255,255,0.8)' : colors.textSecondary;
+  const titleColor = headerColor ? colors.textInverse : colors.text;
+  const subtitleColor = headerColor ? colors.textInverse : colors.textSecondary;
 
   return (
     <View
@@ -32,7 +31,10 @@ export function ScreenHeader({ title, subtitle, rightAction, headerColor }: Scre
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ ...typePresets.heading, color: titleColor }}>
+        <Text
+          style={{ ...typePresets.heading, color: titleColor }}
+          accessibilityRole="header"
+        >
           {title}
         </Text>
         {subtitle && (
@@ -40,6 +42,7 @@ export function ScreenHeader({ title, subtitle, rightAction, headerColor }: Scre
             style={{
               ...typePresets.bodySmall,
               color: subtitleColor,
+              opacity: headerColor ? 0.8 : 1,
               marginTop: spacing[1],
             }}
           >

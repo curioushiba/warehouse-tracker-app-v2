@@ -31,6 +31,8 @@ export function Badge({ label, variant = 'default' }: BadgeProps) {
         paddingVertical: spacing[1],
         alignSelf: 'flex-start',
       }}
+      accessibilityRole="text"
+      accessibilityLabel={label}
     >
       <Text
         style={{

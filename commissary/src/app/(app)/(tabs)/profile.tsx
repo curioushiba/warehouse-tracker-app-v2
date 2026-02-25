@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { haptic } from '@/lib/haptics';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 
 type DarkMode = 'light' | 'dark' | 'system';
 
@@ -82,6 +83,7 @@ export default function ProfileScreen() {
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing[4], gap: spacing[4] }}
       >
+        <ResponsiveContainer maxWidth={560} style={{ gap: spacing[4] }}>
         {/* Profile Card */}
         <Card variant="elevated">
           <View
@@ -208,12 +210,16 @@ export default function ProfileScreen() {
                         key={option.value}
                         onPress={() => handleDarkModeChange(option.value)}
                         hapticPattern="light"
+                        accessibilityRole="button"
+                        accessibilityLabel={`${option.label} mode`}
+                        accessibilityState={{ selected: isActive }}
                         style={{
                           flex: 1,
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: spacing[1],
+                          minHeight: 44,
                           paddingVertical: spacing[2],
                           borderRadius: radii.md,
                           backgroundColor: isActive
@@ -257,6 +263,7 @@ export default function ProfileScreen() {
           icon={<LogOut size={18} color={colors.textInverse} />}
           size="lg"
         />
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );

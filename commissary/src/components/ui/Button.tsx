@@ -17,7 +17,7 @@ export interface ButtonProps {
 }
 
 const SIZE_CONFIG: Record<ButtonSize, { height: number; paddingHorizontal: number; fontSize: number }> = {
-  sm: { height: 36, paddingHorizontal: 12, fontSize: 14 },
+  sm: { height: 44, paddingHorizontal: 12, fontSize: 14 },
   md: { height: 44, paddingHorizontal: 16, fontSize: 16 },
   lg: { height: 52, paddingHorizontal: 20, fontSize: 18 },
 };
@@ -53,7 +53,6 @@ export function Button({
     backgroundColor: vs.bg,
     borderRadius: radii.md,
     opacity: isDisabled ? 0.5 : 1,
-    ...(variant === 'ghost' ? {} : {}),
     ...(vs.border ? { borderWidth: 1, borderColor: vs.border } : {}),
   };
 
@@ -62,6 +61,9 @@ export function Button({
       onPress={onPress}
       disabled={isDisabled}
       style={containerStyle}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator size="small" color={vs.text} />

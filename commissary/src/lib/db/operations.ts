@@ -104,6 +104,15 @@ export function removeProduction(db: SQLiteDatabase, id: string): void {
   db.runSync('DELETE FROM pending_productions WHERE id = ?', [id]);
 }
 
+export function getPendingProductionsToday(db: SQLiteDatabase): PendingProduction[] {
+  const rows = db.getAllSync<PendingProductionRow>(
+    `SELECT * FROM pending_productions
+     WHERE date(created_at) = date('now') AND status != 'failed'
+     ORDER BY created_at ASC`
+  );
+  return rows.map(toPendingProduction);
+}
+
 export function getPendingCount(db: SQLiteDatabase): number {
   const row = db.getFirstSync<{ count: number }>(
     'SELECT COUNT(*) as count FROM pending_productions'
@@ -253,6 +262,55 @@ export function getProducedTodayForItem(db: SQLiteDatabase, itemId: string): num
 
 export function clearProductionCache(db: SQLiteDatabase): void {
   db.runSync('DELETE FROM production_cache');
+}
+
+// --- Local sync error operations ---
+
+interface LocalSyncErrorRow {
+  id: string;
+  transaction_data: string;
+  error_message: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface LocalSyncError {
+  id: string;
+  transactionData: Record<string, unknown>;
+  errorMessage: string;
+  userId: string;
+  createdAt: string;
+}
+
+export function storeLocalSyncError(
+  db: SQLiteDatabase,
+  id: string,
+  transactionData: Record<string, unknown>,
+  errorMessage: string,
+  userId: string,
+): void {
+  db.runSync(
+    `INSERT OR REPLACE INTO local_sync_errors (id, transaction_data, error_message, user_id)
+     VALUES (?, ?, ?, ?)`,
+    [id, JSON.stringify(transactionData), errorMessage, userId],
+  );
+}
+
+export function getLocalSyncErrors(db: SQLiteDatabase): LocalSyncError[] {
+  const rows = db.getAllSync<LocalSyncErrorRow>(
+    'SELECT * FROM local_sync_errors ORDER BY created_at ASC',
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    transactionData: JSON.parse(row.transaction_data),
+    errorMessage: row.error_message,
+    userId: row.user_id,
+    createdAt: row.created_at,
+  }));
+}
+
+export function removeLocalSyncError(db: SQLiteDatabase, id: string): void {
+  db.runSync('DELETE FROM local_sync_errors WHERE id = ?', [id]);
 }
 
 // --- Sync metadata operations ---

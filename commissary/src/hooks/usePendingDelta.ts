@@ -91,9 +91,14 @@ export function usePendingDelta(
 ) {
   const [state, setState] = useState<PendingDeltaState>({ activeItemId: null, delta: 0 });
 
+  const onConfirmRef = useRef(onConfirm);
+  onConfirmRef.current = onConfirm;
+
   const managerRef = useRef<PendingDeltaManager | null>(null);
   if (!managerRef.current) {
-    managerRef.current = createPendingDeltaManager({ onConfirm });
+    managerRef.current = createPendingDeltaManager({
+      onConfirm: (...args) => onConfirmRef.current(...args),
+    });
   }
 
   const syncState = useCallback(() => {

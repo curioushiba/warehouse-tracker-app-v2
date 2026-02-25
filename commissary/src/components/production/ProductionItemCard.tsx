@@ -36,7 +36,12 @@ export function ProductionItemCard({
   const progressColor = progress >= 1 ? colors.success : colors.primary;
 
   return (
-    <AnimatedPressable onPress={onPress} hapticPattern="light">
+    <AnimatedPressable
+      onPress={onPress}
+      hapticPattern="light"
+      accessibilityLabel={`${item.name}, ${produced} of ${target} ${item.unit} produced, priority ${priority}`}
+      accessibilityHint="Double tap to view details"
+    >
       <Card>
         <View style={{ gap: spacing[2] }}>
           {/* Row: name + priority badge */}
