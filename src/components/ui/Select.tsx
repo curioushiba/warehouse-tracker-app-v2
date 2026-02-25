@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Check, X } from "lucide-react";
 import type { InputVariant, Size } from "@/types";
@@ -72,8 +73,14 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const [internalValue, setInternalValue] = React.useState(defaultValue || "");
     const internalRef = React.useRef<HTMLDivElement>(null);
     React.useImperativeHandle(ref, () => internalRef.current!);
-    const listboxRef = React.useRef<HTMLUListElement>(null);
+    const triggerRef = React.useRef<HTMLDivElement>(null);
+    const portalRef = React.useRef<HTMLUListElement>(null);
     const [focusedIndex, setFocusedIndex] = React.useState(-1);
+    const [dropdownPosition, setDropdownPosition] = React.useState<{
+      top: number;
+      left: number;
+      width: number;
+    } | null>(null);
 
     const currentValue = value !== undefined ? value : internalValue;
     const selectedOption = options.find((opt) => opt.value === currentValue);
@@ -81,9 +88,11 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     // Close on outside click
     React.useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as Node;
         if (
           internalRef.current &&
-          !internalRef.current.contains(event.target as Node)
+          !internalRef.current.contains(target) &&
+          (!portalRef.current || !portalRef.current.contains(target))
         ) {
           setIsOpen(false);
         }
@@ -92,6 +101,30 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // Position the portaled dropdown relative to the trigger
+    React.useEffect(() => {
+      if (!isOpen || !triggerRef.current) {
+        setDropdownPosition(null);
+        return;
+      }
+      const updatePosition = () => {
+        if (!triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom,
+          left: rect.left,
+          width: rect.width,
+        });
+      };
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }, [isOpen]);
 
     const handleSelect = (optionValue: string) => {
       if (value === undefined) {
@@ -181,6 +214,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 
         {/* Custom Select Trigger */}
         <div
+          ref={triggerRef}
           id={id}
           role="combobox"
           aria-expanded={isOpen}
@@ -233,45 +267,52 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           </div>
         </div>
 
-        {/* Dropdown Listbox */}
-        {isOpen && (
-          <ul
-            ref={listboxRef}
-            id={`${id}-listbox`}
-            role="listbox"
-            className="absolute z-dropdown mt-1 w-full bg-white border border-border rounded-lg shadow-lg max-h-60 overflow-auto animate-fade-in"
-          >
-            {options.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-foreground-muted">
-                No options available
-              </li>
-            ) : (
-              options.map((option, index) => (
-                <li
-                  key={option.value}
-                  role="option"
-                  aria-selected={option.value === currentValue}
-                  aria-disabled={option.disabled}
-                  onClick={() => !option.disabled && handleSelect(option.value)}
-                  className={cn(
-                    "px-3 py-2 text-sm cursor-pointer flex items-center justify-between",
-                    "hover:bg-primary-50 focus:bg-primary-50",
-                    option.value === currentValue &&
-                      "bg-primary-50 text-primary font-medium",
-                    option.disabled &&
-                      "opacity-50 cursor-not-allowed hover:bg-transparent",
-                    focusedIndex === index && "bg-primary-50"
-                  )}
-                >
-                  {option.label}
-                  {option.value === currentValue && (
-                    <Check className="w-4 h-4 text-primary" />
-                  )}
+        {/* Dropdown Listbox (portaled to body to escape overflow clipping) */}
+        {isOpen && dropdownPosition && typeof document !== "undefined" &&
+          createPortal(
+            <ul
+              ref={portalRef}
+              id={`${id}-listbox`}
+              role="listbox"
+              className="fixed z-popover bg-white border border-border rounded-lg shadow-lg max-h-60 overflow-auto animate-fade-in"
+              style={{
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width,
+              }}
+            >
+              {options.length === 0 ? (
+                <li className="px-3 py-2 text-sm text-foreground-muted">
+                  No options available
                 </li>
-              ))
-            )}
-          </ul>
-        )}
+              ) : (
+                options.map((option, index) => (
+                  <li
+                    key={option.value}
+                    role="option"
+                    aria-selected={option.value === currentValue}
+                    aria-disabled={option.disabled}
+                    onClick={() => !option.disabled && handleSelect(option.value)}
+                    className={cn(
+                      "px-3 py-2 text-sm cursor-pointer flex items-center justify-between",
+                      "hover:bg-primary-50 focus:bg-primary-50",
+                      option.value === currentValue &&
+                        "bg-primary-50 text-primary font-medium",
+                      option.disabled &&
+                        "opacity-50 cursor-not-allowed hover:bg-transparent",
+                      focusedIndex === index && "bg-primary-50"
+                    )}
+                  >
+                    {option.label}
+                    {option.value === currentValue && (
+                      <Check className="w-4 h-4 text-primary" />
+                    )}
+                  </li>
+                ))
+              )}
+            </ul>,
+            document.body
+          )}
       </div>
     );
   }
