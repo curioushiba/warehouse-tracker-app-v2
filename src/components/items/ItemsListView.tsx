@@ -60,6 +60,7 @@ import {
 } from "@/components/ui";
 import { StockLevelBadge } from "@/components/ui";
 import { getItemsPaginated, archiveItem, type PaginatedItemFilters } from "@/lib/actions/items";
+import { toggleCommissaryFlag } from "@/lib/actions/commissary";
 import { getCategories } from "@/lib/actions/categories";
 import { getStores } from "@/lib/actions/stores";
 import {
@@ -76,7 +77,7 @@ import {
 } from "@/lib/offline/db";
 import { useOfflineItemSync } from "@/hooks";
 import type { Item, Category, Store } from "@/lib/supabase/types";
-import { formatCurrency, getStockLevel } from "@/lib/utils";
+import { formatCurrency, getStockLevel, cn } from "@/lib/utils";
 import type { StockLevel } from "@/lib/utils";
 
 const STOCK_LEVEL_PROGRESS_COLOR: Record<StockLevel, "error" | "warning" | "success" | "primary"> = {
@@ -168,6 +169,9 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
   const [itemToDelete, setItemToDelete] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isBulkAddOpen, setIsBulkAddOpen] = React.useState(false);
+
+  // Commissary toggle state
+  const [togglingCommissary, setTogglingCommissary] = React.useState<Set<string>>(new Set());
 
   // Quick action modal state
   const [photoModalItem, setPhotoModalItem] = React.useState<Item | null>(null);
@@ -557,6 +561,27 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
       fetchData();
     }
     toast.success("Item updated");
+  };
+
+  const handleToggleCommissary = async (itemId: string, currentValue: boolean) => {
+    setTogglingCommissary(prev => new Set(prev).add(itemId));
+    try {
+      const result = await toggleCommissaryFlag(itemId, !currentValue);
+      if (result.success) {
+        if (commissaryFilter) {
+          fetchData();
+        } else {
+          setItems(prev => prev.map(i => i.id === itemId ? { ...i, is_commissary: !currentValue } : i));
+        }
+        toast.success(!currentValue ? "Marked as commissary item" : "Commissary flag removed");
+      } else {
+        toast.error(result.error || "Failed to update commissary flag");
+      }
+    } catch {
+      toast.error("Failed to update commissary flag");
+    } finally {
+      setTogglingCommissary(prev => { const next = new Set(prev); next.delete(itemId); return next; });
+    }
   };
 
   const categoryOptions = categories.map((cat) => ({
@@ -961,10 +986,27 @@ export default function ItemsListView({ lockedCategoryId, basePath, sectionLabel
                                 Pending Delete
                               </Badge>
                             )}
-                            {item.is_commissary && (
-                              <Badge colorScheme="secondary" variant="subtle" size="xs" leftIcon={<ChefHat className="w-3 h-3" />}>
-                                Commissary
-                              </Badge>
+                            {!isOfflineItem && (
+                            <Tooltip content={item.is_commissary ? "Remove commissary flag" : "Mark as commissary item"}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleToggleCommissary(item.id, item.is_commissary); }}
+                                disabled={togglingCommissary.has(item.id)}
+                                className={cn(
+                                  "inline-flex items-center justify-center p-2 rounded-md transition-colors",
+                                  "min-w-[36px] min-h-[36px] md:min-w-[44px] md:min-h-[44px]",
+                                  togglingCommissary.has(item.id)
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : "cursor-pointer",
+                                  item.is_commissary
+                                    ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                                    : "text-foreground-muted/60 hover:text-amber-600/60 hover:bg-amber-50"
+                                )}
+                                aria-label={item.is_commissary ? "Remove commissary flag" : "Mark as commissary item"}
+                              >
+                                <ChefHat className="w-4 h-4" />
+                              </button>
+                            </Tooltip>
                             )}
                           </div>
                           <p className="text-sm text-foreground-muted">
