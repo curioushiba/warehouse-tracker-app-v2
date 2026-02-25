@@ -31,12 +31,13 @@ async function requireAdmin(): Promise<
   const { data: { user }, error: authError } = await cookieClient.auth.getUser()
   if (authError || !user) return { user: null, error: 'Not authenticated' }
 
-  const { data: profile } = await cookieClient
+  const { data: profile, error: profileError } = await cookieClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single()
 
+  if (profileError) return { user: null, error: `Profile lookup failed: ${profileError.message}` }
   const profileData = profile as { role: string } | null
   if (profileData?.role !== 'admin') return { user: null, error: 'Admin access required' }
   return { user, error: null }
@@ -691,11 +692,12 @@ export async function toggleCommissaryFlag(
   isCommissary: boolean
 ): Promise<ActionResult<Item>> {
   try {
-    const auth = await requireAdmin()
-    if (auth.error) return failure(auth.error)
+    // Verify auth via cookie client (defense in depth — middleware also checks)
+    const cookieClient = await createClient()
+    const { data: { user }, error: authError } = await cookieClient.auth.getUser()
+    if (authError || !user) return failure('Session expired. Please refresh the page and sign in again.')
 
     const supabase = createAdminClient()
-
 
     const { data, error } = await (supabase.from('inv_items') as any)
       .update({ is_commissary: isCommissary })
@@ -718,8 +720,10 @@ export async function togglePriorityFlag(
   isPriority: boolean
 ): Promise<ActionResult<Item>> {
   try {
-    const auth = await requireAdmin()
-    if (auth.error) return failure(auth.error)
+    // Verify auth via cookie client (defense in depth — middleware also checks)
+    const cookieClient = await createClient()
+    const { data: { user }, error: authError } = await cookieClient.auth.getUser()
+    if (authError || !user) return failure('Session expired. Please refresh the page and sign in again.')
 
     const supabase = createAdminClient()
 
