@@ -199,7 +199,7 @@ export function useSyncQueue(): UseSyncQueueReturn {
 
   // Auto-sync when network connectivity is restored
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((netState) => {
+    const unsubscribe = NetInfo.addEventListener((netState: { isConnected: boolean | null }) => {
       if (netState.isConnected && user?.id) {
         void manager.syncNow();
       }

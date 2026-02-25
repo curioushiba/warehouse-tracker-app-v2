@@ -22,9 +22,19 @@ export interface Database {
           is_commissary: boolean;
           is_archived: boolean;
           updated_at: string;
+          category_id: string | null;
         };
-        Insert: never;
-        Update: never;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: 'inv_items_category_id_fkey';
+            columns: ['category_id'];
+            isOneToOne: false;
+            referencedRelation: 'inv_categories';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       inv_production_targets: {
         Row: {
@@ -37,8 +47,9 @@ export interface Database {
           is_recurring: boolean;
           day_of_week: number | null;
         };
-        Insert: never;
-        Update: never;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: [];
       };
       inv_production_logs: {
         Row: {
@@ -52,16 +63,18 @@ export interface Database {
           notes: string | null;
           user_id: string;
         };
-        Insert: never;
-        Update: never;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: [];
       };
       inv_categories: {
         Row: {
           id: string;
           name: string;
         };
-        Insert: never;
-        Update: never;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: [];
       };
       sync_errors: {
         Row: {
@@ -76,7 +89,8 @@ export interface Database {
           error_message: string;
           user_id: string;
         };
-        Update: never;
+        Update: Record<string, unknown>;
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -92,10 +106,12 @@ export interface Database {
           created_at: string;
           last_login_at: string | null;
         };
-        Insert: never;
-        Update: never;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
     Functions: {
       submit_production: {
         Args: {
@@ -111,7 +127,6 @@ export interface Database {
         Returns: void;
       };
     };
-    Views: Record<string, never>;
     Enums: Record<string, never>;
   };
 }
