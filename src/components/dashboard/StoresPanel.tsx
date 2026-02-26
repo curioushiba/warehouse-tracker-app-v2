@@ -7,7 +7,6 @@ import {
   ArrowRight,
   AlertCircle,
   AlertTriangle,
-  ChevronDown,
   CheckCircle2,
 } from "lucide-react";
 import {
@@ -21,8 +20,6 @@ import {
 import { getStoreItemsBreakdown } from "@/lib/actions/dashboard";
 import type { StoreBreakdown, ProblematicItem } from "@/lib/actions/dashboard";
 
-const MAX_VISIBLE_PER_SECTION = 5;
-
 // ---------------------------------------------------------------------------
 // Urgency helpers
 // ---------------------------------------------------------------------------
@@ -33,29 +30,22 @@ function getUrgency(store: StoreBreakdown) {
   return "healthy" as const;
 }
 
-const urgencyStyles = {
-  critical: {
-    border: "border-l-rose-400",
-    iconBg: "bg-rose-50",
-    iconText: "text-rose-600",
-    expandedBg: "bg-rose-50/40",
-  },
-  warning: {
-    border: "border-l-amber-400",
-    iconBg: "bg-amber-50",
-    iconText: "text-amber-600",
-    expandedBg: "bg-amber-50/40",
-  },
-  healthy: {
-    border: "border-l-transparent",
-    iconBg: "bg-neutral-50",
-    iconText: "text-neutral-400",
-    expandedBg: "",
-  },
-} as const;
+type Urgency = ReturnType<typeof getUrgency>;
+
+const urgencyColor: Record<Urgency, string> = {
+  critical: "border-l-rose-400",
+  warning: "border-l-amber-400",
+  healthy: "border-l-transparent",
+};
+
+const urgencyDot: Record<Urgency, string> = {
+  critical: "bg-rose-500",
+  warning: "bg-amber-500",
+  healthy: "",
+};
 
 // ---------------------------------------------------------------------------
-// ProblematicItemRow — compact, no redundant badge
+// ProblematicItemRow
 // ---------------------------------------------------------------------------
 
 function ProblematicItemRow({ item }: { item: ProblematicItem }) {
@@ -70,28 +60,22 @@ function ProblematicItemRow({ item }: { item: ProblematicItem }) {
       href={`/admin/items/${item.id}`}
       className="group flex items-center gap-2 py-1 px-1.5 -mx-1.5 rounded transition-colors hover:bg-white/80"
     >
-      {/* Name — primary element */}
       <span className="text-[13px] text-foreground group-hover:text-primary transition-colors truncate min-w-0 flex-1">
         {item.name}
       </span>
 
-      {/* Stock ratio — color-coded inline */}
       <span
         className={`text-xs tabular-nums whitespace-nowrap ${
-          isCritical
-            ? "text-rose-600 font-medium"
-            : "text-amber-700"
+          isCritical ? "text-rose-600 font-medium" : "text-amber-700"
         }`}
       >
         {item.currentStock}/{item.minStock}
       </span>
 
-      {/* Unit — quiet */}
       <span className="text-[11px] text-foreground-placeholder whitespace-nowrap w-6">
         {item.unit}
       </span>
 
-      {/* Progress — only for low stock (meaningful); skip for 0-stock (empty bar = noise) */}
       {!isCritical ? (
         <Progress
           size="xs"
@@ -108,25 +92,20 @@ function ProblematicItemRow({ item }: { item: ProblematicItem }) {
 }
 
 // ---------------------------------------------------------------------------
-// ItemSection — one urgency tier within the expanded panel
+// ItemSection — one urgency tier (no item cap)
 // ---------------------------------------------------------------------------
 
 function ItemSection({
   items,
   level,
-  storeId,
 }: {
   items: ProblematicItem[];
   level: "critical" | "low";
-  storeId: string | null;
 }) {
   const isCritical = level === "critical";
-  const visible = items.slice(0, MAX_VISIBLE_PER_SECTION);
-  const overflow = items.length - visible.length;
 
   return (
     <div>
-      {/* Section header */}
       <div className="flex items-center gap-1.5 mb-1">
         {isCritical ? (
           <AlertCircle className="w-3 h-3 text-rose-500" />
@@ -142,52 +121,163 @@ function ItemSection({
         </span>
       </div>
 
-      {/* Item rows */}
       <div>
-        {visible.map((item) => (
+        {items.map((item) => (
           <ProblematicItemRow key={item.id} item={item} />
         ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Overflow link */}
-      {overflow > 0 && (
-        <Link
-          href={`/admin/items?store=${storeId ?? ""}&stock=${level}`}
-          className="inline-flex items-center gap-0.5 text-[11px] font-medium text-foreground-muted hover:text-primary transition-colors mt-0.5 ml-1.5"
-        >
-          +{overflow} more
-          <ArrowRight className="w-2.5 h-2.5" />
-        </Link>
+// ---------------------------------------------------------------------------
+// DetailPane — right panel content
+// ---------------------------------------------------------------------------
+
+function DetailPane({ store }: { store: StoreBreakdown }) {
+  const critical = store.problematicItems.filter((i) => i.level === "critical");
+  const low = store.problematicItems.filter((i) => i.level === "low");
+  const hasProblems = critical.length > 0 || low.length > 0;
+
+  return (
+    <div key={store.id ?? "no-store"} className="animate-fade-in">
+      {/* Store name header (visible on mobile, hidden on desktop where list shows it) */}
+      <div className="flex items-center gap-2 mb-3 md:mb-2">
+        <h4 className="text-sm font-semibold text-foreground truncate">
+          {store.name}
+        </h4>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {store.criticalStockCount > 0 && (
+            <Badge colorScheme="error" variant="subtle" size="sm">
+              {store.criticalStockCount} out
+            </Badge>
+          )}
+          {store.lowStockCount > 0 && (
+            <Badge colorScheme="warning" variant="subtle" size="sm">
+              {store.lowStockCount} low
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {hasProblems ? (
+        <div className="space-y-3">
+          {critical.length > 0 && (
+            <ItemSection items={critical} level="critical" />
+          )}
+          {low.length > 0 && <ItemSection items={low} level="low" />}
+
+          {/* Footer link to full items page for this store */}
+          <Link
+            href={`/admin/items?store=${store.id ?? ""}`}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-dark transition-colors mt-1"
+          >
+            View all {store.count} items
+            <ArrowRight className="w-2.5 h-2.5" />
+          </Link>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2" />
+          <p className="text-sm font-medium text-emerald-700">
+            Store is healthy
+          </p>
+          <p className="text-xs text-foreground-muted mt-0.5">
+            All {store.count} items are well-stocked
+          </p>
+        </div>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// ExpandedStoreItems — contained, capped, scannable
+// StoreListItem — desktop left panel entry
 // ---------------------------------------------------------------------------
 
-function ExpandedStoreItems({
+function StoreListItem({
   store,
-  tintClass,
+  isSelected,
+  onClick,
 }: {
   store: StoreBreakdown;
-  tintClass: string;
+  isSelected: boolean;
+  onClick: () => void;
 }) {
-  const critical = store.problematicItems.filter((i) => i.level === "critical");
-  const low = store.problematicItems.filter((i) => i.level === "low");
+  const urgency = getUrgency(store);
 
   return (
-    <div className={`rounded-lg mx-1 mt-1 mb-2 px-3 py-2.5 ${tintClass}`}>
-      <div className="space-y-3">
-        {critical.length > 0 && (
-          <ItemSection items={critical} level="critical" storeId={store.id} />
+    <button
+      type="button"
+      onClick={onClick}
+      className={`
+        flex items-center gap-2 w-full py-2 px-3 text-left
+        border-l-[3px] transition-colors text-sm
+        ${urgencyColor[urgency]}
+        ${isSelected ? "bg-neutral-50 border-l-primary" : "hover:bg-neutral-50/60"}
+      `}
+    >
+      <Store
+        className={`w-3.5 h-3.5 shrink-0 ${
+          isSelected ? "text-primary" : "text-foreground-muted"
+        }`}
+      />
+      <span className="truncate flex-1 font-medium text-foreground">
+        {store.name}
+      </span>
+      <div className="flex items-center gap-1 shrink-0">
+        {store.criticalStockCount > 0 && (
+          <Badge colorScheme="error" variant="subtle" size="xs">
+            {store.criticalStockCount}
+          </Badge>
         )}
-        {low.length > 0 && (
-          <ItemSection items={low} level="low" storeId={store.id} />
+        {store.lowStockCount > 0 && (
+          <Badge colorScheme="warning" variant="subtle" size="xs">
+            {store.lowStockCount}
+          </Badge>
         )}
       </div>
-    </div>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// StorePill — mobile horizontal strip entry
+// ---------------------------------------------------------------------------
+
+function StorePill({
+  store,
+  isSelected,
+  onClick,
+}: {
+  store: StoreBreakdown;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const urgency = getUrgency(store);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`
+        shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors
+        ${
+          isSelected
+            ? "bg-primary text-white border-primary"
+            : "bg-white text-foreground border-border hover:border-neutral-300"
+        }
+      `}
+    >
+      <span className="flex items-center gap-1.5">
+        {store.name}
+        {urgency !== "healthy" && (
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${urgencyDot[urgency]}`}
+          />
+        )}
+      </span>
+    </button>
   );
 }
 
@@ -198,8 +288,8 @@ function ExpandedStoreItems({
 export function StoresPanel() {
   const [stores, setStores] = React.useState<StoreBreakdown[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [expandedStores, setExpandedStores] = React.useState<Set<string>>(
-    new Set()
+  const [selectedStoreKey, setSelectedStoreKey] = React.useState<string | null>(
+    null
   );
 
   React.useEffect(() => {
@@ -218,17 +308,25 @@ export function StoresPanel() {
     fetchData();
   }, []);
 
-  const toggleStore = React.useCallback((key: string) => {
-    setExpandedStores((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }, []);
+  // Auto-select first problem store (or first store)
+  React.useEffect(() => {
+    if (stores.length > 0 && selectedStoreKey === null) {
+      const first = stores.find(
+        (s) => s.criticalStockCount > 0 || s.lowStockCount > 0
+      );
+      setSelectedStoreKey(
+        first ? (first.id ?? "no-store") : (stores[0].id ?? "no-store")
+      );
+    }
+  }, [stores, selectedStoreKey]);
+
+  const selectedStore = React.useMemo(
+    () =>
+      stores.find(
+        (s) => (s.id ?? "no-store") === selectedStoreKey
+      ) ?? null,
+    [stores, selectedStoreKey]
+  );
 
   if (isLoading) {
     return (
@@ -262,8 +360,11 @@ export function StoresPanel() {
     (s) => s.criticalStockCount > 0 || s.lowStockCount > 0
   ).length;
 
+  const selectStore = (store: StoreBreakdown) =>
+    setSelectedStoreKey(store.id ?? "no-store");
+
   return (
-    <Card variant="elevated">
+    <Card variant="elevated" className="flex flex-col">
       <CardHeader className="p-5 pb-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -281,105 +382,54 @@ export function StoresPanel() {
         </div>
       </CardHeader>
 
-      <CardBody className="p-5 pt-4">
-        {/* All-healthy state */}
-        {totalProblems === 0 && (
-          <div className="flex items-center gap-2.5 py-3 px-3 mb-3 rounded-lg bg-emerald-50/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-emerald-800">
-                All stores healthy
-              </p>
-              <p className="text-xs text-emerald-600/70">
-                {stores.length} store{stores.length !== 1 ? "s" : ""}, no stock
-                issues
-              </p>
-            </div>
+      <CardBody className="p-0 pt-4 flex-1 min-h-0 flex flex-col">
+        {/* Mobile pill strip */}
+        <div className="md:hidden px-5 pb-3 overflow-x-auto flex gap-2 scrollbar-hide">
+          {stores.map((store) => (
+            <StorePill
+              key={store.id ?? "no-store"}
+              store={store}
+              isSelected={
+                (store.id ?? "no-store") === selectedStoreKey
+              }
+              onClick={() => selectStore(store)}
+            />
+          ))}
+        </div>
+
+        {/* Desktop: two-panel layout */}
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row max-h-[420px]">
+          {/* Desktop store list (left panel) */}
+          <div className="hidden md:flex flex-col w-[220px] shrink-0 border-r border-border overflow-y-auto">
+            {stores.map((store) => (
+              <StoreListItem
+                key={store.id ?? "no-store"}
+                store={store}
+                isSelected={
+                  (store.id ?? "no-store") === selectedStoreKey
+                }
+                onClick={() => selectStore(store)}
+              />
+            ))}
           </div>
-        )}
 
-        {/* Store rows */}
-        <div className="space-y-0.5">
-          {stores.map((store) => {
-            const key = store.id ?? "no-store";
-            const urgency = getUrgency(store);
-            const styles = urgencyStyles[urgency];
-            const hasProblems = urgency !== "healthy";
-            const isExpanded = expandedStores.has(key);
-
-            return (
-              <div key={key}>
-                <button
-                  type="button"
-                  onClick={hasProblems ? () => toggleStore(key) : undefined}
-                  aria-expanded={hasProblems ? isExpanded : undefined}
-                  className={`
-                    flex items-center justify-between w-full py-2 px-3 rounded-md
-                    border-l-[3px] transition-colors text-left
-                    ${styles.border}
-                    ${hasProblems ? "hover:bg-neutral-50 cursor-pointer" : "cursor-default"}
-                    ${isExpanded ? "bg-neutral-50/60" : ""}
-                  `}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${styles.iconBg}`}
-                    >
-                      <Store className={`w-3.5 h-3.5 ${styles.iconText}`} />
-                    </div>
-                    <span className="font-medium text-foreground text-sm truncate">
-                      {store.name}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    {store.criticalStockCount > 0 && (
-                      <Badge colorScheme="error" variant="subtle" size="sm">
-                        {store.criticalStockCount} out
-                      </Badge>
-                    )}
-                    {store.lowStockCount > 0 && (
-                      <Badge colorScheme="warning" variant="subtle" size="sm">
-                        {store.lowStockCount} low
-                      </Badge>
-                    )}
-                    <Badge colorScheme="neutral" variant="subtle" size="sm">
-                      {store.count}
-                    </Badge>
-                    {hasProblems && (
-                      <ChevronDown
-                        className={`w-3.5 h-3.5 text-foreground-placeholder transition-transform duration-200 ml-0.5 ${
-                          isExpanded ? "rotate-180" : ""
-                        }`}
-                      />
-                    )}
-                  </div>
-                </button>
-
-                {/* Expandable detail panel */}
-                {hasProblems && (
-                  <div
-                    className={`grid transition-all duration-200 ease-in-out ${
-                      isExpanded
-                        ? "grid-rows-[1fr] opacity-100"
-                        : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <ExpandedStoreItems
-                        store={store}
-                        tintClass={styles.expandedBg}
-                      />
-                    </div>
-                  </div>
-                )}
+          {/* Detail pane (right panel) */}
+          <div data-testid="store-detail-pane" className="flex-1 overflow-y-auto px-5 py-3 relative max-h-[320px] md:max-h-none">
+            {selectedStore ? (
+              <DetailPane store={selectedStore} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-foreground-muted">
+                Select a store to view details
               </div>
-            );
-          })}
+            )}
+
+            {/* Bottom scroll fade */}
+            <div className="sticky bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-border">
+        <div className="px-5 py-3 border-t border-border">
           <Link
             href="/admin/stores"
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-dark transition-colors"
