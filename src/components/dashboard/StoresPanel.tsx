@@ -58,15 +58,28 @@ function ProblematicItemRow({ item }: { item: ProblematicItem }) {
   return (
     <Link
       href={`/admin/items/${item.id}`}
-      className="group flex items-center gap-2 py-1 px-1.5 -mx-1.5 rounded transition-colors hover:bg-white/80"
+      className={`group flex items-center gap-2 py-1.5 px-2 -mx-2 rounded transition-colors ${
+        isCritical ? "hover:bg-rose-50/60" : "hover:bg-white/80"
+      }`}
     >
-      <span className="text-[13px] text-foreground group-hover:text-primary transition-colors truncate min-w-0 flex-1">
+      {/* Severity dot — visual anchor for scanning */}
+      {isCritical && (
+        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+      )}
+
+      <span
+        className={`text-[13px] group-hover:text-primary transition-colors truncate min-w-0 flex-1 ${
+          isCritical
+            ? "text-foreground font-medium"
+            : "text-foreground"
+        }`}
+      >
         {item.name}
       </span>
 
       <span
         className={`text-xs tabular-nums whitespace-nowrap ${
-          isCritical ? "text-rose-600 font-medium" : "text-amber-700"
+          isCritical ? "text-rose-600 font-semibold" : "text-amber-700"
         }`}
       >
         {item.currentStock}/{item.minStock}
@@ -76,17 +89,13 @@ function ProblematicItemRow({ item }: { item: ProblematicItem }) {
         {item.unit}
       </span>
 
-      {!isCritical ? (
-        <Progress
-          size="xs"
-          colorScheme="warning"
-          value={progressValue}
-          className="w-12 shrink-0"
-          aria-label={`Stock level for ${item.name}`}
-        />
-      ) : (
-        <div className="w-12 shrink-0" />
-      )}
+      <Progress
+        size="xs"
+        colorScheme={isCritical ? "error" : "warning"}
+        value={progressValue}
+        className="w-12 shrink-0"
+        aria-label={`Stock level for ${item.name}`}
+      />
     </Link>
   );
 }
@@ -105,19 +114,34 @@ function ItemSection({
   const isCritical = level === "critical";
 
   return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1">
+    <div
+      className={`rounded-lg px-3 py-2.5 ${
+        isCritical
+          ? "bg-rose-50/70 border border-rose-200/60"
+          : "bg-amber-50/40"
+      }`}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
         {isCritical ? (
-          <AlertCircle className="w-3 h-3 text-rose-500" />
+          <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
         ) : (
-          <AlertTriangle className="w-3 h-3 text-amber-500" />
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
         )}
         <span
-          className={`text-[11px] font-semibold uppercase tracking-wider ${
-            isCritical ? "text-rose-500" : "text-amber-600"
+          className={`text-xs font-semibold uppercase tracking-wider ${
+            isCritical ? "text-rose-600" : "text-amber-600"
           }`}
         >
-          {isCritical ? "Out of stock" : "Low stock"} ({items.length})
+          {isCritical ? "Out of stock" : "Low stock"}
+        </span>
+        <span
+          className={`text-[10px] font-medium tabular-nums px-1.5 py-0.5 rounded-full ${
+            isCritical
+              ? "bg-rose-100 text-rose-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {items.length}
         </span>
       </div>
 
@@ -138,11 +162,19 @@ function DetailPane({ store }: { store: StoreBreakdown }) {
   const critical = store.problematicItems.filter((i) => i.level === "critical");
   const low = store.problematicItems.filter((i) => i.level === "low");
   const hasProblems = critical.length > 0 || low.length > 0;
+  const urgency = getUrgency(store);
+
+  const headerBg =
+    urgency === "critical"
+      ? "bg-rose-50/60 border-b border-rose-100"
+      : urgency === "warning"
+        ? "bg-amber-50/40 border-b border-amber-100/60"
+        : "";
 
   return (
     <div key={store.id ?? "no-store"} className="animate-fade-in">
-      {/* Store name header (visible on mobile, hidden on desktop where list shows it) */}
-      <div className="flex items-center gap-2 mb-3 md:mb-2">
+      {/* Contextual store header — color reflects severity */}
+      <div className={`flex items-center gap-2 mb-3 -mx-5 -mt-3 px-5 py-2.5 ${headerBg}`}>
         <h4 className="text-sm font-semibold text-foreground truncate">
           {store.name}
         </h4>
@@ -167,7 +199,6 @@ function DetailPane({ store }: { store: StoreBreakdown }) {
           )}
           {low.length > 0 && <ItemSection items={low} level="low" />}
 
-          {/* Footer link to full items page for this store */}
           <Link
             href={`/admin/items?store=${store.id ?? ""}`}
             className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-dark transition-colors mt-1"
@@ -178,8 +209,8 @@ function DetailPane({ store }: { store: StoreBreakdown }) {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2" />
-          <p className="text-sm font-medium text-emerald-700">
+          <CheckCircle2 className="w-7 h-7 text-emerald-400/80 mb-2" />
+          <p className="text-sm font-medium text-emerald-700/80">
             Store is healthy
           </p>
           <p className="text-xs text-foreground-muted mt-0.5">
@@ -206,15 +237,20 @@ function StoreListItem({
 }) {
   const urgency = getUrgency(store);
 
+  // Subtle background tint for stores with critical items (even when not selected)
+  const bgTint =
+    urgency === "critical" && !isSelected
+      ? "bg-rose-50/30"
+      : "";
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={`
-        flex items-center gap-2 w-full py-2 px-3 text-left
+        flex items-center gap-2 w-full py-2.5 px-3 text-left
         border-l-[3px] transition-colors text-sm
-        ${urgencyColor[urgency]}
-        ${isSelected ? "bg-neutral-50 border-l-primary" : "hover:bg-neutral-50/60"}
+        ${isSelected ? "bg-neutral-50 border-l-primary" : `${urgencyColor[urgency]} hover:bg-neutral-50/60 ${bgTint}`}
       `}
     >
       <Store
